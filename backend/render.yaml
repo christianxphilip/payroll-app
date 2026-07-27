@@ -3,6 +3,7 @@ services:
     name: espro-payroll-backend
     env: node
     plan: free
+    rootDir: backend
     buildCommand: npm install
     startCommand: node src/server.js
     envVars:
