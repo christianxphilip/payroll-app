@@ -46,20 +46,42 @@ export function useGoogleCalendar() {
     setIsSignedIn(false);
   }, []);
 
+  // Returns floating local datetime (no UTC offset) so Google Calendar
+  // interprets it using the event's timeZone: 'Asia/Manila' field.
   const parseTime = (dateStr, timeStr) => {
     if (!timeStr) return null;
     const date = new Date(dateStr);
-    const match = timeStr.trim().toUpperCase().match(/(\d+)(AM|PM)/);
-    if (!match) return null;
-    let hour = parseInt(match[1], 10);
-    const period = match[2];
-    if (period === 'AM' && hour === 12) hour = 0;
-    if (period === 'PM' && hour !== 12) hour += 12;
+    // Support formats: "4PM", "4:00PM", "4:00 PM", "16:00", "16"
+    const upper = timeStr.trim().toUpperCase();
+    let hour, minute = 0;
 
-    const year = date.getUTCFullYear();
+    const ampmMatch = upper.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/);
+    const h24Match  = upper.match(/^(\d{1,2})(?::(\d{2}))?$/);
+
+    if (ampmMatch) {
+      hour   = parseInt(ampmMatch[1], 10);
+      minute = parseInt(ampmMatch[2] || '0', 10);
+      const period = ampmMatch[3];
+      if (period === 'AM' && hour === 12) hour = 0;
+      if (period === 'PM' && hour !== 12) hour += 12;
+    } else if (h24Match) {
+      hour   = parseInt(h24Match[1], 10);
+      minute = parseInt(h24Match[2] || '0', 10);
+    } else {
+      return null;
+    }
+
+    const year  = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}T${String(hour).padStart(2, '0')}:00:00+08:00`;
+    const day   = String(date.getUTCDate()).padStart(2, '0');
+    // Floating local time — no +08:00 suffix. timeZone field handles interpretation.
+    return `${year}-${month}-${day}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+  };
+
+  const toMinutes = (dt) => {
+    if (!dt) return 0;
+    const [, h, m] = dt.match(/T(\d{2}):(\d{2})/) || [];
+    return parseInt(h || 0) * 60 + parseInt(m || 0);
   };
 
   const syncShiftsWithGuests = useCallback(async (schedules, emailMap, onProgress) => {
@@ -76,7 +98,8 @@ export function useGoogleCalendar() {
       const startDateTime = parseTime(sched.date, sched.scheduledStartTime);
       let endDateTime = parseTime(sched.date, sched.scheduledEndTime);
 
-      if (startDateTime && endDateTime && endDateTime <= startDateTime) {
+      // Overnight shift: end time is earlier in the day than start (e.g. 1AM < 4PM)
+      if (startDateTime && endDateTime && toMinutes(endDateTime) <= toMinutes(startDateTime)) {
         const nextDay = new Date(sched.date);
         nextDay.setUTCDate(nextDay.getUTCDate() + 1);
         endDateTime = parseTime(nextDay, sched.scheduledEndTime);
