@@ -93,15 +93,12 @@ export const syncSchedulesToGoogleCalendar = async (startDate, endDate, employee
     if (!startDateTime || !endDateTime) continue;
 
     const attendeeEmail = emailMap[sched.employeeName];
-    const attendees = attendeeEmail ? [{ email: attendeeEmail, displayName: sched.employeeName }] : [];
-
     const eventResource = {
       summary: `Shift: ${sched.employeeName} (${sched.assignmentType || 'GENERAL'})`,
-      description: `Scheduled Shift: ${sched.scheduledStartTime || ''} - ${sched.scheduledEndTime || ''}\nDuration: ${sched.scheduledDuration || 8} hrs\nNotes: ${sched.notes || 'None'}`,
+      description: `Staff: ${sched.employeeName} (${attendeeEmail || 'No Email'})\nScheduled Shift: ${sched.scheduledStartTime || ''} - ${sched.scheduledEndTime || ''}\nDuration: ${sched.scheduledDuration || 8} hrs\nNotes: ${sched.notes || 'None'}`,
       location: 'ESPRO Coffee',
       start: { dateTime: startDateTime, timeZone: 'Asia/Manila' },
-      end: { dateTime: endDateTime, timeZone: 'Asia/Manila' },
-      attendees: attendees
+      end: { dateTime: endDateTime, timeZone: 'Asia/Manila' }
     };
 
     if (sched.googleEventId) {
@@ -109,8 +106,7 @@ export const syncSchedulesToGoogleCalendar = async (startDate, endDate, employee
         await calendar.events.update({
           calendarId: CALENDAR_ID,
           eventId: sched.googleEventId,
-          requestBody: eventResource,
-          sendUpdates: 'all'
+          requestBody: eventResource
         });
         updatedCount++;
         continue;
@@ -119,15 +115,19 @@ export const syncSchedulesToGoogleCalendar = async (startDate, endDate, employee
       }
     }
 
-    const createdEvent = await calendar.events.insert({
-      calendarId: CALENDAR_ID,
-      requestBody: eventResource,
-      sendUpdates: 'all'
-    });
+    try {
+      const createdEvent = await calendar.events.insert({
+        calendarId: CALENDAR_ID,
+        requestBody: eventResource
+      });
 
-    sched.googleEventId = createdEvent.data.id;
-    await sched.save();
-    syncedCount++;
+      sched.googleEventId = createdEvent.data.id;
+      await sched.save();
+      syncedCount++;
+    } catch (err) {
+      console.error(`Error inserting schedule for ${sched.employeeName}:`, err.message);
+      throw err;
+    }
   }
 
   return { syncedCount, updatedCount, totalProcessed: schedules.length };
