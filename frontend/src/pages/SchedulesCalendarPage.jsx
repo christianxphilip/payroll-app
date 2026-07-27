@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { scheduleAPI, employeeAPI, assignmentAPI, operatingHoursAPI, holidayAPI, shiftAPI, availabilityAPI, shiftAllocationAPI } from '../services/api';
 import Modal from '../components/Modal';
+import ExportICalModal from '../components/ExportICalModal';
 import { useUndo } from '../hooks/useUndo';
 import UndoToast from '../components/UndoToast';
 
@@ -54,6 +55,7 @@ const SchedulesCalendarPage = () => {
 
     const [dateRange, setDateRange] = useState(getInitialDateRange());
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isExportICalModalOpen, setIsExportICalModalOpen] = useState(false);
     const [selectedCell, setSelectedCell] = useState(null);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [copiedSchedule, setCopiedSchedule] = useState(null);
@@ -1270,6 +1272,12 @@ const SchedulesCalendarPage = () => {
                                 {loadingEstimatedSalary ? 'Computing...' : 'Compute Estimated Salary'}
                             </button>
                         )}
+                        <button
+                            onClick={() => setIsExportICalModalOpen(true)}
+                            className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-1.5"
+                        >
+                            📅 Export to Google Calendar (.ics)
+                        </button>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -2032,6 +2040,14 @@ const SchedulesCalendarPage = () => {
                     </button>
                 </div>
             </Modal>
+
+            {/* Export iCal Modal */}
+            <ExportICalModal
+                isOpen={isExportICalModalOpen}
+                onClose={() => setIsExportICalModalOpen(false)}
+                initialStartDate={dateRange.startDate}
+                initialEndDate={dateRange.endDate}
+            />
         </div>
     );
 };

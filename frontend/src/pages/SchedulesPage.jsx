@@ -6,14 +6,12 @@ import SchedulesCalendarPage from './SchedulesCalendarPage';
 import ShiftsView from './ShiftsView';
 import AvailabilityView from './AvailabilityView';
 import ResponsiveTableWrapper from '../components/ResponsiveTableWrapper';
-import CalendarFeedModal from '../components/CalendarFeedModal';
 
 const SchedulesPage = () => {
   const [schedules, setSchedules] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [isFeedModalOpen, setIsFeedModalOpen] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 50,
@@ -224,22 +222,14 @@ const SchedulesPage = () => {
     <div className="px-4 py-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Schedules</h1>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        {viewMode === 'list' && (
           <button
-            onClick={() => setIsFeedModalOpen(true)}
-            className="flex-1 sm:flex-none bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 font-medium min-h-[44px] flex items-center justify-center gap-2"
+            onClick={openAddModal}
+            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-medium min-h-[44px]"
           >
-            <span>📅 Sync to Google Calendar</span>
+            Add Schedule
           </button>
-          {viewMode === 'list' && (
-            <button
-              onClick={openAddModal}
-              className="flex-1 sm:flex-none bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-medium min-h-[44px]"
-            >
-              Add Schedule
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {message.text && (
@@ -652,12 +642,6 @@ const SchedulesPage = () => {
 
         </>
       )}
-
-      {/* Calendar Feed Modal */}
-      <CalendarFeedModal
-        isOpen={isFeedModalOpen}
-        onClose={() => setIsFeedModalOpen(false)}
-      />
     </div>
   );
 };

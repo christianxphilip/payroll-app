@@ -75,6 +75,25 @@ export const scheduleAPI = {
   delete: (id) => api.delete(`/schedules/${id}`),
   deleteRange: (data) => api.delete('/schedules/range/delete', { data }),
   getEstimatedSalary: (startDate, endDate) => api.get('/schedules/estimated-salary', { params: { startDate, endDate } }),
+  exportICal: async (startDate, endDate, employeeName = '') => {
+    const params = { startDate, endDate };
+    if (employeeName) params.employeeName = employeeName;
+
+    const response = await api.get('/schedules/export-ical', {
+      params,
+      responseType: 'blob'
+    });
+
+    const blob = new Blob([response], { type: 'text/calendar;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `espro-schedules-${startDate}-to-${endDate}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
 };
 
 // Assignment API
