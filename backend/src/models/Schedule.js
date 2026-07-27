@@ -38,6 +38,10 @@ const scheduleSchema = new mongoose.Schema({
   shiftName: {
     type: String,
     trim: true
+  },
+  googleEventId: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true

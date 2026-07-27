@@ -93,7 +93,8 @@ export const scheduleAPI = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
-  }
+  },
+  syncGoogleCalendar: (startDate, endDate, employeeName = '') => api.post('/schedules/sync-google-calendar', { startDate, endDate, employeeName }),
 };
 
 // Assignment API

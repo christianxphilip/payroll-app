@@ -8,6 +8,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { parseScheduleCSV, validateSchedules } from '../services/scheduleParserService.js';
 import { calculateEstimatedSalary } from '../services/estimatedSalaryService.js';
 import { generateICalContent } from '../services/icalService.js';
+import { syncSchedulesToGoogleCalendar } from '../services/googleCalendarService.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -105,6 +106,27 @@ router.get('/export-ical', async (req, res, next) => {
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(icsContent);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/schedules/sync-google-calendar - Direct Google Calendar API sync
+router.post('/sync-google-calendar', async (req, res, next) => {
+  try {
+    const { startDate, endDate, employeeName } = req.body;
+
+    if (!startDate || !endDate) {
+      throw new AppError('Start date and end date are required', 400);
+    }
+
+    const result = await syncSchedulesToGoogleCalendar(startDate, endDate, employeeName);
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Successfully synced ${result.syncedCount} new shifts and updated ${result.updatedCount} existing shifts in Google Calendar!`
+    });
   } catch (error) {
     next(error);
   }
