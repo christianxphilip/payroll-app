@@ -47,8 +47,8 @@ export const syncSchedulesToGoogleCalendar = async (startDate, endDate, employee
       $lte: new Date(endDate)
     }
   };
-  if (employeeNameFilter) {
-    query.employeeName = employeeNameFilter;
+  if (employeeNameFilter && employeeNameFilter.trim() !== '') {
+    query.employeeName = { $regex: employeeNameFilter.trim(), $options: 'i' };
   }
 
   const schedules = await Schedule.find(query);

@@ -87,8 +87,8 @@ router.get('/export-ical', async (req, res, next) => {
       }
     };
 
-    if (employeeName) {
-      query.employeeName = employeeName;
+    if (employeeName && employeeName.trim() !== '') {
+      query.employeeName = { $regex: employeeName.trim(), $options: 'i' };
     }
 
     const schedules = await Schedule.find(query).sort({ date: 1, employeeName: 1 });

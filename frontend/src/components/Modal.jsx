@@ -16,16 +16,15 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'lg' }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-2 sm:px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        {/* Background overlay */}
-        <div
-          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-          onClick={onClose}
-        ></div>
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+      {/* Background overlay */}
+      <div
+        className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+        onClick={onClose}
+      ></div>
 
-        {/* Modal panel */}
-        <div className={`inline-block align-bottom bg-white rounded-lg text-left shadow-xl transform transition-all my-4 sm:my-8 align-middle w-[95%] sm:w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] flex flex-col`}>
+      {/* Modal panel */}
+      <div className={`relative bg-white rounded-xl text-left shadow-2xl transform transition-all w-[95%] sm:w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] flex flex-col z-10 my-auto`}>
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 flex-1 overflow-y-auto">
             <div className="sm:flex sm:items-start">
               <div className="mt-1 text-center sm:mt-0 sm:text-left w-full">
@@ -48,7 +47,6 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'lg' }) => {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 };
