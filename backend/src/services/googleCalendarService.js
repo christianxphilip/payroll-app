@@ -4,17 +4,30 @@ import Employee from '../models/Employee.js';
 
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'a9a6f09502aa9eaf64a31fff6ca0133983ddf2760766243967f2d54fbecc3e61@group.calendar.google.com';
 
+const DEFAULT_SERVICE_ACCOUNT = {
+  type: "service_account",
+  project_id: "espro-503705",
+  private_key_id: "eab8027377f6733e03831e49de571b8a00c01fd8",
+  private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDbCbbcG5lbIE0J\nDL5y24qkDD/1XWHWpWmiPmGWLTxaZHyQ+T37jqQFcxurVG1uN0z7mTIKAXnHrmqF\nthC1R05wEl0MJAq0jnPiX+t83pTU3QMx8MMOeuQQe3A1WVm/WujPa2CSuaA+TsSU\nVTM110dLTAeUGzwp0fWKdn5QVp8oueS4BvwWyPYjEAL2MEOEd2uCT7eTvrwk56Mt\nLYtdLskHeQZGh/RdsHXo7khuVWxwo6W8oMbMOhqI34JD1fE8QgKbDzf07HeQbwzd\nHicJKkojlmaaa+9dHSixTBO2c45PY+LkhRq6kFJR0aq9bX1e943ic6pJ+TqT/AFM\n1Zqri0yxAgMBAAECggEAE3DDSA8zB0F7VN2gBvWxUmoRQH0Z8pZvz7SVrgyJxMQS\nbOjnisItkJuXeGy1NwkKzhyEsm/7F7FFRw99Cs8vXlxi4cb5JEQDHl5rui4kgNgK\nMTkwjBfK0iOtNoRIUObdWZDVhhrvkVgls7yeykfhzgRgz9EIVUs17c932o2K8W7p\nmlX9pDBxSDhKU7yGavTzhVnAb3jGcXIP0u5yHMyhzvuZQAt09/lQDcHP8Pw6pjok\ns8SX9wfu5I/xfAisEzr85NnJW6fikuceGktkPCuLsHaDaoXctrDnWAjUImG+tc83\nAg9eIolblWm2Bz0HWOErF76gdsdBKWENUxIiUdbAWQKBgQDy3EVF4Hnx299MNU2J\njkgKlMBJevkdiDDvUekTHXwTGUhqqvID+FetooXwy+gW8/MOQ7iOJ0VXRUV5h9Jn\nGxPctJoOjqspOUYhAEM0eHkUPgjvAbaPjumt/RVttcYAELMvmjw3gXiqJZs4mXVl\nxBeM8h+eQekOEvhD+sBdtTtO2wKBgQDm433CUnFl9FIjdelKwLloKXKn7sLV/4qM\nFcp0DpPvQBPI5YXu1iaFIAkV4CcqmY5H0MFxuqTA1hf+LDTx6bVYhUAaotkirP7r\nY8mN6mWxa/vpc9vQr2jv4T6Io0L4cxEyOMfs6OWCBl1RYi8jso9RNHDoyjIJNU40\njpQbIhnKYwKBgB3HbKcY01sYvtS1ZICNdb/2ZW2dKpa4cGen/5BceS5OV1bdBzf9\nZ6Le3tWb6yWFXDRPkX28yv/cepxgTyhdZZ4Wdx152PsBDtxVD+iLLS2SPb4w05Xe\nzECNW+dL9q9jXNVlcCTON2GFovbZuk90L/8UYVQieNVE9jQ/tv7GjjMpAoGBAL5p\nnq1DkIGknJjiBSPBDSb6B7S3E7eop3of/nb4Dsig77AemfX+ZoYjhVqlIafgO5a+\ncsp4QqdF6UOU8ZUQSJ5YRiWxZ6FRSmqWQQLo7DUF+Rrukbno74HlIM1O10xOmT/x\n0+9totk4pn0XnAi0mb0+ol9ZYSp266gsbbhyxxJBAoGBAO5m1XhGvjFUlyqKKg7j\nurQvGpdb7njJcnauX9BZT28Zg66C/9zk4ugU4wiSZoPhLgitNUm5Wbt74XTFzCrn\n5645KLGhOGTgNwZJ9ccWa7CwAQY6w5Y0MmISrhZByvklwfg637F30UZ2adCQLxTg\nFWoNzhBxYdqptitjoodHqaNn\n-----END PRIVATE KEY-----\n",
+  client_email: "espro-calendar-sync@espro-503705.iam.gserviceaccount.com",
+  client_id: "110612441459835260101",
+  auth_uri: "https://accounts.google.com/o/oauth2/auth",
+  token_uri: "https://oauth2.googleapis.com/token",
+  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+  client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/espro-calendar-sync%40espro-503705.iam.gserviceaccount.com",
+  universe_domain: "googleapis.com"
+};
+
 function getCalendarClient() {
   const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!serviceAccountJson) {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set. Please configure your Google Service Account JSON in Render backend environment variables.');
-  }
+  let credentials = DEFAULT_SERVICE_ACCOUNT;
 
-  let credentials;
-  try {
-    credentials = typeof serviceAccountJson === 'string' ? JSON.parse(serviceAccountJson) : serviceAccountJson;
-  } catch (err) {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON. Please check formatting.');
+  if (serviceAccountJson) {
+    try {
+      credentials = typeof serviceAccountJson === 'string' ? JSON.parse(serviceAccountJson) : serviceAccountJson;
+    } catch (err) {
+      console.warn('Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON env var, falling back to default.');
+    }
   }
 
   const auth = new google.auth.GoogleAuth({
