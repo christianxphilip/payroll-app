@@ -1,0 +1,328 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payslip - Leanard Nasol</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f3f4f6;
+      color: #111827;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #f3f4f6;
+    }
+    .header-table {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    .logo {
+      height: 60px;
+      width: auto;
+      display: block;
+    }
+    h1 {
+      font-size: 24px;
+      margin: 0 0 5px 0;
+      color: #111827;
+    }
+    .period {
+      font-size: 14px;
+      color: #6b7280;
+      margin: 0;
+    }
+    .card {
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .card-label {
+      font-size: 12px;
+      font-weight: bold;
+      color: #6b7280;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .summary-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 10px 0;
+      margin: 0 -10px;
+    }
+    .summary-td {
+      width: 33.33%;
+      vertical-align: top;
+    }
+    .totals-row {
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.6;
+    }
+    .totals-val {
+      font-weight: bold;
+      color: #111827;
+    }
+    .net-pay {
+      font-size: 24px;
+      font-weight: bold;
+      color: #111827;
+    }
+    .components-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 10px 0;
+      margin: 0 -10px;
+    }
+    .components-td {
+      width: 50%;
+      vertical-align: top;
+    }
+    .component-row {
+      width: 100%;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .comp-name {
+      float: left;
+    }
+    .comp-val {
+      float: right;
+      font-weight: bold;
+    }
+    .clear {
+      clear: both;
+    }
+    .adjustments-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 10px;
+      border-top: 1px solid #e5e7eb;
+    }
+    .adjustments-table th {
+      text-align: left;
+      color: #6b7280;
+      text-transform: uppercase;
+      font-size: 10px;
+      padding: 8px 4px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .adjustments-table td {
+      padding: 8px 4px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .badge {
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: bold;
+      display: inline-block;
+    }
+    .badge-allowance {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+    .badge-deduction {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+    .timesheet-section {
+      margin-top: 20px;
+    }
+    .timesheet-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      background-color: #ffffff;
+    }
+    .timesheet-table th {
+      text-align: left;
+      color: #6b7280;
+      text-transform: uppercase;
+      font-size: 10px;
+      padding: 10px;
+      border-bottom: 1px solid #e5e7eb;
+      background-color: #f9fafb;
+    }
+    .timesheet-table td {
+      padding: 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .text-right {
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <table class="header-table">
+      <tr>
+        <td width="80" style="vertical-align: middle;">
+          <img src="cid:payslip-logo" alt="Espro Payroll" class="logo" />
+        </td>
+        <td style="vertical-align: middle; padding-left: 15px;">
+          <h1>Payslip – Leanard Nasol</h1>
+          <p class="period">Period: 11/1/2025 – 11/15/2025</p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Summary Section (3 Columns) -->
+    <table class="summary-table">
+      <tr>
+        <td class="summary-td">
+          <div class="card">
+            <span class="card-label">Employee</span>
+            <div style="font-size: 14px; font-weight: bold; margin-bottom: 4px;">Leanard Nasol</div>
+            <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Barista</div>
+            <div style="font-size: 12px; color: #6b7280;">Rate: &#8369; 500.00</div>
+          </div>
+        </td>
+        <td class="summary-td">
+          <div class="card">
+            <span class="card-label">Totals</span>
+            <div class="totals-row">
+              Worked Hours: <span class="totals-val">108.00</span><br>
+              OT Hours: <span class="totals-val">2.00</span><br>
+              ND Hours: <span class="totals-val">46.40</span><br>
+              Reg Holiday Hrs: <span class="totals-val">0.00</span><br>
+              Spl Holiday Hrs: <span class="totals-val">16.00</span>
+            </div>
+          </div>
+        </td>
+        <td class="summary-td">
+          <div class="card">
+            <span class="card-label">Net Pay</span>
+            <div class="net-pay">&#8369; 4,496.25</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Components Section (2 Columns) -->
+    <table class="components-table">
+      <tr>
+        <td class="components-td">
+          <div class="card">
+            <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">Salary Components</div>
+            
+            <div class="component-row">
+              <span class="comp-name">Basic</span>
+              <span class="comp-val">&#8369; 6,750.00</span>
+              <div class="clear"></div>
+            </div>
+            <div class="component-row">
+              <span class="comp-name">Overtime</span>
+              <span class="comp-val">&#8369; 156.25</span>
+              <div class="clear"></div>
+            </div>
+            <div class="component-row">
+              <span class="comp-name">Night Diff</span>
+              <span class="comp-val">&#8369; 290.00</span>
+              <div class="clear"></div>
+            </div>
+            <div class="component-row">
+              <span class="comp-name">Reg Holiday</span>
+              <span class="comp-val">&#8369; 0.00</span>
+              <div class="clear"></div>
+            </div>
+            <div class="component-row">
+              <span class="comp-name">Spl Holiday</span>
+              <span class="comp-val">&#8369; 300.00</span>
+              <div class="clear"></div>
+            </div>
+          </div>
+        </td>
+        <td class="components-td">
+          <div class="card">
+            <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">Allowances & Deductions</div>
+            
+            <div class="component-row">
+              <span class="comp-name">Total Allowances</span>
+              <span class="comp-val">&#8369; 0.00</span>
+              <div class="clear"></div>
+            </div>
+            <div class="component-row">
+              <span class="comp-name">Total Deductions</span>
+              <span class="comp-val">&#8369; 3,000.00</span>
+              <div class="clear"></div>
+            </div>
+
+            
+            <table class="adjustments-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th style="text-align: center;">Type</th>
+                  <th style="text-align: right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+                <tr>
+                  <td>Cash Advance</td>
+                  <td style="text-align: center;">
+                    <span class="badge badge-deduction">
+                      DEDUCTION
+                    </span>
+                  </td>
+                  <td style="text-align: right;">&#8369; 3,000.00</td>
+                </tr>
+                
+              </tbody>
+            </table>
+            
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Timesheet Entries -->
+    
+    <div class="timesheet-section">
+      <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Timesheet Entries</div>
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <table class="timesheet-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time In</th>
+              <th>Time Out</th>
+              <th class="text-right">Hours</th>
+              <th class="text-right">OT</th>
+              <th class="text-right">ND</th>
+              <th>Holiday</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>11/1/2025</td>
+              <td>06:00 PM</td>
+              <td>03:00 AM</td>
+              <td class="text-right">8.00</td>
+              <td class="text-right">0.00</td>
+              <td class="text-right">5.00</td>
+              <td>Special</td>
+            </tr>
+            
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+  </div>
+</body>
+</html>
+  

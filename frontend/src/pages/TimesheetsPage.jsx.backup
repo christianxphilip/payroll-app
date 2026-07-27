@@ -1,0 +1,721 @@
+import { useState, useEffect } from 'react';
+import { timesheetAPI, employeeAPI } from '../services/api';
+import Modal from '../components/Modal';
+import { formatDate, formatTime, formatHours } from '../utils/formatters';
+
+const TimesheetsPage = () => {
+  const [timesheets, setTimesheets] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0
+  });
+  const [sort, setSort] = useState({
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
+  const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
+    employeeName: '',
+    reviewFlag: '',
+    isSubmitted: '',
+  });
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [formData, setFormData] = useState({
+    employeeName: '',
+    date: '',
+    timeIn: '',
+    timeOut: '',
+  });
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    fetchEmployees();
+    fetchTimesheets();
+  }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await employeeAPI.getAll();
+      setEmployees(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch employees');
+    }
+  };
+
+  const fetchTimesheets = async (page = pagination.page) => {
+    try {
+      const params = {
+        ...filters,
+        ...sort,
+        page,
+        limit: pagination.limit
+      };
+      const response = await timesheetAPI.getAll(params);
+      setTimesheets(response.data || []);
+      if (response.pagination) {
+        setPagination(response.pagination);
+      }
+    } catch (error) {
+      showMessage('error', 'Failed to fetch timesheets');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSort = (column) => {
+    const newSortOrder = sort.sortBy === column && sort.sortOrder === 'asc' ? 'desc' : 'asc';
+    setSort({ sortBy: column, sortOrder: newSortOrder });
+    setPagination({ ...pagination, page: 1 });
+    setTimeout(() => fetchTimesheets(1), 0);
+  };
+
+  const getSortIcon = (column) => {
+    if (sort.sortBy !== column) return ' ⇅';
+    return sort.sortOrder === 'asc' ? ' ↑' : ' ↓';
+  };
+
+  const showMessage = (type, text) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+  };
+
+  const handleFilterChange = (field, value) => {
+    setFilters({ ...filters, [field]: value });
+  };
+
+  const handleApplyFilters = () => {
+    setLoading(true);
+    setPagination({ ...pagination, page: 1 });
+    fetchTimesheets(1);
+  };
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(timesheets.map((t) => t._id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const openAddModal = () => {
+    setFormData({
+      employeeName: '',
+      date: '',
+      timeIn: '',
+      timeOut: '',
+    });
+    setIsManualModalOpen(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      // Combine date and time into full timestamps
+      const timeInDate = new Date(`${formData.date}T${formData.timeIn}`);
+      const timeOutDate = new Date(`${formData.date}T${formData.timeOut}`);
+
+      const submitData = {
+        employeeName: formData.employeeName,
+        date: formData.date,
+        timeIn: timeInDate.toISOString(),
+        timeOut: timeOutDate.toISOString(),
+      };
+
+      await timesheetAPI.create(submitData);
+      showMessage('success', 'Timesheet log created successfully');
+      setIsManualModalOpen(false);
+      fetchTimesheets();
+    } catch (error) {
+      showMessage('error', error.response?.data?.error || 'Operation failed');
+    }
+  };
+
+  const handleInlineEdit = async (id, field, value) => {
+    try {
+      const updateData = { [field]: value };
+      await timesheetAPI.update(id, updateData);
+      fetchTimesheets();
+    } catch (error) {
+      showMessage('error', 'Failed to update timesheet');
+    }
+  };
+
+  const handleBatchAdjust = async (action) => {
+    if (selectedIds.length === 0) {
+      showMessage('error', 'Please select timesheets first');
+      return;
+    }
+
+    try {
+      const response = await timesheetAPI.batchAdjust(selectedIds, action);
+      showMessage('success', response.message || 'Batch adjustment completed');
+      setSelectedIds([]);
+      fetchTimesheets();
+    } catch (error) {
+      showMessage('error', 'Batch adjustment failed');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this timesheet?')) return;
+
+    try {
+      await timesheetAPI.delete(id);
+      showMessage('success', 'Timesheet deleted successfully');
+      fetchTimesheets();
+    } catch (error) {
+      showMessage('error', 'Failed to delete timesheet');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) {
+      showMessage('error', 'Please select timesheets to delete');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} timesheet(s)?`)) {
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      for (const id of selectedIds) {
+        await timesheetAPI.delete(id);
+        successCount++;
+      }
+      showMessage('success', `${successCount} timesheets deleted successfully`);
+      setSelectedIds([]);
+      fetchTimesheets();
+    } catch (error) {
+      showMessage('error', 'Failed to delete some timesheets');
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    e.preventDefault();
+    
+    if (!uploadFile) {
+      showMessage('error', 'Please select a file');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+
+      const response = await timesheetAPI.uploadCSV(formData);
+      showMessage('success', response.message || 'CSV uploaded successfully');
+      setIsUploadModalOpen(false);
+      setUploadFile(null);
+      fetchTimesheets();
+    } catch (error) {
+      showMessage('error', error.response?.data?.error || 'Upload failed');
+    }
+  };
+
+  if (loading) {
+    return <div className="p-6">Loading timesheets...</div>;
+  }
+
+  return (
+    <div className="px-4 py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Timesheets</h1>
+        <div className="flex gap-2 relative">
+          <button
+            onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            Add Timesheet
+            <span className="text-xs">{isAddMenuOpen ? '▲' : '▼'}</span>
+          </button>
+          {isAddMenuOpen && (
+            <div className="absolute right-0 top-12 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+              <button
+                onClick={() => {
+                  setIsUploadModalOpen(true);
+                  setIsAddMenuOpen(false);
+                }}
+                className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 rounded-t-lg"
+              >
+                <div className="font-medium">Upload CSV</div>
+                <div className="text-xs text-gray-500">Bulk import attendance data</div>
+              </button>
+              <button
+                onClick={() => {
+                  openAddModal();
+                  setIsAddMenuOpen(false);
+                }}
+                className="w-full text-left px-4 py-3 hover:bg-gray-50 rounded-b-lg"
+              >
+                <div className="font-medium">Manual Entry</div>
+                <div className="text-xs text-gray-500">Add individual time log</div>
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => window.location.href = '/payroll-report'}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+          >
+            Submit Timesheet
+          </button>
+        </div>
+      </div>
+
+      {message.text && (
+        <div
+          className={`mb-4 p-4 rounded-lg ${
+            message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => handleFilterChange('startDate', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => handleFilterChange('endDate', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+            <select
+              value={filters.employeeName}
+              onChange={(e) => handleFilterChange('employeeName', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="">All Employees</option>
+              {employees.map((emp) => (
+                <option key={emp._id} value={emp.employeeName}>
+                  {emp.employeeName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Review Flag</label>
+            <select
+              value={filters.reviewFlag}
+              onChange={(e) => handleFilterChange('reviewFlag', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="">All</option>
+              <option value="true">Flagged</option>
+              <option value="false">Not Flagged</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={handleApplyFilters}
+              className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+            >
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Batch Operations */}
+      {selectedIds.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4 flex items-center justify-between">
+          <span className="text-blue-900 font-medium">{selectedIds.length} selected</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleBatchAdjust('cap8')}
+              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+            >
+              Apply 8-Hour Cap
+            </button>
+            <button
+              onClick={() => handleBatchAdjust('approve')}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              Approve Extended Hours
+            </button>
+            <button
+              onClick={() => handleBatchAdjust('clearFlag')}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Clear Review Flag
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              Delete Selected
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Timesheets Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length === timesheets.length && timesheets.length > 0}
+                    onChange={handleSelectAll}
+                    className="rounded"
+                  />
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <button onClick={() => handleSort('employeeName')} className="hover:text-gray-700">
+                    Employee{getSortIcon('employeeName')}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <button onClick={() => handleSort('date')} className="hover:text-gray-700">
+                    Date{getSortIcon('date')}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <button onClick={() => handleSort('timeIn')} className="hover:text-gray-700">
+                    Time In{getSortIcon('timeIn')}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <button onClick={() => handleSort('timeOut')} className="hover:text-gray-700">
+                    Time Out{getSortIcon('timeOut')}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <button onClick={() => handleSort('hoursWorked')} className="hover:text-gray-700">
+                    Hours Worked{getSortIcon('hoursWorked')}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <button onClick={() => handleSort('ndHours')} className="hover:text-gray-700">
+                    ND Hours{getSortIcon('ndHours')}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Holiday
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <button onClick={() => handleSort('scheduledHours')} className="hover:text-gray-700">
+                    Scheduled{getSortIcon('scheduledHours')}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <button onClick={() => handleSort('adjustedHoursWorked')} className="hover:text-gray-700">
+                    Adjusted{getSortIcon('adjustedHoursWorked')}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <button onClick={() => handleSort('reviewFlag')} className="hover:text-gray-700">
+                    Review{getSortIcon('reviewFlag')}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {timesheets.length === 0 ? (
+                <tr>
+                  <td colSpan="12" className="px-6 py-4 text-center text-gray-500">
+                    No timesheets found
+                  </td>
+                </tr>
+              ) : (
+                timesheets.map((timesheet) => (
+                  <tr
+                    key={timesheet._id}
+                    className={`hover:bg-gray-50 ${
+                      timesheet.reviewFlag ? 'bg-yellow-50' : ''
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(timesheet._id)}
+                        onChange={() => handleSelectOne(timesheet._id)}
+                        className="rounded"
+                      />
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {timesheet.employeeName}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {new Date(timesheet.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {timesheet.timeIn ? formatTime(timesheet.timeIn) : '-'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {timesheet.timeOut ? formatTime(timesheet.timeOut) : '-'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {formatHours(timesheet.hoursWorked)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {formatHours(timesheet.ndHours)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {timesheet.isHoliday ? (
+                        <span
+                          className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            timesheet.holidayType === 'Regular'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}
+                        >
+                          {timesheet.holidayType}
+                        </span>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {formatHours(timesheet.scheduledHours)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={timesheet.adjustedHoursWorked}
+                        onChange={(e) =>
+                          handleInlineEdit(
+                            timesheet._id,
+                            'adjustedHoursWorked',
+                            parseFloat(e.target.value)
+                          )
+                        }
+                        className="w-20 px-2 py-1 border border-gray-300 rounded"
+                      />
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-center">
+                      {timesheet.reviewFlag && (
+                        <span className="text-yellow-600 font-bold">⚠</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleDelete(timesheet._id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pagination Controls */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between bg-white px-4 py-3 sm:px-6 mt-4 rounded-lg shadow">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              onClick={() => fetchTimesheets(pagination.page - 1)}
+              disabled={pagination.page === 1}
+              className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => fetchTimesheets(pagination.page + 1)}
+              disabled={pagination.page === pagination.totalPages}
+              className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Showing page <span className="font-medium">{pagination.page}</span> of{' '}
+                <span className="font-medium">{pagination.totalPages}</span> ({pagination.total} total records)
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={() => fetchTimesheets(pagination.page - 1)}
+                  disabled={pagination.page === 1}
+                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                {[...Array(Math.min(5, pagination.totalPages))].map((_, idx) => {
+                  const pageNum = idx + 1;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => fetchTimesheets(pageNum)}
+                      className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                        pagination.page === pageNum
+                          ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                          : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => fetchTimesheets(pagination.page + 1)}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Entry Modal */}
+      <Modal isOpen={isManualModalOpen} onClose={() => setIsManualModalOpen(false)} title="Manual Entry - Add Time Log">
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Employee</label>
+            <select
+              value={formData.employeeName}
+              onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              required
+            >
+              <option value="">Select Employee</option>
+              {employees.map((emp) => (
+                <option key={emp._id} value={emp.employeeName}>
+                  {emp.employeeName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              required
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Time In</label>
+            <input
+              type="time"
+              value={formData.timeIn}
+              onChange={(e) => setFormData({ ...formData, timeIn: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              required
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Time Out</label>
+            <input
+              type="time"
+              value={formData.timeOut}
+              onChange={(e) => setFormData({ ...formData, timeOut: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Add
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* CSV Upload Modal */}
+      <Modal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        title="Upload Attendance CSV"
+      >
+        <form onSubmit={handleFileUpload}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">CSV File</label>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => setUploadFile(e.target.files[0])}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              required
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              Upload a CSV file with columns: Employee, Check In, Check Out
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Format: "Employee Name","2025-10-01 15:59:34","2025-10-02 00:31:10"
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsUploadModalOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              Upload
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+};
+
+export default TimesheetsPage;
+

@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payroll-frontend
+  labels:
+    app: payroll-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payroll-frontend
+  template:
+    metadata:
+      labels:
+        app: payroll-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: payroll-frontend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5173
+        stdin: true
+        tty: true

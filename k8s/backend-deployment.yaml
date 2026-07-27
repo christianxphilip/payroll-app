@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payroll-backend
+  labels:
+    app: payroll-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payroll-backend
+  template:
+    metadata:
+      labels:
+        app: payroll-backend
+    spec:
+      containers:
+      - name: backend
+        image: payroll-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9001
+        env:
+        - name: PORT
+          value: "9001"
+        - name: MONGODB_URI
+          value: "mongodb+srv://esprocoffee_db_user:fx3ncTyhtbPoYE0a@cluster0.xktsy7b.mongodb.net/espro?appName=Cluster0"
+        - name: JWT_SECRET
+          value: "your-super-secret-jwt-key-change-in-production"
+        - name: AUTH_PASSWORD
+          value: "admin123"
+        - name: NODE_ENV
+          value: "development"
+        - name: PAYSLIP_LOGO_PATH
+          value: "/app/assets/logo.png"
+        - name: EMAIL_USER
+          value: "espressionistmarketing@gmail.com"
+        - name: EMAIL_PASS
+          value: "uipn ddsq ubwz yywd"

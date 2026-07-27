@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: espro-payroll-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 9001
+      - key: MONGODB_URI
+        value: mongodb+srv://esprocoffee_db_user:fx3ncTyhtbPoYE0a@cluster0.xktsy7b.mongodb.net/espro?appName=Cluster0
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AUTH_PASSWORD
+        value: admin123
+      - key: MANAGER_PASSWORD
+        value: manager123

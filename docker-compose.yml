@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # mongodb service is disabled. Using external MongoDB Atlas.
+  # mongodb:
+  #   image: mongo:7.0
+  #   container_name: payroll-mongodb
+  #   ports:
+  #     - "27020:27017"
+  #   volumes:
+  #     - mongodb_data:/data/db
+  #   environment:
+  #     MONGO_INITDB_DATABASE: payroll
+  #   networks:
+  #     - payroll-network
+  #   healthcheck:
+  #     test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/payroll --quiet
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
+    container_name: payroll-backend
+    ports:
+      - "9001:9001"
+    environment:
+      - PORT=9001
+      - MONGODB_URI=mongodb+srv://esprocoffee_db_user:fx3ncTyhtbPoYE0a@cluster0.xktsy7b.mongodb.net/espro?appName=Cluster0
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - AUTH_PASSWORD=admin123
+      - AUTH_PASSWORD=admin123
+      - NODE_ENV=development
+      - PAYSLIP_LOGO_PATH=/app/assets/logo.png
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./frontend/public/Text Logo - Transparent Black.png:/app/assets/logo.png
+    # depends_on removed since mongodb container is no longer run locally
+    networks:
+      - payroll-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: payroll-frontend
+    ports:
+      - "5174:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - payroll-network
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+networks:
+  payroll-network:
+    driver: bridge
+
+# volumes:
+#   mongodb_data:
+
+
