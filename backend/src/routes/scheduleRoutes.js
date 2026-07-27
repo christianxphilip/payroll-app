@@ -6,12 +6,65 @@ import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { parseScheduleCSV, validateSchedules } from '../services/scheduleParserService.js';
 import { calculateEstimatedSalary } from '../services/estimatedSalaryService.js';
+import { generateICalFeed, parseICSFile } from '../services/icalService.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// All routes require authentication
+// Public iCal Feed for Google Calendar / Apple Calendar subscription
+// URL: GET /api/schedules/ical/feed.ics
+router.get('/ical/feed.ics', async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    let query = {};
+
+    if (startDate && endDate) {
+      query.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    } else {
+      // Default: fetch schedules from 30 days ago to 90 days in future
+      const past = new Date();
+      past.setDate(past.getDate() - 30);
+      const future = new Date();
+      future.setDate(future.getDate() + 90);
+      query.date = { $gte: past, $lte: future };
+    }
+
+    const schedules = await Schedule.find(query).sort({ date: 1 });
+    const icalData = generateICalFeed(schedules, { calendarName: 'ESPRO SCHEDULES' });
+
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline; filename="espro-schedules.ics"');
+    res.send(icalData);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// All subsequent routes require authentication
 router.use(authenticate);
+
+// POST /api/schedules/ical/import - Import .ics file from Google Calendar
+router.post('/ical/import', upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new AppError('No .ics file uploaded', 400);
+    }
+
+    const icsContent = req.file.buffer.toString('utf-8');
+    const events = parseICSFile(icsContent);
+
+    res.json({
+      success: true,
+      count: events.length,
+      message: `Parsed ${events.length} events from .ics file`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /api/schedules - Get schedules
 router.get('/', async (req, res, next) => {

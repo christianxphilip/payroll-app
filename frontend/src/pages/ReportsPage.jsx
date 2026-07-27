@@ -6,6 +6,7 @@ import { formatMoney, formatHours, downloadCSV } from '../utils/formatters';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import EmptyState from '../components/EmptyState';
 import Tooltip from '../components/Tooltip';
+import ResponsiveTableWrapper from '../components/ResponsiveTableWrapper';
 
 const ReportsPage = () => {
   const { user } = useAuth();
@@ -568,9 +569,8 @@ const ReportsPage = () => {
           </div>
 
           {/* Consolidated Report Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+          <ResponsiveTableWrapper stickyFirstColumn={true}>
+            <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -648,8 +648,7 @@ const ReportsPage = () => {
                   )}
                 </tbody>
               </table>
-            </div>
-          </div>
+            </ResponsiveTableWrapper>
         </>
       )}
 
@@ -751,92 +750,90 @@ const ReportsPage = () => {
           </div>
 
           {/* Employee Payroll Breakdown Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+          <ResponsiveTableWrapper stickyFirstColumn={true}>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hours</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Basic Salary</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">OT Pay</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">OT RH Pay</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">OT SH Pay</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">ND Pay</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Holiday Pay</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Allowances</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Deductions</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Net Pay</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {payrollReport.report.length === 0 ? (
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hours</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Basic Salary</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">OT Pay</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">OT RH Pay</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">OT SH Pay</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">ND Pay</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Holiday Pay</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Allowances</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Deductions</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Net Pay</th>
+                    <td colSpan="12" className="px-6 py-4 text-center text-gray-500">
+                      No data found for selected criteria
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {payrollReport.report.length === 0 ? (
-                    <tr>
-                      <td colSpan="12" className="px-6 py-4 text-center text-gray-500">
-                        No data found for selected criteria
+                ) : (
+                  payrollReport.report.map((employee, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap font-medium">
+                        {employee.employeeName}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                        {employee.position || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
+                        {formatHours(employee.totalHoursWorked)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right font-medium">
+                        ₱ {formatMoney(employee.basicSalary)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-orange-600">
+                        ₱ {formatMoney(employee.overtimePay)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-purple-600">
+                        ₱ {formatMoney(employee.overtimeRegularHolidayPay)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-pink-600">
+                        ₱ {formatMoney(employee.overtimeSpecialHolidayPay)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
+                        ₱ {formatMoney(employee.nightDiffPay)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
+                        ₱ {formatMoney(employee.regularHolidayPay + employee.specialHolidayPay)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-green-600">
+                        ₱ {formatMoney(employee.allowancesTotal)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-red-600">
+                        ₱ {formatMoney(employee.deductionsTotal)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right font-bold text-lg text-green-700">
+                        ₱ {formatMoney(employee.netSalary)}
                       </td>
                     </tr>
-                  ) : (
-                    payrollReport.report.map((employee, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap font-medium">
-                          {employee.employeeName}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                          {employee.position || '-'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                          {formatHours(employee.totalHoursWorked)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right font-medium">
-                          ₱ {formatMoney(employee.basicSalary)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-orange-600">
-                          ₱ {formatMoney(employee.overtimePay)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-purple-600">
-                          ₱ {formatMoney(employee.overtimeRegularHolidayPay)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-pink-600">
-                          ₱ {formatMoney(employee.overtimeSpecialHolidayPay)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                          ₱ {formatMoney(employee.nightDiffPay)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                          ₱ {formatMoney(employee.regularHolidayPay + employee.specialHolidayPay)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-green-600">
-                          ₱ {formatMoney(employee.allowancesTotal)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-red-600">
-                          ₱ {formatMoney(employee.deductionsTotal)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right font-bold text-lg text-green-700">
-                          ₱ {formatMoney(employee.netSalary)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                  {payrollReport.report.length > 0 && (
-                    <tr className="bg-gray-100 font-bold">
-                      <td colSpan="3" className="px-4 py-3 text-right">TOTAL</td>
-                      <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalBasicSalary)}</td>
-                      <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalOvertimePay)}</td>
-                      <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalOvertimeRegularHolidayPay)}</td>
-                      <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalOvertimeSpecialHolidayPay)}</td>
-                      <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalNightDiffPay)}</td>
-                      <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalRegularHolidayPay + payrollReport.summary.totalSpecialHolidayPay)}</td>
-                      <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalAllowances)}</td>
-                      <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalDeductions)}</td>
-                      <td className="px-4 py-3 text-right text-lg">₱ {formatMoney(payrollReport.summary.totalNetPay)}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  ))
+                )}
+                {payrollReport.report.length > 0 && (
+                  <tr className="bg-gray-100 font-bold">
+                    <td colSpan="3" className="px-4 py-3 text-right">TOTAL</td>
+                    <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalBasicSalary)}</td>
+                    <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalOvertimePay)}</td>
+                    <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalOvertimeRegularHolidayPay)}</td>
+                    <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalOvertimeSpecialHolidayPay)}</td>
+                    <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalNightDiffPay)}</td>
+                    <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalRegularHolidayPay + payrollReport.summary.totalSpecialHolidayPay)}</td>
+                    <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalAllowances)}</td>
+                    <td className="px-4 py-3 text-right">₱ {formatMoney(payrollReport.summary.totalDeductions)}</td>
+                    <td className="px-4 py-3 text-right text-lg">₱ {formatMoney(payrollReport.summary.totalNetPay)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </ResponsiveTableWrapper>
         </>
       )}
 

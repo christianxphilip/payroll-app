@@ -5,6 +5,7 @@ import Modal from '../components/Modal';
 import { formatDate, formatTime, formatHours } from '../utils/formatters';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import EmptyState from '../components/EmptyState';
+import ResponsiveTableWrapper from '../components/ResponsiveTableWrapper';
 
 const TimesheetsPage = () => {
   const { timesheetId } = useParams();
@@ -573,11 +574,11 @@ const TimesheetsPage = () => {
 
       {/* Timesheet Entry Header */}
       {timesheetEntry && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex justify-between items-start">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{timesheetEntry.name}</h1>
-              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{timesheetEntry.name}</h1>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
                 <div>
                   <span className="font-medium">Date Range:</span>{' '}
                   {new Date(timesheetEntry.startDate).toLocaleDateString()} -{' '}
@@ -588,16 +589,16 @@ const TimesheetsPage = () => {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
               <button
                 onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 relative disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="flex-1 sm:flex-none bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 relative disabled:bg-gray-400 disabled:cursor-not-allowed min-h-[44px]"
                 disabled={timesheetEntry?.status === 'submitted'}
               >
                 Add Time Log
                 <span className="text-xs">{isAddMenuOpen ? '▲' : '▼'}</span>
                 {isAddMenuOpen && (
-                  <div className="absolute right-0 top-12 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <div className="absolute left-0 sm:left-auto sm:right-0 top-12 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-30">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -625,20 +626,20 @@ const TimesheetsPage = () => {
               </button>
               <button
                 onClick={handleSubmitTimesheet}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:bg-gray-400"
+                className="flex-1 sm:flex-none bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:bg-gray-400 min-h-[44px]"
                 disabled={timesheetEntry?.status === 'submitted'}
               >
-                Submit Timesheet
+                Submit
               </button>
               <button
                 onClick={handleDeleteTimesheetEntry}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
+                className="bg-red-600 text-white px-3 py-2.5 rounded-lg hover:bg-red-700 flex items-center justify-center gap-1 min-h-[44px]"
                 title="Delete Timesheet Entry"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-                Delete Entry
+                <span className="hidden sm:inline">Delete Entry</span>
               </button>
             </div>
           </div>
@@ -657,9 +658,9 @@ const TimesheetsPage = () => {
 
       {/* Filters and Sort */}
       <div className="bg-white p-4 rounded-lg shadow mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sort</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Sort</label>
             <select
               value={`${sort.sortBy}-${sort.sortOrder}`}
               onChange={async (e) => {
@@ -684,7 +685,7 @@ const TimesheetsPage = () => {
                   showMessage('error', error.response?.data?.error || 'Failed to sort timesheets');
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[40px]"
             >
               <option value="employeeName-asc">Name + Earliest Date</option>
               <option value="date-asc">Earliest Date</option>
@@ -694,29 +695,29 @@ const TimesheetsPage = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
             <input
               type="date"
               value={filters.startDate}
               onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[40px]"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
             <input
               type="date"
               value={filters.endDate}
               onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[40px]"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Employee</label>
             <select
               value={filters.employeeName}
               onChange={(e) => handleFilterChange('employeeName', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[40px]"
             >
               <option value="">All Employees</option>
               {employees.map((emp) => (
@@ -727,11 +728,11 @@ const TimesheetsPage = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Review Flag</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Review Flag</label>
             <select
               value={filters.reviewFlag}
               onChange={(e) => handleFilterChange('reviewFlag', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[40px]"
             >
               <option value="">All</option>
               <option value="true">Flagged</option>
@@ -743,7 +744,7 @@ const TimesheetsPage = () => {
 
       {/* Batch Operations */}
       {selectedIds.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4 flex items-center justify-between">
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-blue-900 font-medium">{selectedIds.length} selected</span>
             {batchLoading && (
@@ -798,9 +799,8 @@ const TimesheetsPage = () => {
       )}
 
       {/* Timesheets Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+      <ResponsiveTableWrapper stickyFirstColumn={true}>
+        <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-center w-12">
@@ -1003,8 +1003,7 @@ const TimesheetsPage = () => {
               )}
             </tbody>
           </table>
-        </div>
-      </div>
+        </ResponsiveTableWrapper>
 
       {/* Pagination Controls */}
       {pagination.totalPages > 1 && (

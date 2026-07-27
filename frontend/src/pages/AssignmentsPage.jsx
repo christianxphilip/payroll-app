@@ -108,11 +108,11 @@ const AssignmentsPage = () => {
 
   return (
     <div className="px-4 py-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Assignments</h1>
         <button
           onClick={openAddModal}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-medium min-h-[44px]"
         >
           Add Assignment
         </button>
@@ -128,7 +128,73 @@ const AssignmentsPage = () => {
         </div>
       )}
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      {/* Mobile Card View (< 768px) */}
+      <div className="block md:hidden space-y-3">
+        {assignments.length === 0 ? (
+          <div className="p-6 text-center text-gray-500 bg-white rounded-lg border">
+            No assignments found. Click "Add Assignment" to create one.
+          </div>
+        ) : (
+          assignments.map((assignment) => (
+            <div
+              key={assignment._id}
+              className={`bg-white rounded-lg border border-gray-200 p-4 space-y-3 shadow-sm ${
+                !assignment.isActive ? 'opacity-60' : ''
+              }`}
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-6 h-6 rounded border border-gray-300 flex-shrink-0"
+                    style={{ backgroundColor: assignment.color }}
+                  />
+                  <div>
+                    <div className="font-semibold text-gray-900">{assignment.label}</div>
+                    <div className="text-xs text-gray-500 font-mono">Code: {assignment.code}</div>
+                  </div>
+                </div>
+                <span
+                  className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${
+                    assignment.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {assignment.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs text-gray-500 border-t border-gray-100 pt-2">
+                <span>Display Order: {assignment.order || 0}</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleToggleActive(assignment)}
+                    className={`px-2.5 py-1 rounded text-xs font-medium ${
+                      assignment.isActive
+                        ? 'bg-yellow-50 text-yellow-700'
+                        : 'bg-green-50 text-green-700'
+                    }`}
+                  >
+                    {assignment.isActive ? 'Deactivate' : 'Activate'}
+                  </button>
+                  <button
+                    onClick={() => openEditModal(assignment)}
+                    className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(assignment._id)}
+                    className="px-2.5 py-1 bg-red-50 text-red-700 rounded text-xs font-medium"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table View (>= 768px) */}
+      <div className="hidden md:block bg-white shadow rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>

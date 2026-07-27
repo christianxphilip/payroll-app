@@ -110,19 +110,19 @@ const HolidaysPage = () => {
 
   return (
     <div className="px-4 py-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Holidays</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={handleImportHolidays}
             disabled={importing}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+            className="flex-1 sm:flex-none bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 min-h-[44px]"
           >
             {importing ? 'Importing...' : 'Import Holidays'}
           </button>
           <button
             onClick={openAddModal}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            className="flex-1 sm:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 min-h-[44px]"
           >
             Add Holiday
           </button>
@@ -140,12 +140,12 @@ const HolidaysPage = () => {
       )}
 
       {/* Filter */}
-      <div className="mb-6">
-        <label className="text-sm font-medium text-gray-700 mr-2">Filter by Type:</label>
+      <div className="mb-6 flex items-center gap-2">
+        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Filter by Type:</label>
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg"
+          className="px-4 py-2 border border-gray-300 rounded-lg min-h-[44px]"
         >
           <option value="">All</option>
           <option value="Regular">Regular</option>
@@ -153,8 +153,49 @@ const HolidaysPage = () => {
         </select>
       </div>
 
-      {/* Holidays Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Mobile Card View (< 768px) */}
+      <div className="block md:hidden space-y-3">
+        {holidays.length === 0 ? (
+          <div className="p-6 text-center text-gray-500 bg-white rounded-lg border">
+            No holidays found
+          </div>
+        ) : (
+          holidays.map((holiday) => (
+            <div key={holiday._id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-2 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="font-semibold text-gray-900">{new Date(holiday.date).toLocaleDateString()}</div>
+                  <div className="text-sm text-gray-600 mt-0.5">{holiday.description}</div>
+                </div>
+                <span
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                    holiday.type === 'Regular' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                  }`}
+                >
+                  {holiday.type}
+                </span>
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  onClick={() => openEditModal(holiday)}
+                  className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded text-xs font-medium min-h-[36px]"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(holiday._id)}
+                  className="px-3 py-1.5 bg-red-50 text-red-700 rounded text-xs font-medium min-h-[36px]"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Holidays Table (>= 768px) */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>

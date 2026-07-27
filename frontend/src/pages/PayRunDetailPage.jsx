@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { payRunAPI, employeeAPI } from '../services/api';
 import { formatHours } from '../utils/formatters';
 import Modal from '../components/Modal';
+import ResponsiveTableWrapper from '../components/ResponsiveTableWrapper';
 
 const PayRunDetailPage = () => {
   const { payRunId } = useParams();
@@ -253,14 +254,14 @@ const PayRunDetailPage = () => {
 
   return (
     <div className="px-4 py-6 w-full">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-3xl font-bold text-gray-900">Pay Run Details</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Pay Run Details</h1>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {payRun.status === 'DRAFT' && (
             <>
               <button
                 onClick={handleRecalculate}
-                className="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                className="flex-1 sm:flex-none px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium min-h-[40px]"
               >
                 Recalculate
               </button>
@@ -287,7 +288,7 @@ const PayRunDetailPage = () => {
                     });
                   }
                 }}
-                className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="flex-1 sm:flex-none px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium min-h-[40px]"
               >
                 Approve
               </button>
@@ -320,7 +321,7 @@ const PayRunDetailPage = () => {
                     });
                   }
                 }}
-                className="px-4 py-2 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                className="flex-1 sm:flex-none px-4 py-2 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium min-h-[40px]"
               >
                 Revert to Draft
               </button>
@@ -347,7 +348,7 @@ const PayRunDetailPage = () => {
                     });
                   }
                 }}
-                className="px-4 py-2 text-sm bg-blue-700 text-white rounded-lg hover:bg-blue-800"
+                className="flex-1 sm:flex-none px-4 py-2 text-sm bg-blue-700 text-white rounded-lg hover:bg-blue-800 font-medium min-h-[40px]"
               >
                 Mark as Paid
               </button>
@@ -369,7 +370,6 @@ const PayRunDetailPage = () => {
                         ? `Email stub: ${count} employees would receive payslips.`
                         : 'Email stub: no employees with email found.'
                   });
-                  // Optimistically update status to show loading immediately
                   setPayRun(prev => ({ ...prev, emailStatus: 'SENDING' }));
                 } catch (error) {
                   setMessage({
@@ -380,7 +380,7 @@ const PayRunDetailPage = () => {
                   });
                 }
               }}
-              className="px-4 py-2 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-800"
+              className="w-full sm:w-auto px-4 py-2 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-800 font-medium min-h-[40px]"
             >
               Email All Payslips
             </button>
@@ -409,11 +409,11 @@ const PayRunDetailPage = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 text-sm text-gray-700">
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 text-sm text-gray-700">
           <div>
             <div className="font-medium text-gray-500">Period</div>
-            <div>
+            <div className="text-xs sm:text-sm">
               {payRun.payrollPeriodStart &&
                 new Date(payRun.payrollPeriodStart).toLocaleDateString()}{' '}
               -{' '}
@@ -423,7 +423,7 @@ const PayRunDetailPage = () => {
           </div>
           <div>
             <div className="font-medium text-gray-500">Payout Date</div>
-            <div>
+            <div className="text-xs sm:text-sm">
               {payRun.payoutDate &&
                 new Date(payRun.payoutDate).toLocaleDateString()}
             </div>
@@ -436,26 +436,25 @@ const PayRunDetailPage = () => {
           </div>
           <div>
             <div className="font-medium text-gray-500">Employees</div>
-            <div>{employees.length}</div>
+            <div className="font-semibold">{employees.length}</div>
           </div>
           <div>
             <div className="font-medium text-gray-500">Total Gross</div>
-            <div className="font-semibold">
+            <div className="font-semibold text-green-700">
               {formatMoney(totals.totalGross)}
             </div>
           </div>
           <div>
             <div className="font-medium text-gray-500">Total Net</div>
-            <div className="font-semibold">
+            <div className="font-semibold text-blue-700">
               {formatMoney(totals.totalNet)}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div>
-          <table className="w-full divide-y divide-gray-200">
+      <ResponsiveTableWrapper stickyFirstColumn={true}>
+        <table className="w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -813,8 +812,7 @@ const PayRunDetailPage = () => {
               )}
             </tbody>
           </table>
-        </div>
-      </div>
+        </ResponsiveTableWrapper>
 
       {/* Adjustments & Overrides Modal */}
       <Modal

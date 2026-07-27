@@ -234,25 +234,27 @@ const EmployeesPage = () => {
         </div>
       )}
 
-      {/* Search */}
-      <div className="mb-6 flex gap-2">
-        <input
-          type="text"
-          placeholder="Search employees..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-        />
-        <button
-          onClick={handleSearch}
-          className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-        >
-          Search
-        </button>
+      {/* Search & Actions Bar */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 flex gap-2">
+          <input
+            type="text"
+            placeholder="Search employees..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg min-h-[44px]"
+          />
+          <button
+            onClick={handleSearch}
+            className="bg-gray-600 text-white px-5 py-2 rounded-lg hover:bg-gray-700 font-medium min-h-[44px]"
+          >
+            Search
+          </button>
+        </div>
       </div>
 
-      {/* Employees Table */}
+      {/* Employees View */}
       {loading ? (
         <LoadingSkeleton type="table" rows={5} cols={4} />
       ) : employees.length === 0 ? (
@@ -263,93 +265,161 @@ const EmployeesPage = () => {
           onAction={openAddModal}
         />
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Employee
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Position / Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <Tooltip text={user?.role === 'admin' ? "Employment type and wage rate configuration" : "Employment type configuration"}>
-                    {user?.role === 'admin' ? "Payroll Settings" : "Employment Type"}
-                  </Tooltip>
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {employees.map((employee) => (
-                <tr key={employee._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{employee.employeeName}</div>
-                    {employee.position && (
-                      <div className="text-sm text-gray-700">{employee.position}</div>
-                    )}
-                    {employee.email && (
-                      <div className="text-xs text-gray-500">{employee.email}</div>
-                    )}
-                    {employee.updatedAt && (
-                      <div className="text-xs text-gray-400 mt-1">
-                        Updated: {new Date(employee.updatedAt).toLocaleDateString()}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        employee.status === 'ACTIVE'
-                          ? 'bg-green-100 text-green-800'
-                          : employee.status === 'RENDERING'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-200 text-gray-800'
-                      }`}
-                    >
-                      {employee.status || 'ACTIVE'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    <div className="text-xs text-gray-600">
-                      Type: {employee.employmentType || 'FULL_TIME'}
+        <>
+          {/* Mobile Card List (< 768px) */}
+          <div className="block md:hidden space-y-4">
+            {employees.map((employee) => (
+              <div key={employee._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold text-lg text-gray-900">{employee.employeeName}</h3>
+                    {employee.position && <p className="text-sm text-gray-600">{employee.position}</p>}
+                    {employee.email && <p className="text-xs text-gray-500">{employee.email}</p>}
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                      employee.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-800'
+                        : employee.status === 'RENDERING'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-200 text-gray-800'
+                    }`}
+                  >
+                    {employee.status || 'ACTIVE'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 border-t border-b border-gray-100 py-2">
+                  <div>
+                    <span className="font-medium text-gray-500">Type:</span> {employee.employmentType || 'FULL_TIME'}
+                  </div>
+                  {user?.role === 'admin' && (
+                    <div>
+                      <span className="font-medium text-gray-500">Wage:</span> {employee.wageType || 'HOURLY'} @ ₱{employee.wageRate ?? 0}
                     </div>
-                    {user?.role === 'admin' && (
-                      <div className="text-xs text-gray-600">
-                        Wage: {employee.wageType || 'HOURLY'} @ {employee.wageRate ?? 0}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  )}
+                  {employee.updatedAt && (
+                    <div className="col-span-2 text-gray-400">
+                      Updated: {new Date(employee.updatedAt).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1 justify-end">
+                  <button
+                    onClick={() => openEditModal(employee)}
+                    className="flex-1 py-2 px-3 bg-blue-50 text-blue-700 rounded-md text-xs font-semibold hover:bg-blue-100 min-h-[40px]"
+                  >
+                    Edit
+                  </button>
+                  {user?.role === 'admin' && (
                     <button
-                      onClick={() => openEditModal(employee)}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
+                      onClick={() => openAdjustmentsModal(employee)}
+                      className="flex-1 py-2 px-3 bg-orange-50 text-orange-700 rounded-md text-xs font-semibold hover:bg-orange-100 min-h-[40px]"
                     >
-                      Edit
+                      Allowances
                     </button>
-                    {user?.role === 'admin' && (
-                      <button
-                        onClick={() => openAdjustmentsModal(employee)}
-                        className="text-orange-600 hover:text-orange-900 mr-4"
-                      >
-                        Allowances &amp; Deductions
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(employee.employeeName)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
-                  </td>
+                  )}
+                  <button
+                    onClick={() => handleDelete(employee.employeeName)}
+                    className="py-2 px-3 bg-red-50 text-red-700 rounded-md text-xs font-semibold hover:bg-red-100 min-h-[40px]"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View (>= 768px) */}
+          <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Employee
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Position / Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <Tooltip text={user?.role === 'admin' ? "Employment type and wage rate configuration" : "Employment type configuration"}>
+                      {user?.role === 'admin' ? "Payroll Settings" : "Employment Type"}
+                    </Tooltip>
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {employees.map((employee) => (
+                  <tr key={employee._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-medium text-gray-900">{employee.employeeName}</div>
+                      {employee.position && (
+                        <div className="text-sm text-gray-700">{employee.position}</div>
+                      )}
+                      {employee.email && (
+                        <div className="text-xs text-gray-500">{employee.email}</div>
+                      )}
+                      {employee.updatedAt && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Updated: {new Date(employee.updatedAt).toLocaleDateString()}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          employee.status === 'ACTIVE'
+                            ? 'bg-green-100 text-green-800'
+                            : employee.status === 'RENDERING'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-200 text-gray-800'
+                        }`}
+                      >
+                        {employee.status || 'ACTIVE'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <div className="text-xs text-gray-600">
+                        Type: {employee.employmentType || 'FULL_TIME'}
+                      </div>
+                      {user?.role === 'admin' && (
+                        <div className="text-xs text-gray-600">
+                          Wage: {employee.wageType || 'HOURLY'} @ {employee.wageRate ?? 0}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => openEditModal(employee)}
+                        className="text-blue-600 hover:text-blue-900 mr-4"
+                      >
+                        Edit
+                      </button>
+                      {user?.role === 'admin' && (
+                        <button
+                          onClick={() => openAdjustmentsModal(employee)}
+                          className="text-orange-600 hover:text-orange-900 mr-4"
+                        >
+                          Allowances &amp; Deductions
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(employee.employeeName)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Confirm Delete Dialog */}

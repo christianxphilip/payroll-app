@@ -153,11 +153,11 @@ const PayRunsPage = () => {
 
   return (
     <div className="px-4 py-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Pay Runs</h1>
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+          className="w-full sm:w-auto bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 font-medium min-h-[44px]"
         >
           Create Pay Run
         </button>
@@ -196,115 +196,191 @@ const PayRunsPage = () => {
         </div>
       )}
 
-      {/* Pay Runs List */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+      {/* Mobile Pay Runs Cards (< 768px) */}
+      <div className="block md:hidden space-y-4">
+        {payRuns.length === 0 ? (
+          <EmptyState
+            title="No Pay Runs Yet"
+            message="Create your first pay run to get started. Pay runs help you manage payroll for specific time periods."
+            actionLabel="Create Pay Run"
+            onAction={() => setIsCreateModalOpen(true)}
+          />
+        ) : (
+          payRuns.map((pr) => (
+            <div key={pr._id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    {pr.payrollPeriodStart && new Date(pr.payrollPeriodStart).toLocaleDateString()} - {pr.payrollPeriodEnd && new Date(pr.payrollPeriodEnd).toLocaleDateString()}
+                  </h3>
+                  {pr.payoutDate && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Payout: {new Date(pr.payoutDate).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                  {pr.status}
+                </span>
+              </div>
+
+              {pr.timesheetIds && pr.timesheetIds.length > 0 && (
+                <div className="text-xs text-gray-600 border-t border-b border-gray-100 py-2 space-y-1">
+                  <span className="font-medium text-gray-500">Timesheets:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {pr.timesheetIds.map((timesheetItem, index) => {
+                      let timesheetName = typeof timesheetItem === 'object' && timesheetItem !== null
+                        ? timesheetItem.name || `Timesheet ${index + 1}`
+                        : timesheetEntries.find((te) => te._id === timesheetItem)?.name || `Timesheet ${index + 1}`;
+                      return (
+                        <span key={index} className="bg-gray-100 px-2 py-0.5 rounded text-gray-700">
+                          {timesheetName}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-1 justify-end">
+                <button
+                  onClick={() => navigate(`/pay-runs/${pr._id}`)}
+                  className="flex-1 py-2 px-3 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 min-h-[38px]"
+                >
+                  View Breakdown
+                </button>
+                {pr.status === 'DRAFT' && (
+                  <button
+                    onClick={() => handleStatusChange(pr._id, 'APPROVED')}
+                    className="py-2 px-3 bg-green-600 text-white rounded text-xs font-semibold hover:bg-green-700 min-h-[38px]"
+                  >
+                    Approve
+                  </button>
+                )}
+                {pr.status === 'APPROVED' && (
+                  <button
+                    onClick={() => handleStatusChange(pr._id, 'PAID')}
+                    className="py-2 px-3 bg-purple-600 text-white rounded text-xs font-semibold hover:bg-purple-700 min-h-[38px]"
+                  >
+                    Mark Paid
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDelete(pr._id, pr.status)}
+                  className="py-2 px-3 bg-red-50 text-red-700 rounded text-xs font-semibold hover:bg-red-100 min-h-[38px]"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Pay Runs Table (>= 768px) */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payout Date</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timesheets</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {payRuns.length === 0 ? (
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payout Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timesheets</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <td colSpan="5" className="px-6 py-4">
+                  <EmptyState
+                    title="No Pay Runs Yet"
+                    message="Create your first pay run to get started. Pay runs help you manage payroll for specific time periods."
+                    actionLabel="Create Pay Run"
+                    onAction={() => setIsCreateModalOpen(true)}
+                  />
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {payRuns.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="px-6 py-4">
-                    <EmptyState
-                      title="No Pay Runs Yet"
-                      message="Create your first pay run to get started. Pay runs help you manage payroll for specific time periods."
-                      actionLabel="Create Pay Run"
-                      onAction={() => setIsCreateModalOpen(true)}
-                    />
+            ) : (
+              payRuns.map((pr) => (
+                <tr key={pr._id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm">
+                    {pr.payrollPeriodStart &&
+                      new Date(pr.payrollPeriodStart).toLocaleDateString()}{' '}
+                    -{' '}
+                    {pr.payrollPeriodEnd &&
+                      new Date(pr.payrollPeriodEnd).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {pr.payoutDate && new Date(pr.payoutDate).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                      {pr.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {pr.timesheetIds && pr.timesheetIds.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {pr.timesheetIds.map((timesheetItem, index) => {
+                          let timesheetName;
+                          let key;
+                          
+                          if (typeof timesheetItem === 'object' && timesheetItem !== null) {
+                            timesheetName = timesheetItem.name || `Timesheet ${timesheetItem._id || index}`;
+                            key = timesheetItem._id || index;
+                          } else {
+                            const timesheet = timesheetEntries.find((te) => te._id === timesheetItem);
+                            timesheetName = timesheet ? timesheet.name : `Timesheet ${timesheetItem}`;
+                            key = timesheetItem;
+                          }
+                          
+                          return (
+                            <span key={key} className="text-xs">
+                              {timesheetName}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right space-x-2">
+                    <button
+                      onClick={() => navigate(`/pay-runs/${pr._id}`)}
+                      className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      View
+                    </button>
+                    {pr.status === 'DRAFT' && (
+                      <button
+                        onClick={() => handleStatusChange(pr._id, 'APPROVED')}
+                        className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        Approve
+                      </button>
+                    )}
+                    {pr.status === 'APPROVED' && (
+                      <button
+                        onClick={() => handleStatusChange(pr._id, 'PAID')}
+                        className="px-3 py-1 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                      >
+                        Mark Paid
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(pr._id, pr.status)}
+                      className="px-3 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
-              ) : (
-                payRuns.map((pr) => (
-                  <tr key={pr._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm">
-                      {pr.payrollPeriodStart &&
-                        new Date(pr.payrollPeriodStart).toLocaleDateString()}{' '}
-                      -{' '}
-                      {pr.payrollPeriodEnd &&
-                        new Date(pr.payrollPeriodEnd).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {pr.payoutDate && new Date(pr.payoutDate).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {pr.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {pr.timesheetIds && pr.timesheetIds.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {pr.timesheetIds.map((timesheetItem, index) => {
-                            // Handle both populated objects and IDs
-                            let timesheetName;
-                            let key;
-                            
-                            if (typeof timesheetItem === 'object' && timesheetItem !== null) {
-                              // Already populated from backend
-                              timesheetName = timesheetItem.name || `Timesheet ${timesheetItem._id || index}`;
-                              key = timesheetItem._id || index;
-                            } else {
-                              // Just an ID, need to find in timesheetEntries
-                              const timesheet = timesheetEntries.find((te) => te._id === timesheetItem);
-                              timesheetName = timesheet ? timesheet.name : `Timesheet ${timesheetItem}`;
-                              key = timesheetItem;
-                            }
-                            
-                            return (
-                              <span key={key} className="text-xs">
-                                {timesheetName}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right space-x-2">
-                      <button
-                        onClick={() => navigate(`/pay-runs/${pr._id}`)}
-                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                      >
-                        View
-                      </button>
-                      {pr.status === 'DRAFT' && (
-                        <button
-                          onClick={() => handleStatusChange(pr._id, 'APPROVED')}
-                          className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
-                        >
-                          Approve
-                        </button>
-                      )}
-                      {pr.status === 'APPROVED' && (
-                        <button
-                          onClick={() => handleStatusChange(pr._id, 'PAID')}
-                          className="px-3 py-1 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                        >
-                          Mark Paid
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(pr._id, pr.status)}
-                        className="px-3 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Confirm Delete Dialog */}
