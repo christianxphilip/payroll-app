@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import { scheduleAPI, employeeAPI } from '../services/api';
+import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 
 const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) => {
   const [startDate, setStartDate] = useState(initialStartDate || '');
@@ -10,33 +11,35 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [shiftList, setShiftList] = useState([]);
-  const [isLoadingShifts, setIsLoadingShifts] = useState(false);
+  const [progress, setProgress] = useState(null);
 
-  const handleExport = async (e) => {
-    if (e) e.preventDefault();
+  const { isSignedIn, isConnecting, connect, disconnect, syncShiftsWithGuests } = useGoogleCalendar();
+
+  const handleExport = async () => {
     if (!startDate || !endDate) {
       setError('Please select both Start Date and End Date.');
       return;
     }
-
     try {
       setIsExporting(true);
       setError('');
       setSuccessMsg('');
       await scheduleAPI.exportICal(startDate, endDate, employeeName);
-      setSuccessMsg('✓ .ics file downloaded successfully!');
+      setSuccessMsg('✓ .ics file downloaded! Import it into Google Calendar.');
     } catch (err) {
-      console.error(err);
-      setError('Failed to generate .ics calendar file. Please try again.');
+      setError('Failed to generate .ics file. Please try again.');
     } finally {
       setIsExporting(false);
     }
   };
 
-  const handleDirectApiSync = async () => {
+  const handleGoogleOAuthSync = async () => {
     if (!startDate || !endDate) {
       setError('Please select both Start Date and End Date.');
+      return;
+    }
+    if (!isSignedIn) {
+      setError('Please connect your Google Account first.');
       return;
     }
 
@@ -44,33 +47,22 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
       setIsSyncing(true);
       setError('');
       setSuccessMsg('');
-      const res = await scheduleAPI.syncGoogleCalendar(startDate, endDate, employeeName);
-      setSuccessMsg(`🚀 ${res.message || 'Successfully synced shifts directly to ESPRO SCHEDULES Google Calendar!'}`);
-    } catch (err) {
-      console.error(err);
-      const msg = err.response?.data?.error || 'Failed to sync with Google Calendar API.';
-      setError(msg);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
+      setProgress({ done: 0, total: 0 });
 
-  const handleFetchShiftsForGuests = async () => {
-    if (!startDate || !endDate) {
-      setError('Please select Start Date and End Date to fetch shifts.');
-      return;
-    }
-
-    try {
-      setIsLoadingShifts(true);
-      setError('');
+      // Fetch schedules and employee emails from our backend
       const [schedRes, empRes] = await Promise.all([
-        scheduleAPI.getAll({ startDate, endDate, limit: 200 }),
+        scheduleAPI.getAll({
+          startDate,
+          endDate,
+          ...(employeeName ? { employeeName } : {}),
+          limit: 500
+        }),
         employeeAPI.getAll()
       ]);
 
-      const schedules = schedRes.data || [];
+      const schedules = (schedRes.data || []).filter(s => !s.isOff);
       const employees = empRes.data || [];
+
       const emailMap = {};
       employees.forEach(emp => {
         if (emp.employeeName && emp.email) {
@@ -78,64 +70,37 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
         }
       });
 
-      let filtered = schedules.filter(s => !s.isOff);
-      if (employeeName && employeeName.trim() !== '') {
-        const term = employeeName.trim().toLowerCase();
-        filtered = filtered.filter(s => s.employeeName && s.employeeName.toLowerCase().includes(term));
+      // Filter by employee name if provided
+      const filtered = employeeName
+        ? schedules.filter(s => s.employeeName?.toLowerCase().includes(employeeName.toLowerCase()))
+        : schedules;
+
+      if (filtered.length === 0) {
+        setError('No shifts found for the selected date range.');
+        setIsSyncing(false);
+        setProgress(null);
+        return;
       }
 
-      const items = filtered.map(s => {
-        const email = emailMap[s.employeeName] || '';
-        const title = encodeURIComponent(`Shift: ${s.employeeName} (${s.assignmentType || 'BAR'})`);
-        const details = encodeURIComponent(`Staff: ${s.employeeName}\nScheduled Shift: ${s.scheduledStartTime || ''} - ${s.scheduledEndTime || ''}\nDuration: ${s.scheduledDuration || 8} hrs\nNotes: ${s.notes || 'None'}`);
-        const location = encodeURIComponent('ESPRO Coffee');
+      setProgress({ done: 0, total: filtered.length });
 
-        const parseTime = (dateStr, timeStr) => {
-          if (!timeStr) return null;
-          const date = new Date(dateStr);
-          const match = timeStr.trim().toUpperCase().match(/(\d+)(AM|PM)/);
-          if (!match) return null;
-          let hour = parseInt(match[1], 10);
-          const period = match[2];
-          if (period === 'AM' && hour === 12) hour = 0;
-          if (period === 'PM' && hour !== 12) hour += 12;
+      const result = await syncShiftsWithGuests(
+        filtered,
+        emailMap,
+        (done, total) => setProgress({ done, total })
+      );
 
-          const year = date.getUTCFullYear();
-          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-          const day = String(date.getUTCDate()).padStart(2, '0');
-          return `${year}${month}${day}T${String(hour).padStart(2, '0')}0000`;
-        };
-
-        const dtStart = parseTime(s.date, s.scheduledStartTime) || '20260727T160000';
-        let dtEnd = parseTime(s.date, s.scheduledEndTime) || '20260728T010000';
-        if (dtStart && dtEnd && dtEnd <= dtStart) {
-          const endDateObj = new Date(s.date);
-          endDateObj.setUTCDate(endDateObj.getUTCDate() + 1);
-          dtEnd = parseTime(endDateObj, s.scheduledEndTime) || dtEnd;
-        }
-
-        let link = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dtStart}/${dtEnd}&details=${details}&location=${location}`;
-        if (email) {
-          link += `&add=${encodeURIComponent(email)}`;
-        }
-
-        return {
-          id: s._id,
-          employeeName: s.employeeName,
-          email,
-          date: s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
-          time: `${s.scheduledStartTime} - ${s.scheduledEndTime}`,
-          assignment: s.assignmentType || 'GENERAL',
-          link
-        };
-      });
-
-      setShiftList(items);
+      setSuccessMsg(
+        `🎉 Success! Synced ${result.synced} new shifts, updated ${result.updated} existing.\n` +
+        `${result.failed > 0 ? `⚠️ ${result.failed} shifts failed.` : ''}` +
+        `\n✅ Employee emails added to Guests — invitation emails sent!`
+      );
     } catch (err) {
       console.error(err);
-      setError('Failed to fetch shifts.');
+      setError(err.message || 'Sync failed. Please reconnect Google and try again.');
     } finally {
-      setIsLoadingShifts(false);
+      setIsSyncing(false);
+      setProgress(null);
     }
   };
 
@@ -144,118 +109,135 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="📅 Sync / Export to Google Calendar" maxWidth="xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="📅 Sync to Google Calendar" maxWidth="xl">
       <div className="space-y-4">
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300">
-          <p className="font-semibold mb-1">⚡ Direct Google Sync & 1-Click Guest Invites</p>
-          <p>Sync shifts to <strong>ESPRO SCHEDULES</strong> Google Calendar or open 1-click links with employee emails pre-filled directly into the <strong>Guests</strong> field.</p>
+
+        {/* Google Account Connection Banner */}
+        <div className={`rounded-xl p-4 border flex items-center justify-between gap-3 transition-all ${
+          isSignedIn
+            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700'
+            : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white font-bold ${
+              isSignedIn ? 'bg-emerald-500' : 'bg-blue-500'
+            }`}>
+              {isSignedIn ? '✓' : 'G'}
+            </div>
+            <div>
+              <p className={`text-sm font-semibold ${isSignedIn ? 'text-emerald-800 dark:text-emerald-300' : 'text-blue-800 dark:text-blue-300'}`}>
+                {isSignedIn ? 'Google Calendar Connected' : 'Connect Google Calendar'}
+              </p>
+              <p className={`text-xs mt-0.5 ${isSignedIn ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                {isSignedIn
+                  ? '✅ Employee emails will be added directly to Guests field with invite notifications'
+                  : 'Sign in once to sync shifts with employee guest invitations and email notifications'
+                }
+              </p>
+            </div>
+          </div>
+          {isSignedIn ? (
+            <button
+              onClick={disconnect}
+              className="shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-red-500 underline transition-colors"
+            >
+              Disconnect
+            </button>
+          ) : (
+            <button
+              onClick={connect}
+              disabled={isConnecting}
+              className="shrink-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow transition-colors disabled:opacity-60 flex items-center gap-2"
+            >
+              {isConnecting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <svg className="h-4 w-4" viewBox="0 0 24 24">
+                    <path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                    <path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  Sign in with Google
+                </>
+              )}
+            </button>
+          )}
         </div>
 
+        {/* Error & Success messages */}
         {error && (
-          <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm whitespace-pre-line">
+          <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm whitespace-pre-line">
             {error}
           </div>
         )}
-
         {successMsg && (
-          <div className="p-3 bg-emerald-100 border border-emerald-400 text-emerald-800 rounded text-sm space-y-2">
-            <p className="font-semibold">{successMsg}</p>
-            {successMsg.includes('.ics') && (
-              <div>
-                <p className="text-xs mb-1">Click below to open Google Calendar's Import page and upload the file to your <strong>ESPRO SCHEDULES</strong> calendar.</p>
-                <button
-                  type="button"
-                  onClick={handleOpenGoogleCalendarImport}
-                  className="inline-flex items-center px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-medium shadow-sm transition-colors"
-                >
-                  Open Google Calendar Import ↗
-                </button>
-              </div>
-            )}
+          <div className="p-3 bg-emerald-100 border border-emerald-400 text-emerald-800 rounded-lg text-sm whitespace-pre-line">
+            {successMsg}
           </div>
         )}
 
+        {/* Progress bar */}
+        {progress && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>Syncing shifts to Google Calendar...</span>
+              <span>{progress.done} / {progress.total}</span>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-amber-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: progress.total ? `${Math.round((progress.done / progress.total) * 100)}%` : '0%' }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Date range */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Start Date *
-            </label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Start Date *</label>
             <input
               type="date"
               value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); setSuccessMsg(''); setError(''); setShiftList([]); }}
-              required
+              onChange={(e) => { setStartDate(e.target.value); setSuccessMsg(''); setError(''); }}
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-amber-500"
             />
           </div>
-
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              End Date *
-            </label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">End Date *</label>
             <input
               type="date"
               value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); setSuccessMsg(''); setError(''); setShiftList([]); }}
-              required
+              onChange={(e) => { setEndDate(e.target.value); setSuccessMsg(''); setError(''); }}
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-amber-500"
             />
           </div>
         </div>
 
+        {/* Employee filter */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-            Employee Filter (Optional)
+            Employee Filter <span className="font-normal text-slate-500">(Optional — leave empty to sync all)</span>
           </label>
           <input
             type="text"
-            placeholder="Type employee name (e.g. Leanard, Joana, Mark)"
+            placeholder="e.g. Leanard, Joana, Mark..."
             value={employeeName}
-            onChange={(e) => { setEmployeeName(e.target.value); setShiftList([]); }}
+            onChange={(e) => { setEmployeeName(e.target.value); setSuccessMsg(''); }}
             className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-amber-500"
           />
         </div>
 
-        {/* 1-Click Guest Invites Section */}
-        <div className="pt-2">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-              1-Click Guest Invites (Pre-fills Guests Field)
-            </span>
-            <button
-              type="button"
-              onClick={handleFetchShiftsForGuests}
-              disabled={isLoadingShifts}
-              className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline disabled:opacity-50"
-            >
-              {isLoadingShifts ? 'Loading shifts...' : 'Load Shift Links 🔄'}
-            </button>
-          </div>
-
-          {shiftList.length > 0 && (
-            <div className="max-h-48 overflow-y-auto space-y-2 border border-slate-200 dark:border-slate-800 rounded-lg p-2 bg-slate-50 dark:bg-slate-900/50">
-              {shiftList.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 text-xs gap-2">
-                  <div className="truncate">
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{item.employeeName}</span>
-                    <span className="text-slate-500 ml-1.5">({item.date} • {item.time} • {item.assignment})</span>
-                    {item.email && <div className="text-[11px] text-amber-600 dark:text-amber-400 truncate">📧 {item.email}</div>}
-                  </div>
-                  <a
-                    href={item.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-sm"
-                  >
-                    ➕ Open Event with Guest ↗
-                  </a>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+        {/* Action buttons */}
+        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
@@ -263,23 +245,36 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
           >
             Close
           </button>
-          
+
           <button
             type="button"
             onClick={handleExport}
             disabled={isExporting || isSyncing}
-            className="px-4 py-2 text-sm font-medium bg-slate-700 hover:bg-slate-800 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="px-4 py-2 text-sm font-medium bg-slate-600 hover:bg-slate-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
           >
-            {isExporting ? 'Generating...' : 'Download .ics File'}
+            {isExporting ? 'Generating...' : '⬇ Download .ics'}
           </button>
 
           <button
             type="button"
-            onClick={handleDirectApiSync}
-            disabled={isExporting || isSyncing}
-            className="px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            onClick={handleGoogleOAuthSync}
+            disabled={isSyncing || isExporting || !isSignedIn}
+            className={`px-5 py-2 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 ${
+              isSignedIn
+                ? 'bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50'
+                : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+            }`}
+            title={!isSignedIn ? 'Connect Google first' : ''}
           >
-            {isSyncing ? 'Syncing to Google...' : '⚡ Bulk Sync to ESPRO SCHEDULES'}
+            {isSyncing ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                Syncing...
+              </>
+            ) : '⚡ Sync with Guest Invites'}
           </button>
         </div>
       </div>
