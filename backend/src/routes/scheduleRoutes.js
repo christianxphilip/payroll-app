@@ -70,6 +70,46 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// GET /api/schedules/export-ical - Export schedules as .ics file
+router.get('/export-ical', async (req, res, next) => {
+  try {
+    const { startDate, endDate, employeeName } = req.query;
+
+    if (!startDate || !endDate) {
+      throw new AppError('Start date and end date are required', 400);
+    }
+
+    let query = {
+      date: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      }
+    };
+
+    if (employeeName) {
+      query.employeeName = employeeName;
+    }
+
+    const schedules = await Schedule.find(query).sort({ date: 1, employeeName: 1 });
+    const employees = await Employee.find({}, 'employeeName email');
+    const employeeEmailMap = {};
+    employees.forEach(emp => {
+      if (emp.employeeName && emp.email) {
+        employeeEmailMap[emp.employeeName] = emp.email;
+      }
+    });
+
+    const icsContent = generateICalContent(schedules, employeeEmailMap);
+
+    const filename = `espro-schedules-${startDate}-to-${endDate}.ics`;
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(icsContent);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // POST /api/schedules - Add single schedule entry
 router.post('/', async (req, res, next) => {
   try {
@@ -306,41 +346,6 @@ router.get('/estimated-salary', authorize(['admin']), async (req, res, next) => 
       success: true,
       data: result
     });
-// GET /api/schedules/export-ical - Export schedules as .ics file
-router.get('/export-ical', async (req, res, next) => {
-  try {
-    const { startDate, endDate, employeeName } = req.query;
-
-    if (!startDate || !endDate) {
-      throw new AppError('Start date and end date are required', 400);
-    }
-
-    let query = {
-      date: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      }
-    };
-
-    if (employeeName) {
-      query.employeeName = employeeName;
-    }
-
-    const schedules = await Schedule.find(query).sort({ date: 1, employeeName: 1 });
-    const employees = await Employee.find({}, 'employeeName email');
-    const employeeEmailMap = {};
-    employees.forEach(emp => {
-      if (emp.employeeName && emp.email) {
-        employeeEmailMap[emp.employeeName] = emp.email;
-      }
-    });
-
-    const icsContent = generateICalContent(schedules, employeeEmailMap);
-
-    const filename = `espro-schedules-${startDate}-to-${endDate}.ics`;
-    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(icsContent);
   } catch (error) {
     next(error);
   }
