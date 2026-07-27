@@ -20,7 +20,7 @@ export const generateICalContent = (schedules, employeeEmailMap = {}) => {
     'VERSION:2.0',
     'PRODID:-//ESPRO Coffee Payroll App//EN',
     'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
+    'METHOD:REQUEST',
     'X-WR-CALNAME:ESPRO SCHEDULES',
     'X-WR-TIMEZONE:Asia/Manila',
     'BEGIN:VTIMEZONE',
