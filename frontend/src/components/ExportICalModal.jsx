@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
-import { scheduleAPI } from '../services/api';
+import { scheduleAPI, employeeAPI } from '../services/api';
 
 const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) => {
   const [startDate, setStartDate] = useState(initialStartDate || '');
@@ -10,9 +10,11 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [shiftList, setShiftList] = useState([]);
+  const [isLoadingShifts, setIsLoadingShifts] = useState(false);
 
   const handleExport = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!startDate || !endDate) {
       setError('Please select both Start Date and End Date.');
       return;
@@ -46,10 +48,94 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
       setSuccessMsg(`🚀 ${res.message || 'Successfully synced shifts directly to ESPRO SCHEDULES Google Calendar!'}`);
     } catch (err) {
       console.error(err);
-      const msg = err.response?.data?.error || 'Failed to sync with Google Calendar API. Ensure GOOGLE_SERVICE_ACCOUNT_JSON is set in Render environment variables.';
+      const msg = err.response?.data?.error || 'Failed to sync with Google Calendar API.';
       setError(msg);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleFetchShiftsForGuests = async () => {
+    if (!startDate || !endDate) {
+      setError('Please select Start Date and End Date to fetch shifts.');
+      return;
+    }
+
+    try {
+      setIsLoadingShifts(true);
+      setError('');
+      const [schedRes, empRes] = await Promise.all([
+        scheduleAPI.getAll({ startDate, endDate, limit: 200 }),
+        employeeAPI.getAll()
+      ]);
+
+      const schedules = schedRes.data || [];
+      const employees = empRes.data || [];
+      const emailMap = {};
+      employees.forEach(emp => {
+        if (emp.employeeName && emp.email) {
+          emailMap[emp.employeeName] = emp.email;
+        }
+      });
+
+      let filtered = schedules.filter(s => !s.isOff);
+      if (employeeName && employeeName.trim() !== '') {
+        const term = employeeName.trim().toLowerCase();
+        filtered = filtered.filter(s => s.employeeName && s.employeeName.toLowerCase().includes(term));
+      }
+
+      const items = filtered.map(s => {
+        const email = emailMap[s.employeeName] || '';
+        const title = encodeURIComponent(`Shift: ${s.employeeName} (${s.assignmentType || 'BAR'})`);
+        const details = encodeURIComponent(`Staff: ${s.employeeName}\nScheduled Shift: ${s.scheduledStartTime || ''} - ${s.scheduledEndTime || ''}\nDuration: ${s.scheduledDuration || 8} hrs\nNotes: ${s.notes || 'None'}`);
+        const location = encodeURIComponent('ESPRO Coffee');
+
+        const parseTime = (dateStr, timeStr) => {
+          if (!timeStr) return null;
+          const date = new Date(dateStr);
+          const match = timeStr.trim().toUpperCase().match(/(\d+)(AM|PM)/);
+          if (!match) return null;
+          let hour = parseInt(match[1], 10);
+          const period = match[2];
+          if (period === 'AM' && hour === 12) hour = 0;
+          if (period === 'PM' && hour !== 12) hour += 12;
+
+          const year = date.getUTCFullYear();
+          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(date.getUTCDate()).padStart(2, '0');
+          return `${year}${month}${day}T${String(hour).padStart(2, '0')}0000`;
+        };
+
+        const dtStart = parseTime(s.date, s.scheduledStartTime) || '20260727T160000';
+        let dtEnd = parseTime(s.date, s.scheduledEndTime) || '20260728T010000';
+        if (dtStart && dtEnd && dtEnd <= dtStart) {
+          const endDateObj = new Date(s.date);
+          endDateObj.setUTCDate(endDateObj.getUTCDate() + 1);
+          dtEnd = parseTime(endDateObj, s.scheduledEndTime) || dtEnd;
+        }
+
+        let link = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dtStart}/${dtEnd}&details=${details}&location=${location}`;
+        if (email) {
+          link += `&add=${encodeURIComponent(email)}`;
+        }
+
+        return {
+          id: s._id,
+          employeeName: s.employeeName,
+          email,
+          date: s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+          time: `${s.scheduledStartTime} - ${s.scheduledEndTime}`,
+          assignment: s.assignmentType || 'GENERAL',
+          link
+        };
+      });
+
+      setShiftList(items);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to fetch shifts.');
+    } finally {
+      setIsLoadingShifts(false);
     }
   };
 
@@ -58,11 +144,11 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="📅 Sync / Export to Google Calendar">
+    <Modal isOpen={isOpen} onClose={onClose} title="📅 Sync / Export to Google Calendar" maxWidth="xl">
       <div className="space-y-4">
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300">
-          <p className="font-semibold mb-1">⚡ Direct Google Calendar API Sync & .ics Export</p>
-          <p>Sync finalized schedules directly to your <strong>ESPRO SCHEDULES</strong> Google Calendar with pre-filled guests and auto-notifications, or download an <code>.ics</code> file.</p>
+          <p className="font-semibold mb-1">⚡ Direct Google Sync & 1-Click Guest Invites</p>
+          <p>Sync shifts to <strong>ESPRO SCHEDULES</strong> Google Calendar or open 1-click links with employee emails pre-filled directly into the <strong>Guests</strong> field.</p>
         </div>
 
         {error && (
@@ -97,7 +183,7 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
             <input
               type="date"
               value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); setSuccessMsg(''); setError(''); }}
+              onChange={(e) => { setStartDate(e.target.value); setSuccessMsg(''); setError(''); setShiftList([]); }}
               required
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-amber-500"
             />
@@ -110,7 +196,7 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
             <input
               type="date"
               value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); setSuccessMsg(''); setError(''); }}
+              onChange={(e) => { setEndDate(e.target.value); setSuccessMsg(''); setError(''); setShiftList([]); }}
               required
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-amber-500"
             />
@@ -123,11 +209,50 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
           </label>
           <input
             type="text"
-            placeholder="Leave empty for ALL employees"
+            placeholder="Type employee name (e.g. Leanard, Joana, Mark)"
             value={employeeName}
-            onChange={(e) => setEmployeeName(e.target.value)}
+            onChange={(e) => { setEmployeeName(e.target.value); setShiftList([]); }}
             className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-amber-500"
           />
+        </div>
+
+        {/* 1-Click Guest Invites Section */}
+        <div className="pt-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              1-Click Guest Invites (Pre-fills Guests Field)
+            </span>
+            <button
+              type="button"
+              onClick={handleFetchShiftsForGuests}
+              disabled={isLoadingShifts}
+              className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline disabled:opacity-50"
+            >
+              {isLoadingShifts ? 'Loading shifts...' : 'Load Shift Links 🔄'}
+            </button>
+          </div>
+
+          {shiftList.length > 0 && (
+            <div className="max-h-48 overflow-y-auto space-y-2 border border-slate-200 dark:border-slate-800 rounded-lg p-2 bg-slate-50 dark:bg-slate-900/50">
+              {shiftList.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 text-xs gap-2">
+                  <div className="truncate">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{item.employeeName}</span>
+                    <span className="text-slate-500 ml-1.5">({item.date} • {item.time} • {item.assignment})</span>
+                    {item.email && <div className="text-[11px] text-amber-600 dark:text-amber-400 truncate">📧 {item.email}</div>}
+                  </div>
+                  <a
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-sm"
+                  >
+                    ➕ Open Event with Guest ↗
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
@@ -154,7 +279,7 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
             disabled={isExporting || isSyncing}
             className="px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {isSyncing ? 'Syncing to Google...' : '⚡ Sync via Google API'}
+            {isSyncing ? 'Syncing to Google...' : '⚡ Bulk Sync to ESPRO SCHEDULES'}
           </button>
         </div>
       </div>
