@@ -61,6 +61,7 @@ export const generateICalContent = (schedules, employeeEmailMap = {}) => {
       ];
 
       if (email) {
+        eventLines.push(`ORGANIZER;CN="ESPRO Coffee":mailto:esprocoffee@gmail.com`);
         eventLines.push(`ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${schedule.employeeName}:mailto:${email}`);
       }
 
