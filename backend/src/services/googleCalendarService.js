@@ -265,3 +265,71 @@ export const syncSchedulesToGoogleCalendar = async (startDate, endDate, employee
 
   return { syncedCount, updatedCount, deletedCount, totalProcessed: schedules.length };
 };
+
+export const clearGoogleCalendarSchedules = async (startDate, endDate, employeeNameFilter = '') => {
+  const calendar = getCalendarClient();
+
+  const timeMin = new Date(startDate).toISOString();
+  const timeMaxObj = new Date(endDate);
+  timeMaxObj.setUTCHours(23, 59, 59, 999);
+  const timeMax = timeMaxObj.toISOString();
+
+  let googleEvents = [];
+  try {
+    const listRes = await calendar.events.list({
+      calendarId: CALENDAR_ID,
+      timeMin,
+      timeMax,
+      singleEvents: true,
+      maxResults: 2500
+    });
+    googleEvents = listRes.data.items || [];
+  } catch (err) {
+    console.error('Error fetching Google Calendar events for clearing:', err.message);
+    throw err;
+  }
+
+  let clearedCount = 0;
+
+  for (const gEvent of googleEvents) {
+    const summary = gEvent.summary || '';
+    const description = gEvent.description || '';
+    const isShiftEvent = summary.startsWith('Shift:') || description.includes('Staff:');
+
+    if (!isShiftEvent) continue;
+
+    if (employeeNameFilter && employeeNameFilter.trim() !== '') {
+      const filterName = employeeNameFilter.trim().toLowerCase();
+      const matchesSummary = summary.toLowerCase().includes(filterName);
+      const matchesDesc = description.toLowerCase().includes(filterName);
+      if (!matchesSummary && !matchesDesc) {
+        continue;
+      }
+    }
+
+    try {
+      await calendar.events.delete({
+        calendarId: CALENDAR_ID,
+        eventId: gEvent.id
+      });
+      clearedCount++;
+    } catch (delErr) {
+      console.warn(`Error deleting Google event ${gEvent.id}:`, delErr.message);
+    }
+  }
+
+  // Clear googleEventId in MongoDB for schedules in date range
+  let query = {
+    date: {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate)
+    }
+  };
+  if (employeeNameFilter && employeeNameFilter.trim() !== '') {
+    query.employeeName = { $regex: employeeNameFilter.trim(), $options: 'i' };
+  }
+
+  await Schedule.updateMany(query, { $unset: { googleEventId: 1 } });
+
+  return { clearedCount };
+};

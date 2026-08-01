@@ -105,6 +105,7 @@ export const scheduleAPI = {
     document.body.removeChild(a);
   },
   syncGoogleCalendar: (startDate, endDate, employeeName = '') => api.post('/schedules/sync-google-calendar', { startDate, endDate, employeeName }),
+  clearGoogleCalendar: (startDate, endDate, employeeName = '') => api.post('/schedules/clear-google-calendar', { startDate, endDate, employeeName }),
 };
 
 // Assignment API

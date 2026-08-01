@@ -9,11 +9,12 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
   const [employeeName, setEmployeeName] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [progress, setProgress] = useState(null);
 
-  const { isSignedIn, isConnecting, connect, disconnect, syncShiftsWithGuests } = useGoogleCalendar();
+  const { isSignedIn, isConnecting, connect, disconnect, syncShiftsWithGuests, clearGoogleCalendarShifts } = useGoogleCalendar();
 
   const handleExport = async () => {
     if (!startDate || !endDate) {
@@ -101,6 +102,43 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
     } finally {
       setIsSyncing(false);
       setProgress(null);
+    }
+  };
+
+  const handleClear = async () => {
+    if (!startDate || !endDate) {
+      setError('Please select both Start Date and End Date.');
+      return;
+    }
+
+    const confirmMsg = employeeName
+      ? `Are you sure you want to CLEAR all Google Calendar shifts for "${employeeName}" from ${startDate} to ${endDate}?`
+      : `Are you sure you want to CLEAR ALL Google Calendar shift events from ${startDate} to ${endDate}?`;
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    try {
+      setIsClearing(true);
+      setError('');
+      setSuccessMsg('');
+
+      let clearedCount = 0;
+      if (isSignedIn) {
+        const res = await clearGoogleCalendarShifts(startDate, endDate, employeeName);
+        clearedCount = res.clearedCount;
+      } else {
+        const res = await scheduleAPI.clearGoogleCalendar(startDate, endDate, employeeName);
+        clearedCount = res.data?.data?.clearedCount || res.data?.clearedCount || 0;
+      }
+
+      setSuccessMsg(`🗑️ Successfully cleared ${clearedCount} shift event(s) from Google Calendar!`);
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || err.message || 'Failed to clear Google Calendar shifts.');
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -248,8 +286,17 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
 
           <button
             type="button"
+            onClick={handleClear}
+            disabled={isClearing || isSyncing || isExporting}
+            className="px-4 py-2 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+          >
+            {isClearing ? 'Clearing...' : '🗑️ Clear Google Sched'}
+          </button>
+
+          <button
+            type="button"
             onClick={handleExport}
-            disabled={isExporting || isSyncing}
+            disabled={isExporting || isSyncing || isClearing}
             className="px-4 py-2 text-sm font-medium bg-slate-600 hover:bg-slate-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
           >
             {isExporting ? 'Generating...' : '⬇ Download .ics'}
@@ -258,7 +305,7 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
           <button
             type="button"
             onClick={handleGoogleOAuthSync}
-            disabled={isSyncing || isExporting || !isSignedIn}
+            disabled={isSyncing || isExporting || isClearing || !isSignedIn}
             className={`px-5 py-2 text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 ${
               isSignedIn
                 ? 'bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50'

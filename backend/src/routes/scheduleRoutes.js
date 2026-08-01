@@ -8,7 +8,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { parseScheduleCSV, validateSchedules } from '../services/scheduleParserService.js';
 import { calculateEstimatedSalary } from '../services/estimatedSalaryService.js';
 import { generateICalContent } from '../services/icalService.js';
-import { syncSchedulesToGoogleCalendar } from '../services/googleCalendarService.js';
+import { syncSchedulesToGoogleCalendar, clearGoogleCalendarSchedules } from '../services/googleCalendarService.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -131,6 +131,27 @@ router.post('/sync-google-calendar', async (req, res, next) => {
       success: true,
       data: result,
       message: `Successfully ${messageParts.join(', ')} in Google Calendar!`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/schedules/clear-google-calendar - Clear Google Calendar events in date range
+router.post('/clear-google-calendar', async (req, res, next) => {
+  try {
+    const { startDate, endDate, employeeName } = req.body;
+
+    if (!startDate || !endDate) {
+      throw new AppError('Start date and end date are required', 400);
+    }
+
+    const result = await clearGoogleCalendarSchedules(startDate, endDate, employeeName);
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Successfully cleared ${result.clearedCount} shift(s) from Google Calendar!`
     });
   } catch (error) {
     next(error);

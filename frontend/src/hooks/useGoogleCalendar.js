@@ -84,6 +84,12 @@ export function useGoogleCalendar() {
     return parseInt(h || 0) * 60 + parseInt(m || 0);
   };
 
+  const getManilaDateStr = (dateInput) => {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Manila' });
+  };
+
   const syncShiftsWithGuests = useCallback(async (schedules, emailMap, onProgress) => {
     const token = accessTokenRef.current;
     if (!token) throw new Error('Not connected to Google. Please sign in first.');
@@ -92,13 +98,65 @@ export function useGoogleCalendar() {
     let updated = 0;
     let failed = 0;
 
+    // Determine min/max date from schedules array
+    const validDates = schedules.map(s => new Date(s.date)).filter(d => !isNaN(d.getTime()));
+    if (validDates.length === 0) return { synced, updated, failed };
+
+    const minDateObj = new Date(Math.min(...validDates));
+    const maxDateObj = new Date(Math.max(...validDates));
+    const timeMin = minDateObj.toISOString();
+    maxDateObj.setUTCHours(23, 59, 59, 999);
+    const timeMax = maxDateObj.toISOString();
+
+    // Fetch existing Google Calendar events in date range
+    let googleEvents = [];
+    try {
+      const listUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&maxResults=2500&singleEvents=true`;
+      const listRes = await fetch(listUrl, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        googleEvents = listData.items || [];
+      }
+    } catch (err) {
+      console.warn('Could not fetch existing Google Calendar events:', err);
+    }
+
+    const claimedEventIds = new Set();
+    const activeEventIds = new Set();
+
+    const findMatchingEvent = (sched) => {
+      if (sched.googleEventId) {
+        const match = googleEvents.find(e => e.id === sched.googleEventId && !claimedEventIds.has(e.id));
+        if (match) return match;
+      }
+      const targetEmp = (sched.employeeName || '').trim().toLowerCase();
+      const targetDateStr = getManilaDateStr(sched.date);
+
+      return googleEvents.find(gEvent => {
+        if (claimedEventIds.has(gEvent.id)) return false;
+        const summary = (gEvent.summary || '').toLowerCase();
+        const description = (gEvent.description || '').toLowerCase();
+        const isShift = summary.startsWith('shift:') || description.includes('staff:');
+        if (!isShift) return false;
+
+        const empMatches = summary.includes(targetEmp) || description.includes(targetEmp);
+        if (!empMatches) return false;
+
+        const gStart = gEvent.start?.dateTime || gEvent.start?.date || '';
+        if (!gStart) return false;
+
+        return getManilaDateStr(gStart) === targetDateStr;
+      });
+    };
+
     for (const sched of schedules) {
       if (sched.isOff) continue;
 
       const startDateTime = parseTime(sched.date, sched.scheduledStartTime);
       let endDateTime = parseTime(sched.date, sched.scheduledEndTime);
 
-      // Overnight shift: end time is earlier in the day than start (e.g. 1AM < 4PM)
       if (startDateTime && endDateTime && toMinutes(endDateTime) <= toMinutes(startDateTime)) {
         const nextDay = new Date(sched.date);
         nextDay.setUTCDate(nextDay.getUTCDate() + 1);
@@ -122,11 +180,12 @@ export function useGoogleCalendar() {
       };
 
       try {
+        const existing = findMatchingEvent(sched);
         let url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events`;
         let method = 'POST';
 
-        if (sched.googleEventId) {
-          url += `/${sched.googleEventId}?sendUpdates=all`;
+        if (existing) {
+          url += `/${existing.id}?sendUpdates=all`;
           method = 'PUT';
         } else {
           url += '?sendUpdates=all';
@@ -142,7 +201,6 @@ export function useGoogleCalendar() {
         });
 
         if (res.status === 401) {
-          // Token expired - reconnect
           accessTokenRef.current = null;
           setIsSignedIn(false);
           throw new Error('Google session expired. Please sign in again and retry.');
@@ -156,24 +214,32 @@ export function useGoogleCalendar() {
         }
 
         const created = await res.json();
+        const eventId = created.id || existing?.id;
+        if (eventId) {
+          claimedEventIds.add(eventId);
+          activeEventIds.add(eventId);
+        }
 
-        // Save googleEventId back to our backend
-        if (!sched.googleEventId && created.id) {
+        if (!existing) {
+          synced++;
+        } else {
+          updated++;
+        }
+
+        // Save googleEventId back to backend
+        if (eventId && sched.googleEventId !== eventId) {
           try {
             await fetch(`${import.meta.env.VITE_API_URL}/schedules/${sched._id}`, {
-              method: 'PATCH',
+              method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ googleEventId: created.id })
+              body: JSON.stringify({ googleEventId: eventId })
             });
           } catch (e) {
-            // Non-critical - event still created
+            // Non-critical
           }
-          synced++;
-        } else {
-          updated++;
         }
 
         if (onProgress) onProgress(synced + updated, schedules.length);
@@ -184,7 +250,80 @@ export function useGoogleCalendar() {
       }
     }
 
+    // Clean up any remaining duplicate events in Google Calendar
+    for (const gEvent of googleEvents) {
+      if (activeEventIds.has(gEvent.id)) continue;
+      const summary = (gEvent.summary || '').toLowerCase();
+      const description = (gEvent.description || '').toLowerCase();
+      const isShift = summary.startsWith('shift:') || description.includes('staff:');
+      if (!isShift) continue;
+
+      try {
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events/${gEvent.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (e) {
+        // Ignore
+      }
+    }
+
     return { synced, updated, failed };
+  }, []);
+
+  const clearGoogleCalendarShifts = useCallback(async (startDate, endDate, employeeNameFilter = '') => {
+    const token = accessTokenRef.current;
+    if (!token) throw new Error('Not connected to Google. Please sign in first.');
+
+    const timeMin = new Date(startDate).toISOString();
+    const timeMaxObj = new Date(endDate);
+    timeMaxObj.setUTCHours(23, 59, 59, 999);
+    const timeMax = timeMaxObj.toISOString();
+
+    let url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&maxResults=2500&singleEvents=true`;
+    
+    const listRes = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!listRes.ok) {
+      throw new Error('Failed to list Google Calendar events.');
+    }
+
+    const data = await listRes.json();
+    const googleEvents = data.items || [];
+    let clearedCount = 0;
+
+    for (const gEvent of googleEvents) {
+      const summary = gEvent.summary || '';
+      const description = gEvent.description || '';
+      const isShiftEvent = summary.startsWith('Shift:') || description.includes('Staff:');
+
+      if (!isShiftEvent) continue;
+
+      if (employeeNameFilter && employeeNameFilter.trim() !== '') {
+        const filterName = employeeNameFilter.trim().toLowerCase();
+        const matchesSummary = summary.toLowerCase().includes(filterName);
+        const matchesDesc = description.toLowerCase().includes(filterName);
+        if (!matchesSummary && !matchesDesc) {
+          continue;
+        }
+      }
+
+      try {
+        const delRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events/${gEvent.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (delRes.ok || delRes.status === 404 || delRes.status === 410) {
+          clearedCount++;
+        }
+      } catch (err) {
+        console.warn(`Failed to delete event ${gEvent.id}:`, err);
+      }
+    }
+
+    return { clearedCount };
   }, []);
 
   return {
@@ -192,6 +331,7 @@ export function useGoogleCalendar() {
     isConnecting,
     connect,
     disconnect,
-    syncShiftsWithGuests
+    syncShiftsWithGuests,
+    clearGoogleCalendarShifts
   };
 }
