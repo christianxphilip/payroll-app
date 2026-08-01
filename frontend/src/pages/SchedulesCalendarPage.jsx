@@ -5,6 +5,7 @@ import Modal from '../components/Modal';
 import ExportICalModal from '../components/ExportICalModal';
 import { useUndo } from '../hooks/useUndo';
 import UndoToast from '../components/UndoToast';
+import GoogleCalendarScheduleView from '../components/GoogleCalendarScheduleView';
 
 const formatMoney = (amount) => {
     return new Intl.NumberFormat('en-PH', {
@@ -79,6 +80,43 @@ const SchedulesCalendarPage = () => {
     const [isShiftTargetsModalOpen, setIsShiftTargetsModalOpen] = useState(false);
     const [showAvailability, setShowAvailability] = useState(false);
     const [editingAllocations, setEditingAllocations] = useState({}); // { "Monday_shiftId": count }
+    const [calendarViewMode, setCalendarViewMode] = useState(() => {
+        return typeof window !== 'undefined' && window.innerWidth < 768 ? 'agenda' : 'grid';
+    });
+
+    const handleEditScheduleFromAgenda = (schedule) => {
+        const employee = employees.find(e => e.employeeName === schedule.employeeName) || { employeeName: schedule.employeeName };
+        const date = new Date(schedule.date);
+        setSelectedCell({ employee, date, existing: schedule, allSchedules: [schedule] });
+
+        const validAssignmentType = assignmentTypes.find(a => a.value === schedule.assignmentType)
+            ? schedule.assignmentType
+            : (assignmentTypes.length > 0 ? assignmentTypes[0].value : '');
+
+        setFormData({
+            scheduledStartTime: schedule.scheduledStartTime || '',
+            scheduledEndTime: schedule.scheduledEndTime || '',
+            scheduledDuration: schedule.scheduledDuration || '',
+            assignmentType: validAssignmentType,
+            notes: schedule.notes || ''
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleAddScheduleFromAgenda = (date, defaultEmployeeName = '') => {
+        const employee = defaultEmployeeName
+            ? (employees.find(e => e.employeeName === defaultEmployeeName) || employees[0] || { employeeName: defaultEmployeeName })
+            : (employees[0] || { employeeName: '' });
+        setSelectedCell({ employee, date, existing: null, allSchedules: [] });
+        setFormData({
+            scheduledStartTime: '',
+            scheduledEndTime: '',
+            scheduledDuration: '',
+            assignmentType: assignmentTypes.length > 0 ? assignmentTypes[0].value : '',
+            notes: ''
+        });
+        setIsModalOpen(true);
+    };
     
     // Helper to determine if a date is a weekend (Fri-Sun) or weekday (Mon-Thu)
     const isWeekendDay = (date) => {
@@ -1216,403 +1254,451 @@ const SchedulesCalendarPage = () => {
                 </div>
             )}
 
-            {/* Date Range Navigation */}
-            <div className="p-4 border-b">
-                <h2 className="text-lg font-semibold text-gray-800 mb-3">{getWeekLabel()}</h2>
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium text-gray-700">Start Date:</label>
-                        <input
-                            type="date"
-                            value={dateRange.startDate || ''}
-                            onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
-                            className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
-                        />
-                        <label className="text-sm font-medium text-gray-700">End Date:</label>
-                        <input
-                            type="date"
-                            value={dateRange.endDate || ''}
-                            onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
-                            className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
-                        />
-                        <button
-                            onClick={() => setShowAvailability(!showAvailability)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium ${showAvailability
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            {showAvailability ? 'Hide Availability' : 'Show Availability'}
-                        </button>
-                        <button
-                            onClick={() => setIsShiftTargetsModalOpen(true)}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700"
-                        >
-                            Shift Targets
-                        </button>
-                        <button
-                            onClick={() => {
-                                const scrollPosition = window.scrollY || document.documentElement.scrollTop;
-                                sessionStorage.setItem('scheduleScrollPosition', scrollPosition.toString());
-                                setSimplifyView(!simplifyView);
-                            }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium ${simplifyView
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            {simplifyView ? '✓ Simplify' : 'Simplify'}
-                        </button>
-                        {user?.role === 'admin' && (
-                            <button
-                                onClick={handleComputeEstimatedSalary}
-                                disabled={loadingEstimatedSalary}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                            >
-                                {loadingEstimatedSalary ? 'Computing...' : 'Compute Estimated Salary'}
-                            </button>
-                        )}
-                        <button
-                            onClick={() => setIsExportICalModalOpen(true)}
-                            className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-1.5"
-                        >
-                            📅 Export to Google Calendar (.ics)
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={navigateToPreviousWeek}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
-                        >
-                            Previous Week
-                        </button>
-                        <button
-                            onClick={resetToCurrentWeek}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
-                        >
-                            Current Week
-                        </button>
-                        <button
-                            onClick={navigateToNextWeek}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
-                        >
-                            Next Week
-                        </button>
-                    </div>
-                </div>
-            </div>
+            {/* Main View rendering: Agenda (Google Calendar) vs Grid */}
+            {calendarViewMode === 'agenda' ? (
+                <GoogleCalendarScheduleView
+                    dateRangeDates={dateRangeDates}
+                    schedules={schedules}
+                    employees={filteredEmployees}
+                    assignmentTypes={assignmentTypes}
+                    operatingHours={operatingHours}
+                    holidays={holidays}
+                    getAssignmentColor={getAssignmentColor}
+                    onEditSchedule={handleEditScheduleFromAgenda}
+                    onAddSchedule={handleAddScheduleFromAgenda}
+                    onNavigatePrev={navigateToPreviousWeek}
+                    onNavigateNext={navigateToNextWeek}
+                    onNavigateToday={resetToCurrentWeek}
+                    getWeekLabel={getWeekLabel}
+                    dateRange={dateRange}
+                    user={user}
+                    onOpenExportICal={() => setIsExportICalModalOpen(true)}
+                    onOpenShiftTargets={() => setIsShiftTargetsModalOpen(true)}
+                    onComputeSalary={handleComputeEstimatedSalary}
+                    loadingEstimatedSalary={loadingEstimatedSalary}
+                    viewMode={calendarViewMode}
+                    onToggleViewMode={setCalendarViewMode}
+                />
+            ) : (
+                <>
+                    {/* Date Range Navigation */}
+                    <div className="p-4 border-b">
+                        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                            <h2 className="text-lg font-semibold text-gray-800">{getWeekLabel()}</h2>
 
-            {/* Assignment Legend */}
-            {assignmentTypes.length > 0 && (
-                <div className="flex items-center justify-between gap-2 p-4 border-b flex-wrap">
-                    <div className="flex items-center gap-2">
-                        <span className="font-semibold mr-2">ASSIGNMENT:</span>
-                        {assignmentTypes.map((type) => (
-                            <div
-                                key={type.value}
-                                className="px-3 py-1 text-xs font-semibold text-white rounded"
-                                style={{ backgroundColor: type.color }}
-                            >
-                                {type.label.toUpperCase()}
+                            {/* View Switcher Toggle */}
+                            <div className="bg-gray-100 p-1 rounded-lg inline-flex text-xs">
+                                <button
+                                    onClick={() => setCalendarViewMode('agenda')}
+                                    className={`px-3 py-1.5 font-medium rounded-md transition-colors ${calendarViewMode === 'agenda' ? 'bg-white text-blue-600 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'}`}
+                                >
+                                    📱 Schedule View
+                                </button>
+                                <button
+                                    onClick={() => setCalendarViewMode('grid')}
+                                    className={`px-3 py-1.5 font-medium rounded-md transition-colors ${calendarViewMode === 'grid' ? 'bg-white text-blue-600 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'}`}
+                                >
+                                    📊 Grid View
+                                </button>
                             </div>
-                        ))}
-                    </div>
-                    {copiedSchedule && (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm">
-                            <span>📋 Copied: {copiedSchedule.scheduledStartTime} - {copiedSchedule.scheduledEndTime}</span>
-                            <button
-                                onClick={() => setCopiedSchedule(null)}
-                                className="text-blue-600 hover:text-blue-800"
-                            >
-                                ✕
-                            </button>
                         </div>
-                    )}
-                </div>
-            )}
 
-            {/* Schedule Grid */}
-            <div className="overflow-x-auto">
-                <table className="min-w-full" style={{ borderCollapse: 'separate', borderSpacing: 0, border: '1px solid #d1d5db' }}>
-                    <thead>
-                        <tr className="bg-orange-100">
-                            <td className="px-2 py-3 font-semibold sticky left-0 bg-orange-100 z-30" colSpan="2" style={{ border: '1px solid #d1d5db', borderRight: '1px solid #d1d5db', backgroundColor: '#fed7aa' }}>
-                                OPERATING HOURS
-                            </td>
-                            {dateRangeDates.map((date, idx) => {
-                                const dateStr = date.toISOString().split('T')[0];
-                                const isEditing = editingHours?.date === dateStr;
-
-                                return (
-                                    <td
-                                        key={idx}
-                                        className="px-2 py-3 text-center text-sm font-semibold cursor-pointer hover:bg-orange-200"
-                                        style={{ border: '1px solid #d1d5db' }}
-                                        onClick={() => !isEditing && handleOperatingHoursClick(date)}
-                                    >
-                                        {isEditing ? (
-                                            <div className="flex items-center gap-1">
-                                                <textarea
-                                                    value={editingHours.value}
-                                                    onChange={(e) => setEditingHours({ ...editingHours, value: e.target.value })}
-                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                                                    placeholder="e.g. 4PM - 2AM"
-                                                    rows={2}
-                                                    autoFocus
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                                            e.preventDefault();
-                                                            handleOperatingHoursSave();
-                                                        }
-                                                        if (e.key === 'Escape') handleOperatingHoursCancel();
-                                                    }}
-                                                />
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleOperatingHoursSave();
-                                                    }}
-                                                    className="px-2 py-1 bg-green-500 text-white rounded text-xs"
-                                                >
-                                                    ✓
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleOperatingHoursCancel();
-                                                    }}
-                                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div style={{ whiteSpace: 'pre-line' }}>
-                                                {getDefaultOperatingHours(date)}
-                                            </div>
-                                        )}
-                                    </td>
-                                );
-                            })}
-                        </tr>
-                        <tr className="bg-blue-50">
-                            <td className="px-2 py-3 font-semibold sticky left-0 bg-blue-50 z-30" colSpan="2" style={{ border: '1px solid #d1d5db', borderRight: '1px solid #d1d5db', backgroundColor: '#eff6ff' }}>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-blue-900 tracking-wider font-bold">SHIFT TARGETS</span>
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <label className="text-sm font-medium text-gray-700">Start Date:</label>
+                                <input
+                                    type="date"
+                                    value={dateRange.startDate || ''}
+                                    onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
+                                    className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
+                                />
+                                <label className="text-sm font-medium text-gray-700">End Date:</label>
+                                <input
+                                    type="date"
+                                    value={dateRange.endDate || ''}
+                                    onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
+                                    className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
+                                />
+                                <button
+                                    onClick={() => setShowAvailability(!showAvailability)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium ${showAvailability
+                                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    {showAvailability ? 'Hide Availability' : 'Show Availability'}
+                                </button>
+                                <button
+                                    onClick={() => setIsShiftTargetsModalOpen(true)}
+                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700"
+                                >
+                                    Shift Targets
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+                                        sessionStorage.setItem('scheduleScrollPosition', scrollPosition.toString());
+                                        setSimplifyView(!simplifyView);
+                                    }}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium ${simplifyView
+                                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    {simplifyView ? '✓ Simplify' : 'Simplify'}
+                                </button>
+                                {user?.role === 'admin' && (
                                     <button
-                                        onClick={() => setIsShiftTargetsModalOpen(true)}
-                                        className="text-blue-600 hover:text-blue-800 text-[10px] underline ml-2 font-medium"
-                                        title="Configure targets"
+                                        onClick={handleComputeEstimatedSalary}
+                                        disabled={loadingEstimatedSalary}
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
                                     >
-                                        Edit
+                                        {loadingEstimatedSalary ? 'Computing...' : 'Compute Estimated Salary'}
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setIsExportICalModalOpen(true)}
+                                    className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-1.5"
+                                >
+                                    📅 Export to Google Calendar (.ics)
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={navigateToPreviousWeek}
+                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
+                                >
+                                    Previous Week
+                                </button>
+                                <button
+                                    onClick={resetToCurrentWeek}
+                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
+                                >
+                                    Current Week
+                                </button>
+                                <button
+                                    onClick={navigateToNextWeek}
+                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
+                                >
+                                    Next Week
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Assignment Legend */}
+                    {assignmentTypes.length > 0 && (
+                        <div className="flex items-center justify-between gap-2 p-4 border-b flex-wrap">
+                            <div className="flex items-center gap-2">
+                                <span className="font-semibold mr-2">ASSIGNMENT:</span>
+                                {assignmentTypes.map((type) => (
+                                    <div
+                                        key={type.value}
+                                        className="px-3 py-1 text-xs font-semibold text-white rounded"
+                                        style={{ backgroundColor: type.color }}
+                                    >
+                                        {type.label.toUpperCase()}
+                                    </div>
+                                ))}
+                            </div>
+                            {copiedSchedule && (
+                                <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm">
+                                    <span>📋 Copied: {copiedSchedule.scheduledStartTime} - {copiedSchedule.scheduledEndTime}</span>
+                                    <button
+                                        onClick={() => setCopiedSchedule(null)}
+                                        className="text-blue-600 hover:text-blue-800"
+                                    >
+                                        ✕
                                     </button>
                                 </div>
-                            </td>
-                            {dateRangeDates.map((date, idx) => {
-                                const stats = getShiftCoverageStats(date);
-                                
-                                if (!stats.hasTargets) {
-                                    return (
-                                        <td
-                                            key={idx}
-                                            className="px-2 py-2 text-center text-xs text-gray-500 bg-gray-50 font-medium"
-                                            style={{ border: '1px solid #d1d5db' }}
-                                        >
-                                            No targets set
-                                        </td>
-                                    );
-                                }
+                            )}
+                        </div>
+                    )}
 
-                                const isMet = stats.isMet;
-                                return (
-                                    <td
-                                        key={idx}
-                                        className={`px-2 py-2 text-center text-xs border ${
-                                            isMet
-                                                ? 'bg-green-50 text-green-800 border-green-200'
-                                                : 'bg-red-50 text-red-800 border-red-200'
-                                        }`}
-                                        style={{ border: '1px solid #d1d5db' }}
-                                    >
-                                        <div className="font-semibold mb-0.5 text-[10px]">
-                                            {isMet ? '✓ Targets Met' : '✗ Understaffed'}
-                                        </div>
-                                        <div className="text-[9px] space-y-0.5 max-h-[60px] overflow-y-auto">
-                                            {isMet ? (
-                                                <div className="text-green-600 text-[9px] italic">
-                                                    All shifts fully staffed
-                                                </div>
-                                            ) : (
-                                                stats.understaffedShifts.map((us, uIdx) => (
-                                                    <div key={uIdx} className="truncate font-medium text-left" title={`${us.name}: ${us.scheduled}/${us.required}`}>
-                                                        • {us.name}: <span className="text-red-600 font-bold">{us.scheduled}</span>/{us.required}
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
+                    {/* Schedule Grid */}
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full" style={{ borderCollapse: 'separate', borderSpacing: 0, border: '1px solid #d1d5db' }}>
+                            <thead>
+                                <tr className="bg-orange-100">
+                                    <td className="px-2 py-3 font-semibold sticky left-0 bg-orange-100 z-30" colSpan="2" style={{ border: '1px solid #d1d5db', borderRight: '1px solid #d1d5db', backgroundColor: '#fed7aa' }}>
+                                        OPERATING HOURS
                                     </td>
-                                );
-                            })}
-                        </tr>
-                        <tr className="bg-orange-500 text-white">
-                            <th className="px-2 py-3 text-center font-bold sticky left-0 bg-orange-500 z-30" style={{ border: '1px solid #d1d5db', borderRight: 'none', width: '60px', backgroundColor: '#f97316', boxShadow: '1px 0 0 0 #d1d5db' }}>
-                                #
-                            </th>
-                            <th className="px-2 py-3 text-left font-bold sticky left-0 bg-orange-500 z-30" style={{ left: '59px', border: '1px solid #d1d5db', borderLeft: 'none', minWidth: '180px', backgroundColor: '#f97316' }}>
-                                Employee
-                            </th>
-                            {dateRangeDates.map((date, idx) => {
-                                const holidayInfo = getHolidayInfo(date);
-                                return (
-                                    <th
-                                        key={idx}
-                                        className="px-2 py-3 text-center font-bold min-w-[120px]"
-                                        style={{
-                                            border: '1px solid #d1d5db',
-                                            borderLeft: idx === 0 ? 'none' : '1px solid #d1d5db'
-                                        }}
-                                    >
-                                        <div className="relative flex flex-col items-center justify-center">
-                                            <span>
-                                                {date.toLocaleDateString('en-US', { weekday: 'short' })} {date.getMonth() + 1}/{date.getDate()}
-                                            </span>
-                                            {holidayInfo && (
-                                                <div className="text-xs font-normal mt-1 text-white">
-                                                    {holidayInfo.name} - {(holidayInfo.type === 'REGULAR' || holidayInfo.type === 'Regular') ? 'Regular' : 'Special'}
-                                                </div>
-                                            )}
-                                            {getAvailabilityForDate(date).length > 0 && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleAvailabilityIconClick(date);
-                                                    }}
-                                                    className="absolute right-1 top-1 inline-flex items-center justify-center w-4 h-4 bg-white text-blue-600 rounded-full shadow-sm hover:bg-gray-50 transition-colors"
-                                                    title="View Availability"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                </button>
-                                            )}
-
-                                            {/* Shift Availability Display */}
-                                            {showAvailability && (
-                                                <div className="mt-1 space-y-0.5 w-full px-0.5">
-                                                    {shifts.map(shift => {
-                                                        const slots = getAvailableSlots(date, shift);
-                                                        if (!slots) return null;
-
-                                                        return (
-                                                            <div key={shift._id} className="text-[10px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded-full border border-red-100 flex justify-between items-center shadow-sm mx-auto max-w-[95%]">
-                                                                <span className="font-medium truncate mr-1 max-w-[70px]">{shift.name}</span>
-                                                                <span className="font-bold bg-red-200 text-red-800 px-1 rounded-full text-[9px]">{slots.available}</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </th>
-                                );
-                            })}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredEmployees.map((employee, empIdx) => {
-                            return (
-                                <tr key={employee._id} className="hover:bg-gray-50">
-                                    <td className="px-2 py-3 text-center sticky left-0 bg-white z-30" style={{ border: '1px solid #d1d5db', borderRight: 'none', width: '60px', backgroundColor: 'white', boxShadow: '1px 0 0 0 #d1d5db' }}>
-                                        {empIdx + 1}
-                                    </td>
-                                    <td className="px-2 py-3 text-left font-medium sticky bg-white z-30" style={{ left: '59px', border: '1px solid #d1d5db', borderLeft: 'none', minWidth: '180px', backgroundColor: 'white' }}>
-                                        <div>{employee.employeeName}</div>
-                                        {(employee.position || employee.employmentType) && (
-                                            <div className="text-xs text-gray-500 italic">
-                                                {[
-                                                    employee.position,
-                                                    employee.employmentType === 'FULL_TIME' ? 'Full Time' :
-                                                        employee.employmentType === 'PART_TIME' ? 'Part Time' :
-                                                            employee.employmentType === 'ON_CALL' ? 'On Call' :
-                                                                employee.employmentType
-                                                ].filter(Boolean).join(' - ')}
-                                            </div>
-                                        )}
-                                    </td>
-                                    {dateRangeDates.map((date, dateIdx) => {
-                                        const cellSchedules = getScheduleForCell(employee.employeeName, date);
-                                        const closed = isClosed(date);
-                                        const holidayColor = getHolidayColor(date);
-                                        const isDragOver = dragOverCell &&
-                                            dragOverCell.employee.employeeName === employee.employeeName &&
-                                            dragOverCell.date.toISOString().split('T')[0] === date.toISOString().split('T')[0];
-                                        const isDragging = draggedSchedule &&
-                                            draggedSchedule.employee.employeeName === employee.employeeName &&
-                                            draggedSchedule.date.toISOString().split('T')[0] === date.toISOString().split('T')[0];
-
-                                        // Determine background color
-                                        let bgColor = '';
-                                        if (closed) {
-                                            bgColor = 'bg-gray-200';
-                                        } else if (isDragOver) {
-                                            bgColor = 'bg-blue-200';
-                                        } else if (holidayColor) {
-                                            bgColor = '';
-                                        } else if (isDragging) {
-                                            bgColor = 'opacity-50';
-                                        }
+                                    {dateRangeDates.map((date, idx) => {
+                                        const dateStr = date.toISOString().split('T')[0];
+                                        const isEditing = editingHours?.date === dateStr;
 
                                         return (
                                             <td
-                                                key={dateIdx}
-                                                className={`px-2 py-3 text-center cursor-pointer align-middle ${bgColor} ${!closed && !isDragOver && !holidayColor && !isDragging ? 'hover:bg-blue-50' : ''} ${isDragOver ? 'border-2 border-blue-500' : ''}`}
-                                                style={{
-                                                    border: '1px solid #d1d5db',
-                                                    borderLeft: dateIdx === 0 ? 'none' : '1px solid #d1d5db',
-                                                    backgroundColor: holidayColor || (isDragOver ? '' : undefined)
-                                                }}
-                                                onClick={(e) => handleCellClick(employee, date, e)}
-                                                onContextMenu={(e) => handleCellRightClick(employee, date, e)}
-                                                onDragOver={(e) => handleDragOver(e, employee, date)}
-                                                onDragLeave={handleDragLeave}
-                                                onDrop={(e) => handleDrop(e, employee, date)}
+                                                key={idx}
+                                                className="px-2 py-3 text-center text-sm font-semibold cursor-pointer hover:bg-orange-200"
+                                                style={{ border: '1px solid #d1d5db' }}
+                                                onClick={() => !isEditing && handleOperatingHoursClick(date)}
                                             >
-                                                {cellSchedules.length > 0 ? (
-                                                    <div className="space-y-1">
-                                                        {cellSchedules.map((schedule, idx) => (
-                                                            schedule.isOff ? (
-                                                                <div key={idx} className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-sm font-semibold">
-                                                                    OFF
-                                                                </div>
-                                                            ) : (
-                                                                <div
-                                                                    key={idx}
-                                                                    className="px-2 py-1 rounded text-white text-sm font-semibold"
-                                                                    style={{ backgroundColor: getAssignmentColor(schedule.assignmentType) }}
-                                                                    draggable
-                                                                    onDragStart={(e) => handleDragStart(e, schedule, employee, date)}
-                                                                    onDragEnd={handleDragEnd}
-                                                                >
-                                                                    {schedule.scheduledStartTime} - {schedule.scheduledEndTime}
-                                                                    {schedule.notes && (
-                                                                        <div className="mt-1 italic" style={{ fontSize: '0.6rem', lineHeight: '1.2' }}>
-                                                                            {schedule.notes}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )
-                                                        ))}
+                                                {isEditing ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <textarea
+                                                            value={editingHours.value}
+                                                            onChange={(e) => setEditingHours({ ...editingHours, value: e.target.value })}
+                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                                            placeholder="e.g. 4PM - 2AM"
+                                                            rows={2}
+                                                            autoFocus
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                                    e.preventDefault();
+                                                                    handleOperatingHoursSave();
+                                                                }
+                                                                if (e.key === 'Escape') handleOperatingHoursCancel();
+                                                            }}
+                                                        />
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOperatingHoursSave();
+                                                            }}
+                                                            className="px-2 py-1 bg-green-500 text-white rounded text-xs"
+                                                        >
+                                                            ✓
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOperatingHoursCancel();
+                                                            }}
+                                                            className="px-2 py-1 bg-red-500 text-white rounded text-xs"
+                                                        >
+                                                            ✕
+                                                        </button>
                                                     </div>
-                                                ) : null}
+                                                ) : (
+                                                    <div style={{ whiteSpace: 'pre-line' }}>
+                                                        {getDefaultOperatingHours(date)}
+                                                    </div>
+                                                )}
                                             </td>
                                         );
                                     })}
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                                <tr className="bg-blue-50">
+                                    <td className="px-2 py-3 font-semibold sticky left-0 bg-blue-50 z-30" colSpan="2" style={{ border: '1px solid #d1d5db', borderRight: '1px solid #d1d5db', backgroundColor: '#eff6ff' }}>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-blue-900 tracking-wider font-bold">SHIFT TARGETS</span>
+                                            <button
+                                                onClick={() => setIsShiftTargetsModalOpen(true)}
+                                                className="text-blue-600 hover:text-blue-800 text-[10px] underline ml-2 font-medium"
+                                                title="Configure targets"
+                                            >
+                                                Edit
+                                            </button>
+                                        </div>
+                                    </td>
+                                    {dateRangeDates.map((date, idx) => {
+                                        const stats = getShiftCoverageStats(date);
+                                        
+                                        if (!stats.hasTargets) {
+                                            return (
+                                                <td
+                                                    key={idx}
+                                                    className="px-2 py-2 text-center text-xs text-gray-500 bg-gray-50 font-medium"
+                                                    style={{ border: '1px solid #d1d5db' }}
+                                                >
+                                                    No targets set
+                                                </td>
+                                            );
+                                        }
+
+                                        const isMet = stats.isMet;
+                                        return (
+                                            <td
+                                                key={idx}
+                                                className={`px-2 py-2 text-center text-xs border ${
+                                                    isMet
+                                                        ? 'bg-green-50 text-green-800 border-green-200'
+                                                        : 'bg-red-50 text-red-800 border-red-200'
+                                                }`}
+                                                style={{ border: '1px solid #d1d5db' }}
+                                            >
+                                                <div className="font-semibold mb-0.5 text-[10px]">
+                                                    {isMet ? '✓ Targets Met' : '✗ Understaffed'}
+                                                </div>
+                                                <div className="text-[9px] space-y-0.5 max-h-[60px] overflow-y-auto">
+                                                    {isMet ? (
+                                                        <div className="text-green-600 text-[9px] italic">
+                                                            All shifts fully staffed
+                                                        </div>
+                                                    ) : (
+                                                        stats.understaffedShifts.map((us, uIdx) => (
+                                                            <div key={uIdx} className="truncate font-medium text-left" title={`${us.name}: ${us.scheduled}/${us.required}`}>
+                                                                • {us.name}: <span className="text-red-600 font-bold">{us.scheduled}</span>/{us.required}
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                                <tr className="bg-orange-500 text-white">
+                                    <th className="px-2 py-3 text-center font-bold sticky left-0 bg-orange-500 z-30" style={{ border: '1px solid #d1d5db', borderRight: 'none', width: '60px', backgroundColor: '#f97316', boxShadow: '1px 0 0 0 #d1d5db' }}>
+                                        #
+                                    </th>
+                                    <th className="px-2 py-3 text-left font-bold sticky left-0 bg-orange-500 z-30" style={{ left: '59px', border: '1px solid #d1d5db', borderLeft: 'none', minWidth: '180px', backgroundColor: '#f97316' }}>
+                                        Employee
+                                    </th>
+                                    {dateRangeDates.map((date, idx) => {
+                                        const holidayInfo = getHolidayInfo(date);
+                                        return (
+                                            <th
+                                                key={idx}
+                                                className="px-2 py-3 text-center font-bold min-w-[120px]"
+                                                style={{
+                                                    border: '1px solid #d1d5db',
+                                                    borderLeft: idx === 0 ? 'none' : '1px solid #d1d5db'
+                                                }}
+                                            >
+                                                <div className="relative flex flex-col items-center justify-center">
+                                                    <span>
+                                                        {date.toLocaleDateString('en-US', { weekday: 'short' })} {date.getMonth() + 1}/{date.getDate()}
+                                                    </span>
+                                                    {holidayInfo && (
+                                                        <div className="text-xs font-normal mt-1 text-white">
+                                                            {holidayInfo.name} - {(holidayInfo.type === 'REGULAR' || holidayInfo.type === 'Regular') ? 'Regular' : 'Special'}
+                                                        </div>
+                                                    )}
+                                                    {getAvailabilityForDate(date).length > 0 && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleAvailabilityIconClick(date);
+                                                            }}
+                                                            className="absolute right-1 top-1 inline-flex items-center justify-center w-4 h-4 bg-white text-blue-600 rounded-full shadow-sm hover:bg-gray-50 transition-colors"
+                                                            title="View Availability"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
+
+                                                    {/* Shift Availability Display */}
+                                                    {showAvailability && (
+                                                        <div className="mt-1 space-y-0.5 w-full px-0.5">
+                                                            {shifts.map(shift => {
+                                                                const slots = getAvailableSlots(date, shift);
+                                                                if (!slots) return null;
+
+                                                                return (
+                                                                    <div key={shift._id} className="text-[10px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded-full border border-red-100 flex justify-between items-center shadow-sm mx-auto max-w-[95%]">
+                                                                        <span className="font-medium truncate mr-1 max-w-[70px]">{shift.name}</span>
+                                                                        <span className="font-bold bg-red-200 text-red-800 px-1 rounded-full text-[9px]">{slots.available}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </th>
+                                        );
+                                    })}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredEmployees.map((employee, empIdx) => {
+                                    return (
+                                        <tr key={employee._id} className="hover:bg-gray-50">
+                                            <td className="px-2 py-3 text-center sticky left-0 bg-white z-30" style={{ border: '1px solid #d1d5db', borderRight: 'none', width: '60px', backgroundColor: 'white', boxShadow: '1px 0 0 0 #d1d5db' }}>
+                                                {empIdx + 1}
+                                            </td>
+                                            <td className="px-2 py-3 text-left font-medium sticky bg-white z-30" style={{ left: '59px', border: '1px solid #d1d5db', borderLeft: 'none', minWidth: '180px', backgroundColor: 'white' }}>
+                                                <div>{employee.employeeName}</div>
+                                                {(employee.position || employee.employmentType) && (
+                                                    <div className="text-xs text-gray-500 italic">
+                                                        {[
+                                                            employee.position,
+                                                            employee.employmentType === 'FULL_TIME' ? 'Full Time' :
+                                                                employee.employmentType === 'PART_TIME' ? 'Part Time' :
+                                                                    employee.employmentType === 'ON_CALL' ? 'On Call' :
+                                                                        employee.employmentType
+                                                        ].filter(Boolean).join(' - ')}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            {dateRangeDates.map((date, dateIdx) => {
+                                                const cellSchedules = getScheduleForCell(employee.employeeName, date);
+                                                const closed = isClosed(date);
+                                                const holidayColor = getHolidayColor(date);
+                                                const isDragOver = dragOverCell &&
+                                                    dragOverCell.employee.employeeName === employee.employeeName &&
+                                                    dragOverCell.date.toISOString().split('T')[0] === date.toISOString().split('T')[0];
+                                                const isDragging = draggedSchedule &&
+                                                    draggedSchedule.employee.employeeName === employee.employeeName &&
+                                                    draggedSchedule.date.toISOString().split('T')[0] === date.toISOString().split('T')[0];
+
+                                                // Determine background color
+                                                let bgColor = '';
+                                                if (closed) {
+                                                    bgColor = 'bg-gray-200';
+                                                } else if (isDragOver) {
+                                                    bgColor = 'bg-blue-200';
+                                                } else if (holidayColor) {
+                                                    bgColor = '';
+                                                } else if (isDragging) {
+                                                    bgColor = 'opacity-50';
+                                                }
+
+                                                return (
+                                                    <td
+                                                        key={dateIdx}
+                                                        className={`px-2 py-3 text-center cursor-pointer align-middle ${bgColor} ${!closed && !isDragOver && !holidayColor && !isDragging ? 'hover:bg-blue-50' : ''} ${isDragOver ? 'border-2 border-blue-500' : ''}`}
+                                                        style={{
+                                                            border: '1px solid #d1d5db',
+                                                            borderLeft: dateIdx === 0 ? 'none' : '1px solid #d1d5db',
+                                                            backgroundColor: holidayColor || (isDragOver ? '' : undefined)
+                                                        }}
+                                                        onClick={(e) => handleCellClick(employee, date, e)}
+                                                        onContextMenu={(e) => handleCellRightClick(employee, date, e)}
+                                                        onDragOver={(e) => handleDragOver(e, employee, date)}
+                                                        onDragLeave={handleDragLeave}
+                                                        onDrop={(e) => handleDrop(e, employee, date)}
+                                                    >
+                                                        {cellSchedules.length > 0 ? (
+                                                            <div className="space-y-1">
+                                                                {cellSchedules.map((schedule, idx) => (
+                                                                    schedule.isOff ? (
+                                                                        <div key={idx} className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-sm font-semibold">
+                                                                            OFF
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div
+                                                                            key={idx}
+                                                                            className="px-2 py-1 rounded text-white text-sm font-semibold"
+                                                                            style={{ backgroundColor: getAssignmentColor(schedule.assignmentType) }}
+                                                                            draggable
+                                                                            onDragStart={(e) => handleDragStart(e, schedule, employee, date)}
+                                                                            onDragEnd={handleDragEnd}
+                                                                        >
+                                                                            {schedule.scheduledStartTime} - {schedule.scheduledEndTime}
+                                                                            {schedule.notes && (
+                                                                                <div className="mt-1 italic" style={{ fontSize: '0.6rem', lineHeight: '1.2' }}>
+                                                                                    {schedule.notes}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )
+                                                                ))}
+                                                            </div>
+                                                        ) : null}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            )}
 
             {/* Context Menu */}
             {contextMenu && (
