@@ -122,10 +122,15 @@ router.post('/sync-google-calendar', async (req, res, next) => {
 
     const result = await syncSchedulesToGoogleCalendar(startDate, endDate, employeeName);
 
+    const messageParts = [`Synced ${result.syncedCount} new shifts`, `updated ${result.updatedCount} existing shifts`];
+    if (result.deletedCount > 0) {
+      messageParts.push(`removed ${result.deletedCount} outdated shift(s)`);
+    }
+
     res.json({
       success: true,
       data: result,
-      message: `Successfully synced ${result.syncedCount} new shifts and updated ${result.updatedCount} existing shifts in Google Calendar!`
+      message: `Successfully ${messageParts.join(', ')} in Google Calendar!`
     });
   } catch (error) {
     next(error);

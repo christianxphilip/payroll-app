@@ -94,6 +94,7 @@ const SchedulesCalendarPage = () => {
             : (assignmentTypes.length > 0 ? assignmentTypes[0].value : '');
 
         setFormData({
+            employeeName: schedule.employeeName || '',
             scheduledStartTime: schedule.scheduledStartTime || '',
             scheduledEndTime: schedule.scheduledEndTime || '',
             scheduledDuration: schedule.scheduledDuration || '',
@@ -109,6 +110,7 @@ const SchedulesCalendarPage = () => {
             : (employees[0] || { employeeName: '' });
         setSelectedCell({ employee, date, existing: null, allSchedules: [] });
         setFormData({
+            employeeName: employee.employeeName || '',
             scheduledStartTime: '',
             scheduledEndTime: '',
             scheduledDuration: '',
@@ -180,6 +182,7 @@ const SchedulesCalendarPage = () => {
 
     // Form state
     const [formData, setFormData] = useState({
+        employeeName: '',
         scheduledStartTime: '',
         scheduledEndTime: '',
         scheduledDuration: '',
@@ -622,6 +625,7 @@ const SchedulesCalendarPage = () => {
                 : (assignmentTypes.length > 0 ? assignmentTypes[0].value : '');
 
             setFormData({
+                employeeName: existing.employeeName || employee.employeeName || '',
                 scheduledStartTime: existing.scheduledStartTime || '',
                 scheduledEndTime: existing.scheduledEndTime || '',
                 scheduledDuration: existing.scheduledDuration || '',
@@ -630,6 +634,7 @@ const SchedulesCalendarPage = () => {
             });
         } else {
             setFormData({
+                employeeName: employee.employeeName || '',
                 scheduledStartTime: '',
                 scheduledEndTime: '',
                 scheduledDuration: '',
@@ -677,6 +682,7 @@ const SchedulesCalendarPage = () => {
 
             setSelectedCell({ employee, date, existing: null, allSchedules: existingSchedules });
             setFormData({
+                employeeName: employee.employeeName || '',
                 scheduledStartTime: '',
                 scheduledEndTime: '',
                 scheduledDuration: '',
@@ -745,7 +751,7 @@ const SchedulesCalendarPage = () => {
             }
 
             const submitData = {
-                employeeName: selectedCell.employee.employeeName,
+                employeeName: formData.employeeName || selectedCell.employee.employeeName,
                 date: selectedCell.date.toISOString().split('T')[0],
                 scheduledStartTime: formData.scheduledStartTime,
                 scheduledEndTime: formData.scheduledEndTime,
@@ -1893,9 +1899,26 @@ const SchedulesCalendarPage = () => {
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                title={selectedCell ? `Schedule for ${selectedCell.employee.employeeName} - ${selectedCell.date.toLocaleDateString()}` : 'Schedule'}
+                title={selectedCell ? `Schedule for ${formData.employeeName || selectedCell.employee.employeeName} - ${selectedCell.date.toLocaleDateString()}` : 'Schedule'}
             >
                 <form onSubmit={handleSubmit}>
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1 font-semibold">Employee</label>
+                        <select
+                            value={formData.employeeName || ''}
+                            onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-blue-500"
+                            required
+                        >
+                            <option value="">Select Employee</option>
+                            {employees.map((emp) => (
+                                <option key={emp._id} value={emp.employeeName}>
+                                    {emp.employeeName} {[emp.position, emp.employmentType === 'FULL_TIME' ? 'Full Time' : emp.employmentType === 'PART_TIME' ? 'Part Time' : emp.employmentType].filter(Boolean).join(' - ')}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Shifts Guide</label>
                         <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4">

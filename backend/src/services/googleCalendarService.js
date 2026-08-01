@@ -62,9 +62,89 @@ export const syncSchedulesToGoogleCalendar = async (startDate, endDate, employee
 
   let syncedCount = 0;
   let updatedCount = 0;
+  let deletedCount = 0;
 
+  // 1. Fetch all existing events in Google Calendar for the target date range
+  const timeMin = new Date(startDate).toISOString();
+  const timeMaxObj = new Date(endDate);
+  timeMaxObj.setUTCHours(23, 59, 59, 999);
+  const timeMax = timeMaxObj.toISOString();
+
+  let googleEvents = [];
+  try {
+    const existingEventsRes = await calendar.events.list({
+      calendarId: CALENDAR_ID,
+      timeMin,
+      timeMax,
+      singleEvents: true,
+      maxResults: 2500
+    });
+    googleEvents = existingEventsRes.data.items || [];
+  } catch (err) {
+    console.error('Error fetching Google Calendar events:', err.message);
+  }
+
+  // Set of Google event IDs that are matched to active Payroll schedules
+  const activeGoogleEventIds = new Set();
+  // Set of Google event IDs already claimed by a schedule in this sync run
+  const claimedGoogleEventIds = new Set();
+
+  const getManilaDateStr = (dateInput) => {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Manila' });
+  };
+
+  // Helper to match a Google Calendar event to a schedule
+  const findMatchingGoogleEvent = (sched, startDateTime) => {
+    // 1. Check direct googleEventId match
+    if (sched.googleEventId) {
+      const match = googleEvents.find(e => e.id === sched.googleEventId && !claimedGoogleEventIds.has(e.id));
+      if (match) return match;
+    }
+
+    // 2. Fallback: Find existing event by employee name and shift date in Manila time
+    const targetEmp = sched.employeeName.trim().toLowerCase();
+    const targetDateStr = getManilaDateStr(sched.date);
+
+    return googleEvents.find(gEvent => {
+      if (claimedGoogleEventIds.has(gEvent.id)) return false;
+
+      const summary = (gEvent.summary || '').toLowerCase();
+      const description = (gEvent.description || '').toLowerCase();
+      const isShift = summary.startsWith('shift:') || description.includes('staff:');
+      if (!isShift) return false;
+
+      const empMatches = summary.includes(targetEmp) || description.includes(targetEmp);
+      if (!empMatches) return false;
+
+      const gStart = gEvent.start?.dateTime || gEvent.start?.date || '';
+      if (!gStart) return false;
+
+      const gDateStr = getManilaDateStr(gStart);
+      return gDateStr === targetDateStr;
+    });
+  };
+
+  // 2. Process all Payroll schedules
   for (const sched of schedules) {
-    if (sched.isOff) continue;
+    // If schedule is marked as OFF: remove from Google Calendar if event exists
+    if (sched.isOff) {
+      if (sched.googleEventId) {
+        try {
+          await calendar.events.delete({
+            calendarId: CALENDAR_ID,
+            eventId: sched.googleEventId
+          });
+          deletedCount++;
+        } catch (err) {
+          // Ignore if event was already deleted
+        }
+        sched.googleEventId = null;
+        await sched.save();
+      }
+      continue;
+    }
 
     const parseTime = (dateStr, timeStr) => {
       if (!timeStr) return null;
@@ -101,20 +181,31 @@ export const syncSchedulesToGoogleCalendar = async (startDate, endDate, employee
       end: { dateTime: endDateTime, timeZone: 'Asia/Manila' }
     };
 
-    if (sched.googleEventId) {
+    // Look for existing Google event (by ID or employee+date match)
+    const existingEvent = findMatchingGoogleEvent(sched, startDateTime);
+
+    if (existingEvent) {
       try {
         await calendar.events.update({
           calendarId: CALENDAR_ID,
-          eventId: sched.googleEventId,
+          eventId: existingEvent.id,
           requestBody: eventResource
         });
+        activeGoogleEventIds.add(existingEvent.id);
+        claimedGoogleEventIds.add(existingEvent.id);
+
+        if (sched.googleEventId !== existingEvent.id) {
+          sched.googleEventId = existingEvent.id;
+          await sched.save();
+        }
         updatedCount++;
         continue;
       } catch (err) {
-        console.log('Existing Google event not found, creating new one...');
+        console.log(`Could not update existing Google event ${existingEvent.id}, creating new one...`);
       }
     }
 
+    // If no existing event found, insert a new one
     try {
       const createdEvent = await calendar.events.insert({
         calendarId: CALENDAR_ID,
@@ -123,6 +214,8 @@ export const syncSchedulesToGoogleCalendar = async (startDate, endDate, employee
 
       sched.googleEventId = createdEvent.data.id;
       await sched.save();
+      activeGoogleEventIds.add(createdEvent.data.id);
+      claimedGoogleEventIds.add(createdEvent.data.id);
       syncedCount++;
     } catch (err) {
       console.error(`Error inserting schedule for ${sched.employeeName}:`, err.message);
@@ -130,5 +223,45 @@ export const syncSchedulesToGoogleCalendar = async (startDate, endDate, employee
     }
   }
 
-  return { syncedCount, updatedCount, totalProcessed: schedules.length };
+  // 3. Source of Truth Cleanup & Deduplication
+  // Iterate through all Google Calendar events in date range and delete duplicates / orphaned events
+  for (const gEvent of googleEvents) {
+    if (activeGoogleEventIds.has(gEvent.id)) {
+      continue;
+    }
+
+    const summary = gEvent.summary || '';
+    const description = gEvent.description || '';
+    const isShiftEvent = summary.startsWith('Shift:') || description.includes('Staff:');
+
+    if (!isShiftEvent) continue;
+
+    // If filtering by employee name, verify event belongs to filtered employee
+    if (employeeNameFilter && employeeNameFilter.trim() !== '') {
+      const filterName = employeeNameFilter.trim().toLowerCase();
+      const matchesSummary = summary.toLowerCase().includes(filterName);
+      const matchesDesc = description.toLowerCase().includes(filterName);
+      if (!matchesSummary && !matchesDesc) {
+        continue;
+      }
+    }
+
+    // Delete duplicate or orphaned event from Google Calendar
+    try {
+      await calendar.events.delete({
+        calendarId: CALENDAR_ID,
+        eventId: gEvent.id
+      });
+      deletedCount++;
+
+      await Schedule.updateMany(
+        { googleEventId: gEvent.id },
+        { $unset: { googleEventId: 1 } }
+      );
+    } catch (delErr) {
+      console.warn(`Could not delete orphan/duplicate Google event ${gEvent.id}:`, delErr.message);
+    }
+  }
+
+  return { syncedCount, updatedCount, deletedCount, totalProcessed: schedules.length };
 };
