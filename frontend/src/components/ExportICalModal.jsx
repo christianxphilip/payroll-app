@@ -210,6 +210,21 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
           )}
         </div>
 
+        {/* Active operation loading banner */}
+        {(isClearing || isSyncing || isExporting) && (
+          <div className="p-3 bg-blue-50 border border-blue-300 text-blue-800 rounded-lg text-sm flex items-center gap-3 animate-pulse">
+            <svg className="animate-spin h-5 w-5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="font-semibold">
+              {isClearing && '⏳ Clearing schedules from Google Calendar... Please wait.'}
+              {isSyncing && '⏳ Syncing schedules to Google Calendar... Please wait.'}
+              {isExporting && '⏳ Generating .ics calendar export file...'}
+            </span>
+          </div>
+        )}
+
         {/* Error & Success messages */}
         {error && (
           <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm whitespace-pre-line">
@@ -275,11 +290,12 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
         </div>
 
         {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800 flex-wrap">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            disabled={isClearing || isSyncing || isExporting}
+            className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
           >
             Close
           </button>
@@ -290,7 +306,17 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
             disabled={isClearing || isSyncing || isExporting}
             className="px-4 py-2 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            {isClearing ? 'Clearing...' : '🗑️ Clear Google Sched'}
+            {isClearing ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Clearing...
+              </>
+            ) : (
+              '🗑️ Clear Google Sched'
+            )}
           </button>
 
           <button
