@@ -1,5 +1,9 @@
 import express from 'express';
 import Employee from '../models/Employee.js';
+import TimesheetLog from '../models/TimesheetLog.js';
+import PayRunEmployee from '../models/PayRunEmployee.js';
+import Schedule from '../models/Schedule.js';
+import Availability from '../models/Availability.js';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -110,8 +114,11 @@ router.put('/:name', async (req, res, next) => {
       updateData.employeeName = updateData.employeeName.trim();
     }
     
+    const oldName = name.trim();
+    const newName = updateData.employeeName ? updateData.employeeName.trim() : null;
+
     const employee = await Employee.findOneAndUpdate(
-      { employeeName: name },
+      { employeeName: oldName },
       updateData,
       { new: true, runValidators: true }
     );
@@ -120,6 +127,16 @@ router.put('/:name', async (req, res, next) => {
       throw new AppError('Employee not found', 404);
     }
     
+    // Cascade name update to related collections if employeeName changed
+    if (newName && newName !== oldName) {
+      await Promise.all([
+        TimesheetLog.updateMany({ employeeName: oldName }, { $set: { employeeName: newName } }),
+        PayRunEmployee.updateMany({ employeeName: oldName }, { $set: { employeeName: newName } }),
+        Schedule.updateMany({ employeeName: oldName }, { $set: { employeeName: newName } }),
+        Availability.updateMany({ employeeName: oldName }, { $set: { employeeName: newName } })
+      ]);
+    }
+
     res.json({
       success: true,
       data: employee,

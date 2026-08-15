@@ -46,3 +46,10 @@ code {
     monospace;
 }
 
+@layer utilities {
+  .max-w-7xl {
+    max-width: 100rem;
+  }
+}
+
+

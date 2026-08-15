@@ -100,9 +100,8 @@ export const computePayRunForPeriod = async (payRun) => {
     // Only count OT for full-time employees
     if (employee.employmentType === 'FULL_TIME') {
       empLogs.forEach(l => {
-        // OT calculation: ALWAYS use actual hoursWorked (not scheduled hours)
-        // OT should reflect actual work performed, regardless of what was scheduled
-        const hoursWorked = l.hoursWorked || 0;
+        // OT calculation: ONLY use approved hours (adjustedHoursWorked)
+        const hoursWorked = l.adjustedHoursWorked !== undefined ? l.adjustedHoursWorked : (l.hoursWorked || 0);
         if (hoursWorked > STANDARD_HOURS_PER_DAY) {
           const overtimeHours = hoursWorked - STANDARD_HOURS_PER_DAY;
           if (l.isHoliday && l.holidayType === 'Regular') {
@@ -299,7 +298,7 @@ export const recomputePayRunFromEmployees = async (payRun) => {
     // Only count OT for full-time employees
     if (employee.employmentType === 'FULL_TIME') {
       empLogs.forEach(l => {
-        const hoursWorked = l.hoursWorked || 0;
+        const hoursWorked = l.adjustedHoursWorked !== undefined ? l.adjustedHoursWorked : (l.hoursWorked || 0);
         if (hoursWorked > STANDARD_HOURS_PER_DAY) {
           const overtimeHours = hoursWorked - STANDARD_HOURS_PER_DAY;
           if (l.isHoliday && l.holidayType === 'Regular') {

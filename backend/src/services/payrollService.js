@@ -87,10 +87,10 @@ export const generatePayrollReport = async (filters = {}) => {
     const isFullTime = employee && employee.employmentType === 'FULL_TIME';
     
     if (isFullTime) {
-      // Use scheduledHours (full hours) if available, otherwise hoursWorked
-      const fullHours = (log.scheduledHours && log.scheduledHours > 0) 
-        ? log.scheduledHours 
-        : (log.hoursWorked || 0);
+      // Use approved hours (adjustedHoursWorked) if present
+      const fullHours = (log.adjustedHoursWorked !== undefined && log.adjustedHoursWorked !== null)
+        ? log.adjustedHoursWorked
+        : ((log.scheduledHours && log.scheduledHours > 0) ? log.scheduledHours : (log.hoursWorked || 0));
       const STANDARD_HOURS_PER_DAY = 8;
       if (fullHours > STANDARD_HOURS_PER_DAY) {
         const overtimeHours = fullHours - STANDARD_HOURS_PER_DAY;

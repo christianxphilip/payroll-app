@@ -420,14 +420,15 @@ export function generatePayslipHTML({ payRun, entry, employee, adjustments, time
           </thead>
           <tbody>
             ${timesheetLogs.map(log => {
-        const hoursWorked = log.hoursWorked || 0;
+        // Calculate OT breakdown based on approved/adjusted hours worked (only approved OT is counted)
+        const effectiveHours = log.adjustedHoursWorked !== undefined ? log.adjustedHoursWorked : (log.hoursWorked || 0);
         const STANDARD_HOURS_PER_DAY = 8;
         let regularOT = 0;
         let otRH = 0;
         let otSH = 0;
         
-        if (hoursWorked > STANDARD_HOURS_PER_DAY) {
-          const overtimeHours = hoursWorked - STANDARD_HOURS_PER_DAY;
+        if (effectiveHours > STANDARD_HOURS_PER_DAY) {
+          const overtimeHours = effectiveHours - STANDARD_HOURS_PER_DAY;
           if (log.isHoliday && log.holidayType === 'Regular') {
             otRH = overtimeHours;
           } else if (log.isHoliday && log.holidayType === 'Special') {
