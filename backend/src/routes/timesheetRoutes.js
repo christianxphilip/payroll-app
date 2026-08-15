@@ -447,14 +447,11 @@ router.put('/:id', async (req, res, next) => {
       // If adjustedHoursWorked was manually changed, keep it but recalculate OT
       if (updateData.adjustedHoursWorked !== undefined) {
         mergedData.adjustedHoursWorked = updateData.adjustedHoursWorked;
-        // Recalculate OT: ALWAYS use actual hoursWorked (not scheduled hours)
-        const hoursWorked = calculatedFields.hoursWorked || 0;
+        // Recalculate OT based on approved adjustedHoursWorked
         const STANDARD_HOURS_PER_DAY = 8;
-        if (hoursWorked > STANDARD_HOURS_PER_DAY) {
-          mergedData.overtimeHours = Math.round((hoursWorked - STANDARD_HOURS_PER_DAY) * 100) / 100;
-        } else {
-          mergedData.overtimeHours = 0;
-        }
+        mergedData.overtimeHours = (mergedData.adjustedHoursWorked || 0) > STANDARD_HOURS_PER_DAY
+          ? Math.round(((mergedData.adjustedHoursWorked || 0) - STANDARD_HOURS_PER_DAY) * 100) / 100
+          : 0;
         console.log('[Update Timesheet] Manual adjustedHoursWorked - Recalculated OT:', {
           scheduledHours: calculatedFields.scheduledHours,
           hoursWorked,
@@ -480,15 +477,12 @@ router.put('/:id', async (req, res, next) => {
       }
     }
     
-    // Ensure overtimeHours is always explicitly set before update
-    // This is a safety check to ensure OT is always calculated correctly
-    // ALWAYS use actual hoursWorked for OT calculation (not scheduled hours)
-    if (mergedData.overtimeHours === undefined || mergedData.overtimeHours === null) {
-      const hoursWorked = mergedData.hoursWorked || 0;
-      const STANDARD_HOURS_PER_DAY = 8;
-      mergedData.overtimeHours = hoursWorked > STANDARD_HOURS_PER_DAY 
-        ? Math.round((hoursWorked - STANDARD_HOURS_PER_DAY) * 100) / 100 
-        : 0;
+    // Safety check - calculate overtimeHours based on approved adjustedHoursWorked
+    const STANDARD_HOURS_PER_DAY = 8;
+    const approvedHours = mergedData.adjustedHoursWorked !== undefined ? mergedData.adjustedHoursWorked : Math.min(mergedData.hoursWorked || 0, STANDARD_HOURS_PER_DAY);
+    mergedData.overtimeHours = approvedHours > STANDARD_HOURS_PER_DAY
+      ? Math.round((approvedHours - STANDARD_HOURS_PER_DAY) * 100) / 100
+      : 0;
       console.log('[Update Timesheet] Safety check - Recalculated OT:', {
         scheduledHours: mergedData.scheduledHours,
         hoursWorked,
@@ -585,9 +579,11 @@ router.post('/batch-adjust', async (req, res, next) => {
       
       if (action === 'cap8' && timesheet.hoursWorked > 8) {
         timesheet.adjustedHoursWorked = 8.0;
+        timesheet.overtimeHours = 0.0;
         updated = true;
       } else if (action === 'approve' && timesheet.hoursWorked > 8) {
         timesheet.adjustedHoursWorked = timesheet.hoursWorked;
+        timesheet.overtimeHours = Math.round((timesheet.hoursWorked - 8) * 100) / 100;
         updated = true;
       } else if (action === 'clearFlag') {
         timesheet.reviewFlag = false;

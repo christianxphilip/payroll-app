@@ -333,19 +333,16 @@ export const calculateTimesheetFields = async (timesheetData) => {
   // - Use actual hoursWorked, but cap at 8 hours (standard day)
   // - We no longer default to scheduledHours because if an employee works LESS than scheduled,
   //   they should only be paid for actual hours.
-  const fullAdjustedHours = hoursWorked;
-
-  // Calculate overtime hours: ALWAYS use actual hoursWorked (not scheduled hours)
-  // OT should reflect actual work performed, regardless of what was scheduled
   const STANDARD_HOURS_PER_DAY = 8;
-  let overtimeHours = 0;
-  if (hoursWorked > STANDARD_HOURS_PER_DAY) {
-    overtimeHours = hoursWorked - STANDARD_HOURS_PER_DAY;
-  }
-
-  // Adjusted hours worked for basic salary calculation: cap at 8 hours
-  // Overtime hours are paid separately with premium multipliers
+  const fullAdjustedHours = hoursWorked;
+  // Adjusted hours worked for basic salary calculation: cap at 8 hours by default unless approved
   const adjustedHoursWorked = Math.min(fullAdjustedHours, STANDARD_HOURS_PER_DAY);
+
+  // Overtime hours: only counted if approved (adjustedHoursWorked > 8)
+  let overtimeHours = 0;
+  if (adjustedHoursWorked > STANDARD_HOURS_PER_DAY) {
+    overtimeHours = adjustedHoursWorked - STANDARD_HOURS_PER_DAY;
+  }
 
   return {
     actualDuration: Math.round(actualDuration * 100) / 100, // Round to 2 decimals

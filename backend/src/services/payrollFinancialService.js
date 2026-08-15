@@ -132,9 +132,11 @@ export const generatePayrollFinancialReport = async (filters = {}) => {
     
     // Calculate overtime hours breakdown (only for full-time employees)
     if (employee.employmentType === 'FULL_TIME') {
-      const hoursWorked = log.adjustedHoursWorked !== undefined ? log.adjustedHoursWorked : (log.hoursWorked || 0);
-      if (hoursWorked > STANDARD_HOURS_PER_DAY) {
-        const overtimeHours = hoursWorked - STANDARD_HOURS_PER_DAY;
+      const approvedHours = log.adjustedHoursWorked !== undefined && log.adjustedHoursWorked !== null
+        ? log.adjustedHoursWorked
+        : Math.min(log.hoursWorked || 0, STANDARD_HOURS_PER_DAY);
+      if (approvedHours > STANDARD_HOURS_PER_DAY) {
+        const overtimeHours = approvedHours - STANDARD_HOURS_PER_DAY;
         if (log.isHoliday && log.holidayType === 'Regular') {
           emp.overtimeRegularHolidayHours += overtimeHours;
         } else if (log.isHoliday && log.holidayType === 'Special') {

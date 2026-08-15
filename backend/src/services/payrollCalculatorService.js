@@ -100,10 +100,12 @@ export const computePayRunForPeriod = async (payRun) => {
     // Only count OT for full-time employees
     if (employee.employmentType === 'FULL_TIME') {
       empLogs.forEach(l => {
-        // OT calculation: ONLY use approved hours (adjustedHoursWorked)
-        const hoursWorked = l.adjustedHoursWorked !== undefined ? l.adjustedHoursWorked : (l.hoursWorked || 0);
-        if (hoursWorked > STANDARD_HOURS_PER_DAY) {
-          const overtimeHours = hoursWorked - STANDARD_HOURS_PER_DAY;
+        // OT calculation: ONLY use approved hours (adjustedHoursWorked > 8)
+        const approvedHours = l.adjustedHoursWorked !== undefined && l.adjustedHoursWorked !== null
+          ? l.adjustedHoursWorked
+          : Math.min(l.hoursWorked || 0, STANDARD_HOURS_PER_DAY);
+        if (approvedHours > STANDARD_HOURS_PER_DAY) {
+          const overtimeHours = approvedHours - STANDARD_HOURS_PER_DAY;
           if (l.isHoliday && l.holidayType === 'Regular') {
             overtimeRegularHolidayHours += overtimeHours;
           } else if (l.isHoliday && l.holidayType === 'Special') {
@@ -298,9 +300,11 @@ export const recomputePayRunFromEmployees = async (payRun) => {
     // Only count OT for full-time employees
     if (employee.employmentType === 'FULL_TIME') {
       empLogs.forEach(l => {
-        const hoursWorked = l.adjustedHoursWorked !== undefined ? l.adjustedHoursWorked : (l.hoursWorked || 0);
-        if (hoursWorked > STANDARD_HOURS_PER_DAY) {
-          const overtimeHours = hoursWorked - STANDARD_HOURS_PER_DAY;
+        const approvedHours = l.adjustedHoursWorked !== undefined && l.adjustedHoursWorked !== null
+          ? l.adjustedHoursWorked
+          : Math.min(l.hoursWorked || 0, STANDARD_HOURS_PER_DAY);
+        if (approvedHours > STANDARD_HOURS_PER_DAY) {
+          const overtimeHours = approvedHours - STANDARD_HOURS_PER_DAY;
           if (l.isHoliday && l.holidayType === 'Regular') {
             overtimeRegularHolidayHours += overtimeHours;
           } else if (l.isHoliday && l.holidayType === 'Special') {
