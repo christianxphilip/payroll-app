@@ -454,7 +454,7 @@ router.put('/:id', async (req, res, next) => {
           : 0;
         console.log('[Update Timesheet] Manual adjustedHoursWorked - Recalculated OT:', {
           scheduledHours: calculatedFields.scheduledHours,
-          hoursWorked,
+          hoursWorked: calculatedFields.hoursWorked,
           adjustedHoursWorked: mergedData.adjustedHoursWorked,
           overtimeHours: mergedData.overtimeHours
         });
@@ -483,12 +483,11 @@ router.put('/:id', async (req, res, next) => {
     mergedData.overtimeHours = approvedHours > STANDARD_HOURS_PER_DAY
       ? Math.round((approvedHours - STANDARD_HOURS_PER_DAY) * 100) / 100
       : 0;
-      console.log('[Update Timesheet] Safety check - Recalculated OT:', {
-        scheduledHours: mergedData.scheduledHours,
-        hoursWorked,
-        overtimeHours: mergedData.overtimeHours
-      });
-    }
+    console.log('[Update Timesheet] Safety check - Recalculated OT:', {
+      scheduledHours: mergedData.scheduledHours,
+      hoursWorked: mergedData.hoursWorked,
+      overtimeHours: mergedData.overtimeHours
+    });
     
     // Update timesheet
     const timesheet = await TimesheetLog.findByIdAndUpdate(
