@@ -143,7 +143,9 @@ const EmployeePayslipViewPage = () => {
           </div>
           <div>
             <span className="text-gray-500 block font-medium">Base Wage Rate</span>
-            <span className="font-semibold text-gray-800">₱{formatCurrency(entry.wageRate)} / {entry.wageType === 'DAILY' ? 'day' : 'hr'}</span>
+            <span className="font-semibold text-gray-800">
+              ₱{formatCurrency(entry.wageRate || (entry.totalHoursWorked ? ((entry.basicSalary || entry.basicPay || 0) / entry.totalHoursWorked) : 0))} / {entry.wageType === 'DAILY' ? 'day' : 'hr'}
+            </span>
           </div>
         </div>
 
@@ -158,29 +160,38 @@ const EmployeePayslipViewPage = () => {
               <tbody className="divide-y divide-gray-100">
                 <tr>
                   <td className="px-4 py-2 text-gray-600">Basic Pay</td>
-                  <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.basicPay)}</td>
+                  <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.basicSalary !== undefined ? entry.basicSalary : entry.basicPay)}</td>
                 </tr>
-                {entry.regularOvertimeHours > 0 && (
+                {(entry.regularOvertimeHours > 0 || entry.overtimeHours > 0 || entry.overtimePay > 0) && (
                   <tr>
-                    <td className="px-4 py-2 text-gray-600">Regular OT ({formatHours(entry.regularOvertimeHours)} hrs)</td>
+                    <td className="px-4 py-2 text-gray-600">Regular OT ({formatHours(entry.overtimeHours || entry.regularOvertimeHours)} hrs)</td>
                     <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.overtimePay)}</td>
                   </tr>
                 )}
-                {entry.ndHours > 0 && (
+                {(entry.ndHours > 0 || entry.nightDiffHours > 0 || entry.ndPay > 0 || entry.nightDiffPay > 0) && (
                   <tr>
-                    <td className="px-4 py-2 text-gray-600">Night Differential ({formatHours(entry.ndHours)} hrs)</td>
-                    <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.ndPay)}</td>
+                    <td className="px-4 py-2 text-gray-600">Night Differential ({formatHours(entry.nightDiffHours || entry.ndHours)} hrs)</td>
+                    <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.nightDiffPay !== undefined ? entry.nightDiffPay : entry.ndPay)}</td>
                   </tr>
                 )}
-                {entry.allowances > 0 && (
+                {(entry.allowances > 0 || entry.allowancesTotal > 0) && (
                   <tr>
                     <td className="px-4 py-2 text-gray-600">Allowances</td>
-                    <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.allowances)}</td>
+                    <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.allowancesTotal !== undefined ? entry.allowancesTotal : entry.allowances)}</td>
                   </tr>
                 )}
                 <tr className="bg-gray-50 font-bold border-t border-gray-200">
                   <td className="px-4 py-2.5 text-gray-900">GROSS SALARY</td>
-                  <td className="px-4 py-2.5 text-right text-gray-900">₱{formatCurrency(entry.grossSalary)}</td>
+                  <td className="px-4 py-2.5 text-right text-gray-900">
+                    ₱{formatCurrency(
+                      (entry.grossSalary && entry.grossSalary > 0)
+                        ? entry.grossSalary
+                        : ((entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0)) +
+                           (entry.overtimePay || 0) +
+                           (entry.nightDiffPay !== undefined ? entry.nightDiffPay : (entry.ndPay || 0)) +
+                           (entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0)))
+                    )}
+                  </td>
                 </tr>
               </tbody>
             </table>

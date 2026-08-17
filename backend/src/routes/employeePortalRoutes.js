@@ -78,6 +78,20 @@ router.get('/payslips', async (req, res, next) => {
         const end = pr.payrollPeriodEnd || pr.payPeriodEnd;
         const payout = pr.payoutDate || pr.paymentDate;
 
+        const basicSalary = entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0);
+        const overtimePay = entry.overtimePay || 0;
+        const nightDiffPay = entry.nightDiffPay !== undefined ? entry.nightDiffPay : (entry.ndPay || 0);
+        const regularHolidayPay = entry.regularHolidayPay || 0;
+        const specialHolidayPay = entry.specialHolidayPay || 0;
+        const overtimeRegularHolidayPay = entry.overtimeRegularHolidayPay || 0;
+        const overtimeSpecialHolidayPay = entry.overtimeSpecialHolidayPay || 0;
+        const allowancesTotal = entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0);
+        const deductionsTotal = entry.deductionsTotal !== undefined ? entry.deductionsTotal : (entry.totalDeductions || 0);
+
+        const calculatedGross = basicSalary + overtimePay + nightDiffPay + regularHolidayPay + specialHolidayPay + overtimeRegularHolidayPay + overtimeSpecialHolidayPay + allowancesTotal;
+        const grossSalary = (entry.grossSalary && entry.grossSalary > 0) ? entry.grossSalary : calculatedGross;
+        const netSalary = entry.netSalary || (grossSalary - deductionsTotal);
+
         return {
           payRunId: pr._id,
           payPeriodStart: start,
@@ -90,12 +104,12 @@ router.get('/payslips', async (req, res, next) => {
           status: pr.status,
           entryId: entry._id,
           employeeName: entry.employeeName,
-          basicPay: entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0),
-          overtimePay: entry.overtimePay || 0,
-          ndPay: entry.nightDiffPay !== undefined ? entry.nightDiffPay : (entry.ndPay || 0),
-          grossSalary: entry.grossSalary !== undefined ? entry.grossSalary : (entry.basicSalary || 0),
-          totalDeductions: entry.deductionsTotal !== undefined ? entry.deductionsTotal : (entry.totalDeductions || 0),
-          netSalary: entry.netSalary || 0
+          basicPay: basicSalary,
+          overtimePay,
+          ndPay: nightDiffPay,
+          grossSalary,
+          totalDeductions: deductionsTotal,
+          netSalary
         };
       });
 
@@ -140,6 +154,11 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
       throw new AppError('Payslip entry not found for this pay period', 404);
     }
 
+    // Fetch Employee profile to populate wageRate, wageType, position, employmentType
+    const empDoc = (entry.employeeId ? await Employee.findById(entry.employeeId) : null) || await Employee.findOne({
+      employeeName: { $regex: '^' + escapeRegex(entry.employeeName) + '$', $options: 'i' }
+    });
+
     const start = payRun.payrollPeriodStart || payRun.payPeriodStart;
     const end = payRun.payrollPeriodEnd || payRun.payPeriodEnd;
     const payout = payRun.payoutDate || payRun.paymentDate;
@@ -155,6 +174,57 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
       }).sort({ date: 1 });
     }
 
+    const basicSalary = entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0);
+    const overtimeHours = entry.overtimeHours || entry.regularOvertimeHours || 0;
+    const overtimePay = entry.overtimePay || 0;
+    const nightDiffHours = entry.nightDiffHours || entry.ndHours || 0;
+    const nightDiffPay = entry.nightDiffPay !== undefined ? entry.nightDiffPay : (entry.ndPay || 0);
+    const regularHolidayPay = entry.regularHolidayPay || 0;
+    const specialHolidayPay = entry.specialHolidayPay || 0;
+    const overtimeRegularHolidayPay = entry.overtimeRegularHolidayPay || 0;
+    const overtimeSpecialHolidayPay = entry.overtimeSpecialHolidayPay || 0;
+    const allowancesTotal = entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0);
+    const deductionsTotal = entry.deductionsTotal !== undefined ? entry.deductionsTotal : (entry.totalDeductions || 0);
+
+    const calculatedGross = basicSalary + overtimePay + nightDiffPay + regularHolidayPay + specialHolidayPay + overtimeRegularHolidayPay + overtimeSpecialHolidayPay + allowancesTotal;
+    const grossSalary = (entry.grossSalary && entry.grossSalary > 0) ? entry.grossSalary : calculatedGross;
+    const netSalary = entry.netSalary || (grossSalary - deductionsTotal);
+
+    // Dynamic SSS, PhilHealth, Pag-IBIG deduction breakdown if present in breakdown object
+    const sssContribution = entry.breakdown?.sssDeduction || entry.sssContribution || 0;
+    const philhealthContribution = entry.breakdown?.philhealthDeduction || entry.philhealthContribution || 0;
+    const pagibigContribution = entry.breakdown?.pagibigDeduction || entry.pagibigContribution || 0;
+    const withholdingTax = entry.breakdown?.withholdingTax || entry.withholdingTax || 0;
+
+    const mergedEntry = {
+      ...entry.toObject(),
+      wageRate: empDoc?.wageRate || entry.wageRate || 0,
+      wageType: empDoc?.wageType || entry.wageType || 'HOURLY',
+      position: empDoc?.position || entry.position || 'Staff',
+      employmentType: empDoc?.employmentType || entry.employmentType || 'FULL_TIME',
+      basicSalary,
+      basicPay: basicSalary,
+      overtimeHours,
+      regularOvertimeHours: overtimeHours,
+      overtimePay,
+      nightDiffHours,
+      ndHours: nightDiffHours,
+      nightDiffPay,
+      ndPay: nightDiffPay,
+      regularHolidayPay,
+      specialHolidayPay,
+      allowancesTotal,
+      allowances: allowancesTotal,
+      deductionsTotal,
+      totalDeductions: deductionsTotal,
+      grossSalary,
+      netSalary,
+      sssContribution,
+      philhealthContribution,
+      pagibigContribution,
+      withholdingTax
+    };
+
     res.json({
       success: true,
       data: {
@@ -169,12 +239,7 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
           payrollType: payRun.payrollType,
           status: payRun.status
         },
-        entry: {
-          ...entry.toObject(),
-          basicPay: entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0),
-          ndPay: entry.nightDiffPay !== undefined ? entry.nightDiffPay : (entry.ndPay || 0),
-          totalDeductions: entry.deductionsTotal !== undefined ? entry.deductionsTotal : (entry.totalDeductions || 0)
-        },
+        entry: mergedEntry,
         timesheetLogs
       }
     });
