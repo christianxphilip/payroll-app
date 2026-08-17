@@ -202,18 +202,6 @@ const EmployeePayslipViewPage = () => {
             </div>
             <table className="w-full text-xs">
               <tbody className="divide-y divide-gray-100">
-                <tr>
-                  <td className="px-4 py-2 text-gray-600">SSS Contribution</td>
-                  <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.sssContribution)}</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2 text-gray-600">PhilHealth Contribution</td>
-                  <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.philhealthContribution)}</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2 text-gray-600">Pag-IBIG Contribution</td>
-                  <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.pagibigContribution)}</td>
-                </tr>
                 {entry.withholdingTax > 0 && (
                   <tr>
                     <td className="px-4 py-2 text-gray-600">Withholding Tax</td>
@@ -228,7 +216,9 @@ const EmployeePayslipViewPage = () => {
                 )}
                 <tr className="bg-gray-50 font-bold border-t border-gray-200">
                   <td className="px-4 py-2.5 text-gray-900">TOTAL DEDUCTIONS</td>
-                  <td className="px-4 py-2.5 text-right text-rose-600">-₱{formatCurrency(entry.totalDeductions)}</td>
+                  <td className="px-4 py-2.5 text-right text-rose-600">
+                    -₱{formatCurrency(entry.totalDeductions !== undefined ? entry.totalDeductions : (entry.deductionsTotal || 0))}
+                  </td>
                 </tr>
               </tbody>
             </table>
