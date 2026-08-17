@@ -64,6 +64,30 @@ const EmployeesPage = () => {
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
   };
 
+  const handleGeneratePassword = () => {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghjkmnpqrstuvwxyz';
+    const nums = '23456789';
+    const syms = '#@!';
+    const all = upper + lower + nums + syms;
+
+    let generated = '';
+    generated += upper.charAt(Math.floor(Math.random() * upper.length));
+    generated += lower.charAt(Math.floor(Math.random() * lower.length));
+    generated += lower.charAt(Math.floor(Math.random() * lower.length));
+    generated += nums.charAt(Math.floor(Math.random() * nums.length));
+    generated += nums.charAt(Math.floor(Math.random() * nums.length));
+    generated += syms.charAt(Math.floor(Math.random() * syms.length));
+    for (let i = 0; i < 3; i++) {
+      generated += all.charAt(Math.floor(Math.random() * all.length));
+    }
+
+    generated = generated.split('').sort(() => 0.5 - Math.random()).join('');
+
+    setFormData((prev) => ({ ...prev, password: generated }));
+    setShowModalPassword(true);
+  };
+
   const handleSearch = () => {
     setLoading(true);
     fetchEmployees();
@@ -493,9 +517,22 @@ const EmployeesPage = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-gray-700">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePassword}
+                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline focus:outline-none"
+                    title="Generate a random password"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    Generate
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showModalPassword ? 'text' : 'password'}
