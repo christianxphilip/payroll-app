@@ -57,7 +57,7 @@ export async function sendPayslipEmail({ to, subject, html, attachments }) {
   // Option 1: Resend HTTP API (Recommended for Render - uses HTTPS port 443, never blocked)
   if (RESEND_API_KEY) {
     try {
-      const fromAddress = process.env.EMAIL_FROM || 'ESPRO Payroll <onboarding@resend.dev>';
+      const fromAddress = process.env.EMAIL_FROM || 'ESPRO Payroll <payroll@esprocoffee.com>';
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
