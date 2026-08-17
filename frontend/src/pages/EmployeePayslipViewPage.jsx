@@ -174,12 +174,10 @@ const EmployeePayslipViewPage = () => {
                     <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.nightDiffPay !== undefined ? entry.nightDiffPay : entry.ndPay)}</td>
                   </tr>
                 )}
-                {(entry.allowances > 0 || entry.allowancesTotal > 0) && (
-                  <tr>
-                    <td className="px-4 py-2 text-gray-600">Allowances</td>
-                    <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.allowancesTotal !== undefined ? entry.allowancesTotal : entry.allowances)}</td>
-                  </tr>
-                )}
+                <tr>
+                  <td className="px-4 py-2 text-gray-600">Allowances</td>
+                  <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0))}</td>
+                </tr>
                 <tr className="bg-gray-50 font-bold border-t border-gray-200">
                   <td className="px-4 py-2.5 text-gray-900">GROSS SALARY</td>
                   <td className="px-4 py-2.5 text-right text-gray-900">

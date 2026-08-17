@@ -3,6 +3,7 @@ import PayRun from '../models/PayRun.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
 import TimesheetLog from '../models/TimesheetLog.js';
 import Employee from '../models/Employee.js';
+import AllowanceDeduction from '../models/AllowanceDeduction.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -174,6 +175,24 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
       }).sort({ date: 1 });
     }
 
+    let adjustments = [];
+    if (empDoc?._id || entry.employeeId) {
+      const targetEmpId = empDoc?._id || entry.employeeId;
+      adjustments = await AllowanceDeduction.find({
+        employeeId: targetEmpId,
+        $or: [
+          {
+            appliesFrom: { $lte: new Date(end) },
+            appliesTo: { $gte: new Date(start) }
+          },
+          {
+            appliesFrom: { $lte: new Date(end) },
+            appliesTo: null
+          }
+        ]
+      }).sort({ appliesFrom: 1 });
+    }
+
     const basicSalary = entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0);
     const overtimeHours = entry.overtimeHours || entry.regularOvertimeHours || 0;
     const overtimePay = entry.overtimePay || 0;
@@ -240,7 +259,8 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
           status: payRun.status
         },
         entry: mergedEntry,
-        timesheetLogs
+        timesheetLogs,
+        adjustments
       }
     });
   } catch (error) {
