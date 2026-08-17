@@ -1,8 +1,9 @@
 import nodemailer from 'nodemailer';
 
-// Reuse the same EMAIL_USER / EMAIL_PASS config as the email-blaster app
+// Email configuration
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SMTP_HOST = process.env.SMTP_HOST || (EMAIL_USER && EMAIL_USER.endsWith('@gmail.com') ? 'smtp.gmail.com' : null);
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
 const SMTP_SECURE = process.env.SMTP_SECURE === 'true' || SMTP_PORT === 465;
@@ -11,9 +12,6 @@ let transporterPromise = null;
 
 async function getTransporter() {
   if (!EMAIL_USER || !EMAIL_PASS) {
-    console.warn(
-      '[Email] EMAIL_USER or EMAIL_PASS is not set. Email sending is disabled.'
-    );
     return null;
   }
 
@@ -31,9 +29,9 @@ async function getTransporter() {
             user: EMAIL_USER,
             pass: EMAIL_PASS
           },
-          connectionTimeout: 10000,
-          greetingTimeout: 10000,
-          socketTimeout: 15000
+          connectionTimeout: 3000, // 3s fast fail on blocked cloud ports
+          greetingTimeout: 3000,
+          socketTimeout: 5000
         };
       } else {
         transportConfig = {
@@ -42,33 +40,13 @@ async function getTransporter() {
             user: EMAIL_USER,
             pass: EMAIL_PASS
           },
-          connectionTimeout: 10000,
-          greetingTimeout: 10000,
-          socketTimeout: 15000
+          connectionTimeout: 3000,
+          greetingTimeout: 3000,
+          socketTimeout: 5000
         };
       }
 
-      const transporter = nodemailer.createTransport(transportConfig);
-
-      try {
-        await Promise.race([
-          transporter.verify(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('SMTP verification timed out (10s)')), 10000)
-          )
-        ]);
-        console.log('[Email] SMTP connection verified successfully.');
-      } catch (error) {
-        console.error('[Email] Failed to verify SMTP connection:', error.message || error);
-        console.warn(
-          '[Email] Render / Cloud SMTP Connection Tips:\n' +
-          '  1. Port 465 is often blocked by cloud providers like Render. Use port 587 with TLS.\n' +
-          '  2. Ensure you are using a 16-character Gmail App Password (not standard account password).\n' +
-          '  3. Set environment variables on Render if using custom SMTP: SMTP_HOST=smtp.gmail.com, SMTP_PORT=587, SMTP_SECURE=false'
-        );
-      }
-
-      return transporter;
+      return nodemailer.createTransport(transportConfig);
     })();
   }
 
@@ -76,26 +54,62 @@ async function getTransporter() {
 }
 
 export async function sendPayslipEmail({ to, subject, html, attachments }) {
+  // Option 1: Resend HTTP API (Recommended for Render - uses HTTPS port 443, never blocked)
+  if (RESEND_API_KEY) {
+    try {
+      const fromAddress = process.env.EMAIL_FROM || EMAIL_USER || 'Payroll <onboarding@resend.dev>';
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${RESEND_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: fromAddress,
+          to: [to],
+          subject: subject,
+          html: html
+        })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        console.log('[Email] Payslip sent via Resend API to:', to);
+        return { success: true, messageId: data.id };
+      } else {
+        console.error('[Email] Resend API error:', data);
+        return { success: false, error: data.message || 'Resend API error' };
+      }
+    } catch (err) {
+      console.error('[Email] Resend API exception:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Option 2: Nodemailer SMTP
   const transporter = await getTransporter();
   if (!transporter) {
     return {
       success: false,
       skipped: true,
-      reason: 'Email not configured (missing EMAIL_USER / EMAIL_PASS).'
+      reason: 'Email not configured (missing EMAIL_USER / EMAIL_PASS or RESEND_API_KEY).'
     };
   }
 
   try {
     const info = await transporter.sendMail({
-      from: EMAIL_USER,
+      from: process.env.EMAIL_FROM || EMAIL_USER,
       to,
       subject,
       html,
       attachments: attachments || []
     });
+    console.log('[Email] Payslip sent via SMTP to:', to);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('[Email] Failed to send email:', error.message || error);
-    return { success: false, error: error.message };
+    console.error('[Email] Failed to send email via SMTP:', error.message || error);
+    return {
+      success: false,
+      error: `SMTP timeout on cloud host. Render blocks outbound SMTP ports (25/465/587). Add RESEND_API_KEY to Render environment variables to send emails via HTTP API.`
+    };
   }
 }
