@@ -106,7 +106,7 @@ const EmployeesPage = () => {
       wageType: employee.wageType || 'HOURLY',
       wageRate: employee.wageRate != null ? String(employee.wageRate) : '',
       username: employee.username || '',
-      password: ''
+      password: employee.portalPassword || ''
     });
     setIsModalOpen(true);
   };
@@ -494,12 +494,12 @@ const EmployeesPage = () => {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  {editingEmployee ? 'New Password (leave blank to keep current)' : 'Password'}
+                  Password
                 </label>
                 <div className="relative">
                   <input
                     type={showModalPassword ? 'text' : 'password'}
-                    placeholder={editingEmployee ? '••••••••' : 'Enter login password'}
+                    placeholder="Enter login password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="w-full px-3 py-1.5 pr-10 text-sm border border-gray-300 rounded-lg bg-white"

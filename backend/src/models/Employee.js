@@ -62,6 +62,10 @@ const employeeSchema = new mongoose.Schema({
   password: {
     type: String,
     select: false
+  },
+  portalPassword: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true
@@ -93,4 +97,3 @@ employeeSchema.pre('save', function(next) {
 });
 
 export default mongoose.model('Employee', employeeSchema, 'payroll_app_employees');
-

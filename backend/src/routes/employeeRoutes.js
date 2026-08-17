@@ -68,8 +68,11 @@ router.post('/', async (req, res, next) => {
     }
 
     let hashedPassword = undefined;
+    let portalPassword = undefined;
     if (password && password.trim()) {
-      hashedPassword = await bcrypt.hash(password.trim(), 10);
+      const raw = password.trim();
+      hashedPassword = await bcrypt.hash(raw, 10);
+      portalPassword = raw;
     }
     
     const employeePayload = {
@@ -86,7 +89,8 @@ router.post('/', async (req, res, next) => {
       wageType,
       wageRate,
       username: username ? username.trim().toLowerCase() : undefined,
-      password: hashedPassword
+      password: hashedPassword,
+      portalPassword
     };
     
     const employee = await Employee.create(employeePayload);
@@ -133,7 +137,9 @@ router.put('/:name', async (req, res, next) => {
     }
 
     if (updateData.password && updateData.password.trim()) {
-      updateData.password = await bcrypt.hash(updateData.password.trim(), 10);
+      const raw = updateData.password.trim();
+      updateData.password = await bcrypt.hash(raw, 10);
+      updateData.portalPassword = raw;
     } else {
       delete updateData.password;
     }
@@ -170,7 +176,7 @@ router.put('/:name', async (req, res, next) => {
     if (error.code === 11000) {
       // Handle unique index conflicts (name or email)
       if (error.keyPattern?.employeeName) {
-      next(new AppError('Employee name already exists', 400));
+        next(new AppError('Employee name already exists', 400));
       } else if (error.keyPattern?.email) {
         next(new AppError('Email already exists', 400));
       } else {
@@ -183,19 +189,27 @@ router.put('/:name', async (req, res, next) => {
 });
 
 // DELETE /api/employees/:name - Delete employee
-router.delete('/:name', async (req, res, next) => {
+router.delete('/:name', authorize(['admin']), async (req, res, next) => {
   try {
     const { name } = req.params;
-    
-    const employee = await Employee.findOneAndDelete({ employeeName: name });
-    
+    const employeeName = name.trim();
+
+    const employee = await Employee.findOneAndDelete({ employeeName });
     if (!employee) {
       throw new AppError('Employee not found', 404);
     }
-    
+
+    // Cascade delete related records
+    await Promise.all([
+      TimesheetLog.deleteMany({ employeeName }),
+      PayRunEmployee.deleteMany({ employeeName }),
+      Schedule.deleteMany({ employeeName }),
+      Availability.deleteMany({ employeeName })
+    ]);
+
     res.json({
       success: true,
-      message: 'Employee deleted successfully'
+      message: 'Employee and all associated records deleted successfully'
     });
   } catch (error) {
     next(error);
@@ -203,4 +217,3 @@ router.delete('/:name', async (req, res, next) => {
 });
 
 export default router;
-
