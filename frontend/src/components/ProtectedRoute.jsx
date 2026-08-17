@@ -17,6 +17,9 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (allowedRoles && (!user || !allowedRoles.includes(user.role))) {
+    if (user?.role === 'employee') {
+      return <Navigate to="/employee/payslips" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 

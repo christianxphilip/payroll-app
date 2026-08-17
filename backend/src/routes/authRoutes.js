@@ -1,12 +1,14 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import Employee from '../models/Employee.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// POST /api/auth/login - Login with username/password or just password
-router.post('/login', (req, res, next) => {
+// POST /api/auth/login - Login with username/password or password only
+router.post('/login', async (req, res, next) => {
   try {
     const { username, password } = req.body;
     
@@ -19,36 +21,49 @@ router.post('/login', (req, res, next) => {
     
     let resolvedRole = null;
     let resolvedUsername = null;
+    let employeeId = null;
+    let employeeName = null;
     
-    if (username) {
-      if (username === 'admin' && password === adminPassword) {
-        resolvedRole = 'admin';
-        resolvedUsername = 'admin';
-      } else if (username === 'manager' && password === managerPassword) {
-        resolvedRole = 'manager';
-        resolvedUsername = 'manager';
-      } else {
-        throw new AppError('Invalid username or password', 401);
-      }
-    } else {
-      // Backward compatible password-only login
-      if (password === adminPassword) {
-        resolvedRole = 'admin';
-        resolvedUsername = 'admin';
-      } else if (password === managerPassword) {
-        resolvedRole = 'manager';
-        resolvedUsername = 'manager';
-      } else {
-        throw new AppError('Invalid password', 401);
+    const cleanUsername = username ? username.trim().toLowerCase() : '';
+
+    if (cleanUsername === 'admin' && password === adminPassword) {
+      resolvedRole = 'admin';
+      resolvedUsername = 'admin';
+    } else if (cleanUsername === 'manager' && password === managerPassword) {
+      resolvedRole = 'manager';
+      resolvedUsername = 'manager';
+    } else if (!cleanUsername && password === adminPassword) {
+      resolvedRole = 'admin';
+      resolvedUsername = 'admin';
+    } else if (!cleanUsername && password === managerPassword) {
+      resolvedRole = 'manager';
+      resolvedUsername = 'manager';
+    } else if (cleanUsername) {
+      // Check Employee collection for matching username
+      const emp = await Employee.findOne({ username: cleanUsername }).select('+password');
+      if (emp && emp.password) {
+        const isMatch = await bcrypt.compare(password, emp.password);
+        if (isMatch) {
+          resolvedRole = 'employee';
+          resolvedUsername = emp.username;
+          employeeId = emp._id;
+          employeeName = emp.employeeName;
+        }
       }
     }
     
-    // Generate JWT token containing the username and role
+    if (!resolvedRole) {
+      throw new AppError('Invalid username or password', 401);
+    }
+    
+    // Generate JWT token containing the username, role, and employee info
     const token = jwt.sign(
       { 
         authenticated: true,
         username: resolvedUsername,
-        role: resolvedRole
+        role: resolvedRole,
+        employeeId,
+        employeeName
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
@@ -59,7 +74,9 @@ router.post('/login', (req, res, next) => {
       token,
       user: {
         username: resolvedUsername,
-        role: resolvedRole
+        role: resolvedRole,
+        employeeId,
+        employeeName
       },
       message: 'Login successful'
     });

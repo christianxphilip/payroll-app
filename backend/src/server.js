@@ -17,6 +17,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import shiftRoutes from './routes/shiftRoutes.js';
 import availabilityRoutes from './routes/availabilityRoutes.js';
 import shiftAllocationRoutes from './routes/shiftAllocationRoutes.js';
+import employeePortalRoutes from './routes/employeePortalRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -54,6 +55,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/shifts', shiftRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/shift-allocations', shiftAllocationRoutes);
+app.use('/api/employee-portal', employeePortalRoutes);
 
 // Error Handler (must be last)
 app.use(errorHandler);

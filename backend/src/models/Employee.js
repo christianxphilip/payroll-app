@@ -52,12 +52,23 @@ const employeeSchema = new mongoose.Schema({
   wageRate: {
     type: Number,
     default: 0
+  },
+  username: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    sparse: true
+  },
+  password: {
+    type: String,
+    select: false
   }
 }, {
   timestamps: true
 });
 
 employeeSchema.index({ email: 1 }, { unique: true, sparse: true });
+employeeSchema.index({ username: 1 }, { unique: true, sparse: true });
 
 employeeSchema.pre('save', function(next) {
   // Auto-derive status based on resigned/last working dates if not explicitly set

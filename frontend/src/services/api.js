@@ -228,5 +228,11 @@ export const shiftAllocationAPI = {
   upsert: (allocations) => api.post('/shift-allocations', { allocations }),
 };
 
+// Employee Portal API (Self-service payslips for employees)
+export const employeePortalAPI = {
+  getPayslips: () => api.get('/employee-portal/payslips'),
+  getPayslipDetail: (payRunId) => api.get(`/employee-portal/payslips/${payRunId}`),
+};
+
 export default api;
 

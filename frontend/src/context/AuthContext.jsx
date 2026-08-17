@@ -35,8 +35,9 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login(payload);
       localStorage.setItem('token', response.token);
       setIsAuthenticated(true);
-      setUser(response.user || { role: 'admin', username: 'admin' });
-      return { success: true };
+      const userObj = response.user || { role: 'admin', username: 'admin' };
+      setUser(userObj);
+      return { success: true, user: userObj };
     } catch (error) {
       return { success: false, error: error.response?.data?.error || 'Login failed' };
     }

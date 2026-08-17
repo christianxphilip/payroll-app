@@ -4,6 +4,7 @@ import TimesheetLog from '../models/TimesheetLog.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
 import Schedule from '../models/Schedule.js';
 import Availability from '../models/Availability.js';
+import bcrypt from 'bcryptjs';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -57,11 +58,18 @@ router.post('/', async (req, res, next) => {
       status,
       employmentType,
       wageType,
-      wageRate
+      wageRate,
+      username,
+      password
     } = req.body;
     
     if (!employeeName || !employeeName.trim()) {
       throw new AppError('Employee name is required', 400);
+    }
+
+    let hashedPassword = undefined;
+    if (password && password.trim()) {
+      hashedPassword = await bcrypt.hash(password.trim(), 10);
     }
     
     const employeePayload = {
@@ -76,7 +84,9 @@ router.post('/', async (req, res, next) => {
       status,
       employmentType,
       wageType,
-      wageRate
+      wageRate,
+      username: username ? username.trim().toLowerCase() : undefined,
+      password: hashedPassword
     };
     
     const employee = await Employee.create(employeePayload);
@@ -88,7 +98,11 @@ router.post('/', async (req, res, next) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      next(new AppError('Employee name already exists', 400));
+      if (error.keyPattern?.username) {
+        next(new AppError('Username is already taken', 400));
+      } else {
+        next(new AppError('Employee name already exists', 400));
+      }
     } else {
       next(error);
     }
@@ -99,7 +113,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:name', async (req, res, next) => {
   try {
     const { name } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
     
     if (req.user.role === 'manager') {
       delete updateData.wageType;
@@ -112,6 +126,16 @@ router.put('/:name', async (req, res, next) => {
 
     if (updateData.employeeName) {
       updateData.employeeName = updateData.employeeName.trim();
+    }
+
+    if (updateData.username !== undefined) {
+      updateData.username = updateData.username ? updateData.username.trim().toLowerCase() : null;
+    }
+
+    if (updateData.password && updateData.password.trim()) {
+      updateData.password = await bcrypt.hash(updateData.password.trim(), 10);
+    } else {
+      delete updateData.password;
     }
     
     const oldName = name.trim();

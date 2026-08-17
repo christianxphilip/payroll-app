@@ -15,6 +15,8 @@ import PayRunsPage from './pages/PayRunsPage';
 import PayRunDetailPage from './pages/PayRunDetailPage';
 import PayRunPayslipPage from './pages/PayRunPayslipPage';
 import SettingsPage from './pages/SettingsPage';
+import EmployeePortalPage from './pages/EmployeePortalPage';
+import EmployeePayslipViewPage from './pages/EmployeePayslipViewPage';
 
 function App() {
   return (
@@ -22,8 +24,26 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Employee Portal Routes (Standalone Header Layout) */}
+          <Route
+            path="/employee/payslips"
+            element={
+              <ProtectedRoute allowedRoles={['employee']}>
+                <EmployeePortalPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employee/payslips/:payRunId"
+            element={
+              <ProtectedRoute allowedRoles={['employee']}>
+                <EmployeePayslipViewPage />
+              </ProtectedRoute>
+            }
+          />
           
-          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          <Route path="/" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="employees" element={<EmployeesPage />} />

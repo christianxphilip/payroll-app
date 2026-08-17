@@ -36,8 +36,9 @@ const EmployeesPage = () => {
     status: 'ACTIVE',
     employmentType: 'FULL_TIME',
     wageType: 'HOURLY',
-    // Keep wageRate as a string for better UX while typing
-    wageRate: ''
+    wageRate: '',
+    username: '',
+    password: ''
   });
   const [message, setMessage] = useState({ type: '', text: '' });
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, employeeName: null });
@@ -81,7 +82,9 @@ const EmployeesPage = () => {
       status: 'ACTIVE',
       employmentType: 'FULL_TIME',
       wageType: 'HOURLY',
-      wageRate: ''
+      wageRate: '',
+      username: '',
+      password: ''
     });
     setIsModalOpen(true);
   };
@@ -100,7 +103,9 @@ const EmployeesPage = () => {
       status: employee.status || 'ACTIVE',
       employmentType: employee.employmentType || 'FULL_TIME',
       wageType: employee.wageType || 'HOURLY',
-      wageRate: employee.wageRate != null ? String(employee.wageRate) : ''
+      wageRate: employee.wageRate != null ? String(employee.wageRate) : '',
+      username: employee.username || '',
+      password: ''
     });
     setIsModalOpen(true);
   };
@@ -471,6 +476,33 @@ const EmployeesPage = () => {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
+            </div>
+          </div>
+          <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <h4 className="text-xs font-semibold text-indigo-800 uppercase tracking-wider mb-2">Employee Portal Login Credentials</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Username</label>
+                <input
+                  type="text"
+                  placeholder="e.g. john.doe"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  {editingEmployee ? 'New Password (leave blank to keep current)' : 'Password'}
+                </label>
+                <input
+                  type="password"
+                  placeholder={editingEmployee ? '••••••••' : 'Enter login password'}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white"
+                />
+              </div>
             </div>
           </div>
           <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">

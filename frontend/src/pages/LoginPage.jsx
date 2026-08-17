@@ -19,7 +19,11 @@ const LoginPage = () => {
     const result = await login(loginPayload);
 
     if (result.success) {
-      navigate('/dashboard');
+      if (result.user?.role === 'employee') {
+        navigate('/employee/payslips');
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       setError(result.error);
       setLoading(false);
