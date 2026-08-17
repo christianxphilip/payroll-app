@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { payRunAPI } from '../services/api';
 import { formatHours } from '../utils/formatters';
+import { openGmailPayslip } from '../utils/gmailUtils';
 
 const PayRunPayslipPage = () => {
   const { payRunId, entryId } = useParams();
@@ -131,36 +132,28 @@ const PayRunPayslipPage = () => {
         <div className="flex items-center gap-2 no-print">
           {payRun.status === 'PAID' && (
             <button
-              onClick={async () => {
-                if (!confirm('Send payslip via email to this employee?')) return;
-                setSendingEmail(true);
-                try {
-                  const res = await payRunAPI.emailPayslipForEmployee(payRunId, entryId);
-                  const payload = res.data || res;
-                  if (payload.stub) {
-                    setMessage({
-                      type: 'success',
-                      text: `Email stub: payslip would be sent to ${entry.employeeName}`
-                    });
-                  } else {
-                    setMessage({
-                      type: 'success',
-                      text: `Payslip email sent successfully to ${entry.employeeName}`
-                    });
-                  }
-                } catch (error) {
-                  setMessage({
-                    type: 'error',
-                    text: error.response?.data?.error || 'Failed to send payslip email'
-                  });
-                } finally {
-                  setSendingEmail(false);
-                }
+              onClick={() => {
+                openGmailPayslip({
+                  recipientEmail: entry.employeeId?.email || entry.email || '',
+                  employeeName: entry.employeeName,
+                  periodStart: payRun.payrollPeriodStart || payRun.payPeriodStart,
+                  periodEnd: payRun.payrollPeriodEnd || payRun.payPeriodEnd,
+                  basicPay: entry.basicPay,
+                  overtimePay: entry.overtimePay,
+                  ndPay: entry.ndPay,
+                  grossSalary: entry.grossSalary,
+                  totalDeductions: entry.totalDeductions,
+                  netSalary: entry.netSalary,
+                  payslipUrl: window.location.href
+                });
               }}
-              disabled={sendingEmail}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5"
+              title="Open Gmail with payslip details prefilled"
             >
-              {sendingEmail ? 'Sending...' : 'Email'}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Email via Gmail
             </button>
           )}
           <button

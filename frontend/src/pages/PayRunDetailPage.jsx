@@ -4,6 +4,7 @@ import { payRunAPI, employeeAPI } from '../services/api';
 import { formatHours } from '../utils/formatters';
 import Modal from '../components/Modal';
 import ResponsiveTableWrapper from '../components/ResponsiveTableWrapper';
+import { openGmailPayslip } from '../utils/gmailUtils';
 
 const PayRunDetailPage = () => {
   const { payRunId } = useParams();
@@ -768,41 +769,29 @@ const PayRunDetailPage = () => {
                         {payRun.status === 'PAID' && (
                           <button
                             type="button"
-                            disabled={sendingEmailId === emp._id}
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation();
-                              setSendingEmailId(emp._id);
-                              try {
-                                const res =
-                                  await payRunAPI.emailPayslipForEmployee(
-                                    payRunId,
-                                    emp._id
-                                  );
-                                const payload = res.data || res;
-                                setMessage({
-                                  type: 'success',
-                                  text:
-                                    'Email stub: payslip would be sent to ' +
-                                    (payload.recipient?.email ||
-                                      'employee email')
-                                });
-                              } catch (error) {
-                                setMessage({
-                                  type: 'error',
-                                  text:
-                                    error.response?.data?.error ||
-                                    'Failed to trigger email stub for this payslip'
-                                });
-                              } finally {
-                                setSendingEmailId(null);
-                              }
+                              openGmailPayslip({
+                                recipientEmail: emp.employeeId?.email || emp.email || '',
+                                employeeName: emp.employeeName,
+                                periodStart: payRun.payPeriodStart,
+                                periodEnd: payRun.payPeriodEnd,
+                                basicPay: emp.basicPay,
+                                overtimePay: emp.overtimePay,
+                                ndPay: emp.ndPay,
+                                grossSalary: emp.grossSalary,
+                                totalDeductions: emp.totalDeductions,
+                                netSalary: emp.netSalary,
+                                payslipUrl: `${window.location.origin}/pay-runs/${payRunId}/payslips/${emp._id}`
+                              });
                             }}
-                            className={`w-24 px-3 py-1.5 text-xs text-white rounded-lg ${sendingEmailId === emp._id
-                              ? 'bg-indigo-400 cursor-not-allowed'
-                              : 'bg-indigo-600 hover:bg-indigo-700'
-                              }`}
+                            className="w-24 px-3 py-1.5 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center justify-center gap-1"
+                            title="Open Gmail to email payslip details"
                           >
-                            {sendingEmailId === emp._id ? 'Sending...' : 'Email'}
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Gmail
                           </button>
                         )}
                       </div>
