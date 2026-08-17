@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { employeePortalAPI } from '../services/api';
-import { formatHours } from '../utils/formatters';
 
 const EmployeePayslipViewPage = () => {
   const { payRunId } = useParams();
@@ -34,30 +33,30 @@ const EmployeePayslipViewPage = () => {
       maximumFractionDigits: 2
     });
 
-  const formatDate = (dateStr) =>
-    dateStr
-      ? new Date(dateStr).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        })
-      : '';
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime())
+      ? dateStr
+      : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   const formatTime = (timeStr) => {
-    if (!timeStr) return '';
-    const date = new Date(timeStr);
-    if (isNaN(date.getTime())) return timeStr;
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    if (!timeStr) return '--:--';
+    const [h, m] = timeStr.split(':');
+    if (!h) return timeStr;
+    const hour = parseInt(h, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12.toString().padStart(2, '0')}:${m || '00'} ${ampm}`;
   };
+
+  const formatHours = (val) => Number(val || 0).toFixed(2);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
@@ -80,7 +79,14 @@ const EmployeePayslipViewPage = () => {
     );
   }
 
-  const { payRun, entry, timesheetLogs = [] } = data;
+  const { payRun, entry, timesheetLogs = [], adjustments = [] } = data;
+
+  const itemizedAllowances = adjustments.filter(
+    (a) => a.type === 'ALLOWANCE' || (a.amount > 0 && a.type !== 'DEDUCTION')
+  );
+  const itemizedDeductions = adjustments.filter(
+    (a) => a.type === 'DEDUCTION' || (a.amount > 0 && a.type === 'DEDUCTION')
+  );
 
   return (
     <div className="min-h-screen bg-gray-100 py-6 px-4">
@@ -174,10 +180,23 @@ const EmployeePayslipViewPage = () => {
                     <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.nightDiffPay !== undefined ? entry.nightDiffPay : entry.ndPay)}</td>
                   </tr>
                 )}
-                <tr>
-                  <td className="px-4 py-2 text-gray-600">Allowances</td>
-                  <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0))}</td>
-                </tr>
+
+                {/* Itemized Allowances if present */}
+                {itemizedAllowances.map((item, idx) => (
+                  <tr key={item._id || idx} className="bg-emerald-50/50">
+                    <td className="px-4 py-2 text-emerald-900 font-medium">{item.name || 'Allowance'}</td>
+                    <td className="px-4 py-2 font-semibold text-right text-emerald-700">₱{formatCurrency(item.amount)}</td>
+                  </tr>
+                ))}
+
+                {/* Allowances Summary Row */}
+                {itemizedAllowances.length === 0 && (
+                  <tr>
+                    <td className="px-4 py-2 text-gray-600">Allowances</td>
+                    <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0))}</td>
+                  </tr>
+                )}
+
                 <tr className="bg-gray-50 font-bold border-t border-gray-200">
                   <td className="px-4 py-2.5 text-gray-900">GROSS SALARY</td>
                   <td className="px-4 py-2.5 text-right text-gray-900">
@@ -202,6 +221,14 @@ const EmployeePayslipViewPage = () => {
             </div>
             <table className="w-full text-xs">
               <tbody className="divide-y divide-gray-100">
+                {/* Itemized Deductions if present */}
+                {itemizedDeductions.map((item, idx) => (
+                  <tr key={item._id || idx} className="bg-rose-50/50">
+                    <td className="px-4 py-2 text-rose-900 font-medium">{item.name || 'Deduction'}</td>
+                    <td className="px-4 py-2 font-semibold text-right text-rose-600">-₱{formatCurrency(item.amount)}</td>
+                  </tr>
+                ))}
+
                 {entry.withholdingTax > 0 && (
                   <tr>
                     <td className="px-4 py-2 text-gray-600">Withholding Tax</td>
@@ -214,6 +241,7 @@ const EmployeePayslipViewPage = () => {
                     <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.otherDeductions)}</td>
                   </tr>
                 )}
+
                 <tr className="bg-gray-50 font-bold border-t border-gray-200">
                   <td className="px-4 py-2.5 text-gray-900">TOTAL DEDUCTIONS</td>
                   <td className="px-4 py-2.5 text-right text-rose-600">
@@ -231,7 +259,7 @@ const EmployeePayslipViewPage = () => {
             <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-widest block">TAKE HOME PAY</span>
             <span className="text-xs text-emerald-700">Gross Salary minus Total Deductions</span>
           </div>
-          <span className="text-3xl font-black text-emerald-700 tracking-tight">
+          <span className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight">
             ₱{formatCurrency(entry.netSalary)}
           </span>
         </div>
@@ -239,19 +267,25 @@ const EmployeePayslipViewPage = () => {
         {/* Detailed Timesheet Entries Table */}
         {timesheetLogs.length > 0 && (
           <div>
-            <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3">
-              Timesheet Breakdown ({timesheetLogs.length} days logged)
-            </h3>
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                Timesheet Breakdown ({timesheetLogs.length} days logged)
+              </h3>
+              <span className="text-[10px] text-gray-400 sm:hidden no-print">
+                Swipe horizontally →
+              </span>
+            </div>
+            
+            <div className="border border-gray-200 rounded-xl overflow-x-auto shadow-sm">
+              <table className="w-full text-left text-xs min-w-[500px]">
                 <thead className="bg-gray-100 text-gray-700 font-bold border-b border-gray-200">
                   <tr>
-                    <th className="px-3 py-2">Date</th>
-                    <th className="px-3 py-2">Time In</th>
-                    <th className="px-3 py-2">Time Out</th>
-                    <th className="px-3 py-2 text-right">Hours</th>
-                    <th className="px-3 py-2 text-right">OT Hrs</th>
-                    <th className="px-3 py-2 text-right">ND Hrs</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">Date</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">Time In</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">Time Out</th>
+                    <th className="px-3 py-2.5 text-right whitespace-nowrap">Hours</th>
+                    <th className="px-3 py-2.5 text-right whitespace-nowrap">OT Hrs</th>
+                    <th className="px-3 py-2.5 text-right whitespace-nowrap">ND Hrs</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -262,12 +296,12 @@ const EmployeePayslipViewPage = () => {
                     const overtimeHours = approvedHours > 8 ? (approvedHours - 8) : 0;
                     return (
                       <tr key={log._id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 font-medium">{formatDate(log.date)}</td>
-                        <td className="px-3 py-2 text-gray-600">{formatTime(log.timeIn)}</td>
-                        <td className="px-3 py-2 text-gray-600">{formatTime(log.timeOut)}</td>
-                        <td className="px-3 py-2 font-semibold text-right">{formatHours(approvedHours)}</td>
-                        <td className="px-3 py-2 text-right text-gray-600">{formatHours(overtimeHours)}</td>
-                        <td className="px-3 py-2 text-right text-gray-600">{formatHours(log.ndHours || 0)}</td>
+                        <td className="px-3 py-2 font-medium whitespace-nowrap">{formatDate(log.date)}</td>
+                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{formatTime(log.timeIn)}</td>
+                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{formatTime(log.timeOut)}</td>
+                        <td className="px-3 py-2 font-semibold text-right whitespace-nowrap">{formatHours(approvedHours)}</td>
+                        <td className="px-3 py-2 text-right text-gray-600 whitespace-nowrap">{formatHours(overtimeHours)}</td>
+                        <td className="px-3 py-2 text-right text-gray-600 whitespace-nowrap">{formatHours(log.ndHours || 0)}</td>
                       </tr>
                     );
                   })}
