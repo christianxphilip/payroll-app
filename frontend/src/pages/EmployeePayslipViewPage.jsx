@@ -85,10 +85,10 @@ const EmployeePayslipViewPage = () => {
   return (
     <div className="min-h-screen bg-gray-100 py-6 px-4">
       {/* Top Action Bar (hidden when printing) */}
-      <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between no-print">
+      <div className="max-w-4xl mx-auto mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
         <button
           onClick={() => navigate('/employee/payslips')}
-          className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 rounded-xl border border-gray-300 shadow-sm transition-colors"
+          className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 rounded-xl border border-gray-300 shadow-sm transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -98,7 +98,7 @@ const EmployeePayslipViewPage = () => {
 
         <button
           onClick={() => window.print()}
-          className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow transition-colors"
+          className="flex items-center justify-center gap-2 px-5 py-2 text-xs sm:text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 000-4h-6a2 2 0 000 4zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -108,27 +108,27 @@ const EmployeePayslipViewPage = () => {
       </div>
 
       {/* Official Payslip Printable Container */}
-      <div className="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0">
+      <div className="max-w-4xl mx-auto bg-white p-4 sm:p-8 rounded-2xl shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0">
         {/* Header */}
-        <div className="border-b-2 border-gray-800 pb-4 mb-6 flex justify-between items-start">
+        <div className="border-b-2 border-gray-800 pb-4 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">PAYSLIP</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">PAYSLIP</h1>
             <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mt-0.5">
               ESPRO Payroll System
             </p>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <span className="inline-block px-3 py-1 text-xs font-black bg-emerald-100 text-emerald-800 rounded-md uppercase">
               PAID
             </span>
             <p className="text-xs text-gray-500 mt-1">
-              Period: <span className="font-semibold text-gray-800">{formatDate(payRun.payPeriodStart)} – {formatDate(payRun.payPeriodEnd)}</span>
+              Period: <span className="font-semibold text-gray-800">{formatDate(payRun.payPeriodStart || payRun.payrollPeriodStart)} – {formatDate(payRun.payPeriodEnd || payRun.payrollPeriodEnd)}</span>
             </p>
           </div>
         </div>
 
         {/* Employee Summary Card */}
-        <div className="bg-gray-50 rounded-xl p-4 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 border border-gray-200 text-xs">
+        <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 border border-gray-200 text-xs">
           <div>
             <span className="text-gray-500 block font-medium">Employee Name</span>
             <span className="font-bold text-gray-900 text-sm">{entry.employeeName}</span>

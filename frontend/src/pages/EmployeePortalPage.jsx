@@ -81,14 +81,10 @@ const EmployeePortalPage = () => {
       <main className="max-w-6xl mx-auto px-4 pt-8">
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">My Payslips</h2>
-            <p className="text-sm text-gray-500">
-              View, print, and download your finalized paid payslips.
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">My Payslips</h2>
+            <p className="text-xs sm:text-sm text-gray-500">
+              View, print, and download your payslips.
             </p>
-          </div>
-          <div className="inline-flex items-center gap-2 text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-200 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Showing Paid Payslips Only
           </div>
         </div>
 

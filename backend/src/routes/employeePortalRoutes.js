@@ -50,7 +50,7 @@ router.get('/payslips', async (req, res, next) => {
     const { employeeId, employeeName } = await resolveEmployee(req);
 
     // Find all paid pay runs
-    const paidPayRuns = await PayRun.find({ status: 'PAID' }).sort({ payPeriodEnd: -1 });
+    const paidPayRuns = await PayRun.find({ status: 'PAID' }).sort({ payrollPeriodEnd: -1, createdAt: -1 });
     const payRunIds = paidPayRuns.map(pr => pr._id);
 
     const nameRegex = new RegExp('^' + escapeRegex(employeeName) + '$', 'i');
@@ -74,21 +74,28 @@ router.get('/payslips', async (req, res, next) => {
       .filter(pr => entryMap.has(pr._id.toString()))
       .map(pr => {
         const entry = entryMap.get(pr._id.toString());
+        const start = pr.payrollPeriodStart || pr.payPeriodStart;
+        const end = pr.payrollPeriodEnd || pr.payPeriodEnd;
+        const payout = pr.payoutDate || pr.paymentDate;
+
         return {
           payRunId: pr._id,
-          payPeriodStart: pr.payPeriodStart,
-          payPeriodEnd: pr.payPeriodEnd,
-          paymentDate: pr.paymentDate,
+          payPeriodStart: start,
+          payPeriodEnd: end,
+          payrollPeriodStart: start,
+          payrollPeriodEnd: end,
+          paymentDate: payout,
+          payoutDate: payout,
           payrollType: pr.payrollType,
           status: pr.status,
           entryId: entry._id,
           employeeName: entry.employeeName,
-          basicPay: entry.basicPay,
-          overtimePay: entry.overtimePay,
-          ndPay: entry.ndPay,
-          grossSalary: entry.grossSalary,
-          totalDeductions: entry.totalDeductions,
-          netSalary: entry.netSalary
+          basicPay: entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0),
+          overtimePay: entry.overtimePay || 0,
+          ndPay: entry.nightDiffPay !== undefined ? entry.nightDiffPay : (entry.ndPay || 0),
+          grossSalary: entry.grossSalary !== undefined ? entry.grossSalary : (entry.basicSalary || 0),
+          totalDeductions: entry.deductionsTotal !== undefined ? entry.deductionsTotal : (entry.totalDeductions || 0),
+          netSalary: entry.netSalary || 0
         };
       });
 
@@ -133,27 +140,41 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
       throw new AppError('Payslip entry not found for this pay period', 404);
     }
 
-    // Fetch timesheet logs for detailed breakdown
-    const timesheetLogs = await TimesheetLog.find({
-      employeeName: { $regex: '^' + escapeRegex(entry.employeeName) + '$', $options: 'i' },
-      date: {
-        $gte: new Date(payRun.payPeriodStart),
-        $lte: new Date(payRun.payPeriodEnd)
-      }
-    }).sort({ date: 1 });
+    const start = payRun.payrollPeriodStart || payRun.payPeriodStart;
+    const end = payRun.payrollPeriodEnd || payRun.payPeriodEnd;
+    const payout = payRun.payoutDate || payRun.paymentDate;
+
+    let timesheetLogs = [];
+    if (start && end && !isNaN(new Date(start).getTime()) && !isNaN(new Date(end).getTime())) {
+      timesheetLogs = await TimesheetLog.find({
+        employeeName: { $regex: '^' + escapeRegex(entry.employeeName) + '$', $options: 'i' },
+        date: {
+          $gte: new Date(start),
+          $lte: new Date(end)
+        }
+      }).sort({ date: 1 });
+    }
 
     res.json({
       success: true,
       data: {
         payRun: {
           _id: payRun._id,
-          payPeriodStart: payRun.payPeriodStart,
-          payPeriodEnd: payRun.payPeriodEnd,
-          paymentDate: payRun.paymentDate,
+          payPeriodStart: start,
+          payPeriodEnd: end,
+          payrollPeriodStart: start,
+          payrollPeriodEnd: end,
+          paymentDate: payout,
+          payoutDate: payout,
           payrollType: payRun.payrollType,
           status: payRun.status
         },
-        entry,
+        entry: {
+          ...entry.toObject(),
+          basicPay: entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0),
+          ndPay: entry.nightDiffPay !== undefined ? entry.nightDiffPay : (entry.ndPay || 0),
+          totalDeductions: entry.deductionsTotal !== undefined ? entry.deductionsTotal : (entry.totalDeductions || 0)
+        },
         timesheetLogs
       }
     });

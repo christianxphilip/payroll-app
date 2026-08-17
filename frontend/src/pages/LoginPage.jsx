@@ -82,11 +82,6 @@ const LoginPage = () => {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>Default accounts:</p>
-          <p className="font-semibold">admin (admin123) &nbsp;|&nbsp; manager (manager123)</p>
-        </div>
       </div>
     </div>
   );
