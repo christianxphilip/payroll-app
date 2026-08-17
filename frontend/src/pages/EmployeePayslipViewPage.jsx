@@ -18,8 +18,8 @@ const EmployeePayslipViewPage = () => {
     try {
       setLoading(true);
       const res = await employeePortalAPI.getPayslipDetail(payRunId);
-      const payload = res.data || res;
-      setData(payload.data || payload);
+      const payload = res?.data?.payRun ? res.data : (res?.payRun ? res : res?.data);
+      setData(payload);
     } catch (err) {
       console.error('Failed to load payslip detail:', err);
       setError(err.response?.data?.error || 'Failed to load payslip details.');

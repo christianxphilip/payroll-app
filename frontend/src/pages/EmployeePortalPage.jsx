@@ -19,9 +19,14 @@ const EmployeePortalPage = () => {
     try {
       setLoading(true);
       const res = await employeePortalAPI.getPayslips();
-      const payload = res.data || res;
-      setPayslips(payload.data || []);
-      setEmployeeName(payload.employeeName || user?.employeeName || user?.username || 'Employee');
+      const list = Array.isArray(res)
+        ? res
+        : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : []));
+
+      const empName = res?.employeeName || res?.data?.employeeName || user?.employeeName || user?.username || 'Employee';
+
+      setPayslips(list);
+      setEmployeeName(empName);
     } catch (err) {
       console.error('Failed to load payslips:', err);
       setError(err.response?.data?.error || 'Failed to load your payslips.');
