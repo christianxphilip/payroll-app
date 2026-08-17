@@ -11,24 +11,37 @@ const router = express.Router();
 // All employee portal routes require authentication
 router.use(authenticate);
 
+const escapeRegex = (s) => (s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // Helper to resolve current logged-in employee name/id
 async function resolveEmployee(req) {
-  let employeeId = req.user.employeeId;
-  let employeeName = req.user.employeeName;
+  let employee = null;
 
-  if (!employeeName && req.user.username) {
-    const emp = await Employee.findOne({ username: req.user.username });
-    if (emp) {
-      employeeId = emp._id;
-      employeeName = emp.employeeName;
-    }
+  if (req.user.employeeId) {
+    employee = await Employee.findById(req.user.employeeId);
   }
 
-  if (!employeeName) {
-    throw new AppError('Employee profile not found', 404);
+  if (!employee && req.user.username) {
+    const cleanUsername = req.user.username.trim().toLowerCase();
+    employee = await Employee.findOne({
+      $or: [
+        { username: cleanUsername },
+        { username: { $regex: '^' + escapeRegex(cleanUsername) + '$', $options: 'i' } }
+      ]
+    });
   }
 
-  return { employeeId, employeeName };
+  if (!employee && req.user.employeeName) {
+    employee = await Employee.findOne({
+      employeeName: { $regex: '^' + escapeRegex(req.user.employeeName) + '$', $options: 'i' }
+    });
+  }
+
+  if (!employee) {
+    throw new AppError(`Employee profile not found for account "${req.user.username || 'unknown'}".`, 404);
+  }
+
+  return { employeeId: employee._id, employeeName: employee.employeeName };
 }
 
 // GET /api/employee-portal/payslips - List all PAID pay runs for current employee
@@ -38,16 +51,18 @@ router.get('/payslips', async (req, res, next) => {
 
     // Find all paid pay runs
     const paidPayRuns = await PayRun.find({ status: 'PAID' }).sort({ payPeriodEnd: -1 });
-
     const payRunIds = paidPayRuns.map(pr => pr._id);
+
+    const nameRegex = new RegExp('^' + escapeRegex(employeeName) + '$', 'i');
+    const searchConditions = [{ employeeName: nameRegex }];
+    if (employeeId) {
+      searchConditions.push({ employeeId: employeeId });
+    }
 
     // Find PayRunEmployee entries for this employee in paid pay runs
     const entries = await PayRunEmployee.find({
       payRunId: { $in: payRunIds },
-      $or: [
-        { employeeId: employeeId },
-        { employeeName: employeeName }
-      ]
+      $or: searchConditions
     });
 
     const entryMap = new Map();
@@ -102,13 +117,16 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
       throw new AppError('Access denied: Only paid payslips can be viewed', 403);
     }
 
+    const nameRegex = new RegExp('^' + escapeRegex(employeeName) + '$', 'i');
+    const searchConditions = [{ employeeName: nameRegex }];
+    if (employeeId) {
+      searchConditions.push({ employeeId: employeeId });
+    }
+
     // Find employee's entry
     const entry = await PayRunEmployee.findOne({
       payRunId: payRun._id,
-      $or: [
-        { employeeId: employeeId },
-        { employeeName: employeeName }
-      ]
+      $or: searchConditions
     });
 
     if (!entry) {
@@ -117,7 +135,7 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
 
     // Fetch timesheet logs for detailed breakdown
     const timesheetLogs = await TimesheetLog.find({
-      employeeName: entry.employeeName,
+      employeeName: { $regex: '^' + escapeRegex(entry.employeeName) + '$', $options: 'i' },
       date: {
         $gte: new Date(payRun.payPeriodStart),
         $lte: new Date(payRun.payPeriodEnd)
