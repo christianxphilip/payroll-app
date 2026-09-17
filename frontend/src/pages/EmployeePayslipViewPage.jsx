@@ -180,6 +180,30 @@ const EmployeePayslipViewPage = () => {
                     <td className="px-4 py-2 font-semibold text-right">₱{formatCurrency(entry.nightDiffPay !== undefined ? entry.nightDiffPay : entry.ndPay)}</td>
                   </tr>
                 )}
+                {(entry.regularHolidayHours > 0 || entry.regularHolidayPay > 0) && (
+                  <tr className="bg-amber-50/50">
+                    <td className="px-4 py-2 text-amber-900">Regular Holiday Pay ({formatHours(entry.regularHolidayHours)} hrs)</td>
+                    <td className="px-4 py-2 font-semibold text-right text-amber-800">₱{formatCurrency(entry.regularHolidayPay)}</td>
+                  </tr>
+                )}
+                {(entry.specialHolidayHours > 0 || entry.specialHolidayPay > 0) && (
+                  <tr className="bg-amber-50/50">
+                    <td className="px-4 py-2 text-amber-900">Special Holiday Pay ({formatHours(entry.specialHolidayHours)} hrs)</td>
+                    <td className="px-4 py-2 font-semibold text-right text-amber-800">₱{formatCurrency(entry.specialHolidayPay)}</td>
+                  </tr>
+                )}
+                {(entry.overtimeRegularHolidayHours > 0 || entry.overtimeRegularHolidayPay > 0) && (
+                  <tr className="bg-amber-50/50">
+                    <td className="px-4 py-2 text-amber-900">Regular Holiday OT ({formatHours(entry.overtimeRegularHolidayHours)} hrs)</td>
+                    <td className="px-4 py-2 font-semibold text-right text-amber-800">₱{formatCurrency(entry.overtimeRegularHolidayPay)}</td>
+                  </tr>
+                )}
+                {(entry.overtimeSpecialHolidayHours > 0 || entry.overtimeSpecialHolidayPay > 0) && (
+                  <tr className="bg-amber-50/50">
+                    <td className="px-4 py-2 text-amber-900">Special Holiday OT ({formatHours(entry.overtimeSpecialHolidayHours)} hrs)</td>
+                    <td className="px-4 py-2 font-semibold text-right text-amber-800">₱{formatCurrency(entry.overtimeSpecialHolidayPay)}</td>
+                  </tr>
+                )}
 
                 {/* Itemized Allowances if present */}
                 {itemizedAllowances.map((item, idx) => (
@@ -206,6 +230,10 @@ const EmployeePayslipViewPage = () => {
                         : ((entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0)) +
                            (entry.overtimePay || 0) +
                            (entry.nightDiffPay !== undefined ? entry.nightDiffPay : (entry.ndPay || 0)) +
+                           (entry.regularHolidayPay || 0) +
+                           (entry.specialHolidayPay || 0) +
+                           (entry.overtimeRegularHolidayPay || 0) +
+                           (entry.overtimeSpecialHolidayPay || 0) +
                            (entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0)))
                     )}
                   </td>

@@ -112,12 +112,19 @@ const EmployeePortalPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {payslips.map((item) => (
-              <div
-                key={item.payRunId}
-                className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col justify-between"
-              >
-                <div className="p-5">
+            {payslips.map((item) => {
+              const holidayPay =
+                (item.regularHolidayPay || 0) +
+                (item.specialHolidayPay || 0) +
+                (item.overtimeRegularHolidayPay || 0) +
+                (item.overtimeSpecialHolidayPay || 0);
+
+              return (
+                <div
+                  key={item.payRunId}
+                  className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col justify-between"
+                >
+                  <div className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 uppercase tracking-wider">
                       PAID
@@ -140,6 +147,12 @@ const EmployeePortalPage = () => {
                       <span>Gross Salary</span>
                       <span className="font-medium">₱{formatCurrency(item.grossSalary)}</span>
                     </div>
+                    {holidayPay > 0 && (
+                      <div className="flex justify-between text-amber-700 text-xs">
+                        <span>Holiday Pay</span>
+                        <span className="font-semibold">₱{formatCurrency(holidayPay)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-gray-600 text-xs">
                       <span>Total Deductions</span>
                       <span className="font-medium text-rose-600">-₱{formatCurrency(item.totalDeductions)}</span>
@@ -151,22 +164,23 @@ const EmployeePortalPage = () => {
                       </span>
                     </div>
                   </div>
-                </div>
+                  </div>
 
-                <div className="bg-gray-50 px-5 py-3 border-t border-gray-100">
-                  <button
-                    onClick={() => navigate(`/employee/payslips/${item.payRunId}`)}
-                    className="w-full py-2 px-4 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    View & Print Payslip
-                  </button>
+                  <div className="bg-gray-50 px-5 py-3 border-t border-gray-100">
+                    <button
+                      onClick={() => navigate(`/employee/payslips/${item.payRunId}`)}
+                      className="w-full py-2 px-4 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      View & Print Payslip
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
