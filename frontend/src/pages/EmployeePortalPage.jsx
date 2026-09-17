@@ -113,11 +113,19 @@ const EmployeePortalPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {payslips.map((item) => {
-              const holidayPay =
+              const itemizedHolidayPay =
                 (item.regularHolidayPay || 0) +
                 (item.specialHolidayPay || 0) +
                 (item.overtimeRegularHolidayPay || 0) +
                 (item.overtimeSpecialHolidayPay || 0);
+              const knownNonHolidayEarnings =
+                (item.basicPay || 0) +
+                (item.overtimePay || 0) +
+                (item.ndPay || 0) +
+                (item.allowancesTotal || 0);
+              const holidayPay = itemizedHolidayPay > 0
+                ? itemizedHolidayPay
+                : Math.max(0, (item.grossSalary || 0) - knownNonHolidayEarnings);
 
               return (
                 <div

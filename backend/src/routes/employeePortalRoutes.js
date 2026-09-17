@@ -116,6 +116,7 @@ router.get('/payslips', async (req, res, next) => {
           overtimeRegularHolidayPay,
           overtimeSpecialHolidayHours: entry.overtimeSpecialHolidayHours || 0,
           overtimeSpecialHolidayPay,
+          allowancesTotal,
           grossSalary,
           totalDeductions: deductionsTotal,
           netSalary

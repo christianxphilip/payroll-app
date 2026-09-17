@@ -87,6 +87,16 @@ const EmployeePayslipViewPage = () => {
   const itemizedDeductions = adjustments.filter(
     (a) => a.type === 'DEDUCTION' || (a.amount > 0 && a.type === 'DEDUCTION')
   );
+  const basicPay = entry.basicSalary !== undefined ? entry.basicSalary : (entry.basicPay || 0);
+  const nightDiffPay = entry.nightDiffPay !== undefined ? entry.nightDiffPay : (entry.ndPay || 0);
+  const allowancesTotal = entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0);
+  const itemizedHolidayPay =
+    (entry.regularHolidayPay || 0) +
+    (entry.specialHolidayPay || 0) +
+    (entry.overtimeRegularHolidayPay || 0) +
+    (entry.overtimeSpecialHolidayPay || 0);
+  const knownEarnings = basicPay + (entry.overtimePay || 0) + nightDiffPay + allowancesTotal + itemizedHolidayPay;
+  const unitemizedHolidayPay = Math.max(0, (entry.grossSalary || 0) - knownEarnings);
 
   return (
     <div className="min-h-screen bg-gray-100 py-6 px-4">
@@ -202,6 +212,12 @@ const EmployeePayslipViewPage = () => {
                   <tr className="bg-amber-50/50">
                     <td className="px-4 py-2 text-amber-900">Special Holiday OT ({formatHours(entry.overtimeSpecialHolidayHours)} hrs)</td>
                     <td className="px-4 py-2 font-semibold text-right text-amber-800">₱{formatCurrency(entry.overtimeSpecialHolidayPay)}</td>
+                  </tr>
+                )}
+                {unitemizedHolidayPay > 0.005 && (
+                  <tr className="bg-amber-50/50">
+                    <td className="px-4 py-2 text-amber-900">Holiday Pay</td>
+                    <td className="px-4 py-2 font-semibold text-right text-amber-800">₱{formatCurrency(unitemizedHolidayPay)}</td>
                   </tr>
                 )}
 
