@@ -6,6 +6,7 @@ import PayRun from '../models/PayRun.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
 import Employee from '../models/Employee.js';
 import TimesheetLog from '../models/TimesheetLog.js';
+import Timesheet from '../models/Timesheet.js';
 import Settings from '../models/Settings.js';
 import {
   calculatePayrollAdjustment,
@@ -15,6 +16,41 @@ import {
 const router = express.Router();
 router.use(authenticate);
 router.use(authorize(['admin']));
+
+router.get('/pay-runs/:payRunId/employees/:entryId/sources', async (req, res, next) => {
+  try {
+    const currentPayRun = await PayRun.findById(req.params.payRunId).lean();
+    const entry = await PayRunEmployee.findById(req.params.entryId).lean();
+    if (!currentPayRun || !entry || String(entry.payRunId) !== req.params.payRunId) {
+      throw new AppError('Pay run employee not found', 404);
+    }
+
+    const historicalEntries = await PayRunEmployee.find({
+      employeeId: entry.employeeId,
+      payRunId: { $ne: currentPayRun._id }
+    }).select('payRunId').lean();
+    const historicalPayRunIds = historicalEntries.map((item) => item.payRunId);
+    const payRuns = await PayRun.find({
+      _id: { $in: historicalPayRunIds },
+      payrollPeriodEnd: { $lt: currentPayRun.payrollPeriodStart },
+      status: { $in: ['APPROVED', 'PAID'] }
+    }).sort({ payrollPeriodEnd: -1 }).lean();
+
+    const timesheetIds = [...new Set(payRuns.flatMap((item) => item.timesheetIds || []).map(String))];
+    const [timesheets, logs] = await Promise.all([
+      Timesheet.find({ _id: { $in: timesheetIds } }).sort({ endDate: -1 }).lean(),
+      TimesheetLog.find({
+        timesheetId: { $in: timesheetIds },
+        employeeName: entry.employeeName,
+        isSubmitted: true
+      }).sort({ date: -1, timeIn: -1 }).lean()
+    ]);
+
+    res.json({ success: true, data: { payRuns, timesheets, logs } });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get('/pay-runs/:payRunId/employees/:entryId', async (req, res, next) => {
   try {
@@ -85,6 +121,12 @@ router.post('/pay-runs/:payRunId/employees/:entryId', async (req, res, next) => 
     if (sourceTimeLogId) {
       sourceLog = await TimesheetLog.findById(sourceTimeLogId);
       if (!sourceLog) throw new AppError('Source time log not found', 404);
+      if (sourceLog.employeeName !== entry.employeeName) {
+        throw new AppError('Source time log does not belong to this employee', 400);
+      }
+      if (sourceTimesheetId && String(sourceLog.timesheetId) !== String(sourceTimesheetId)) {
+        throw new AppError('Source time log does not belong to the selected timesheet', 400);
+      }
       const duplicate = await PayrollAdjustment.findOne({
         sourceTimeLogId,
         type,

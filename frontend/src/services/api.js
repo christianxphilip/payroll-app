@@ -189,6 +189,8 @@ export const payRunAPI = {
 export const payrollAdjustmentAPI = {
   getForEmployee: (payRunId, entryId) =>
     api.get(`/payroll-adjustments/pay-runs/${payRunId}/employees/${entryId}`),
+  getSources: (payRunId, entryId) =>
+    api.get(`/payroll-adjustments/pay-runs/${payRunId}/employees/${entryId}/sources`),
   create: (payRunId, entryId, data) =>
     api.post(`/payroll-adjustments/pay-runs/${payRunId}/employees/${entryId}`, data),
   remove: (id) => api.delete(`/payroll-adjustments/${id}`),

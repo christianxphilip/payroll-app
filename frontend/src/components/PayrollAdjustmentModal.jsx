@@ -27,9 +27,18 @@ const money = (value) => Number(value || 0).toLocaleString('en-US', {
   maximumFractionDigits: 2
 });
 
+const dateLabel = (value) => value ? new Date(value).toLocaleDateString('en-US', {
+  year: 'numeric', month: 'short', day: 'numeric'
+}) : '';
+
+const timeLabel = (value) => value ? new Date(value).toLocaleTimeString('en-US', {
+  hour: 'numeric', minute: '2-digit'
+}) : '--';
+
 const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }) => {
   const [form, setForm] = useState(emptyForm);
   const [items, setItems] = useState([]);
+  const [sources, setSources] = useState({ payRuns: [], timesheets: [], logs: [] });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -39,13 +48,62 @@ const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }
     setForm(emptyForm);
     setError('');
     setLoading(true);
-    payrollAdjustmentAPI.getForEmployee(payRun._id, employee._id)
-      .then((res) => setItems(res.data || res || []))
+    Promise.all([
+      payrollAdjustmentAPI.getForEmployee(payRun._id, employee._id),
+      payrollAdjustmentAPI.getSources(payRun._id, employee._id)
+    ])
+      .then(([itemsRes, sourcesRes]) => {
+        setItems(itemsRes.data || itemsRes || []);
+        setSources(sourcesRes.data || sourcesRes || { payRuns: [], timesheets: [], logs: [] });
+      })
       .catch((err) => setError(err.response?.data?.error || 'Failed to load prior-period adjustments'))
       .finally(() => setLoading(false));
   }, [isOpen, employee?._id, payRun?._id]);
 
   const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+
+  const selectPayRun = (sourcePayRunId) => {
+    const selected = sources.payRuns.find((item) => item._id === sourcePayRunId);
+    const allowedTimesheets = (selected?.timesheetIds || []).map(String);
+    setForm((current) => ({
+      ...current,
+      sourcePayRunId,
+      sourceTimesheetId: allowedTimesheets.includes(current.sourceTimesheetId) ? current.sourceTimesheetId : '',
+      sourceTimeLogId: ''
+    }));
+  };
+
+  const selectTimesheet = (sourceTimesheetId) => {
+    setForm((current) => ({ ...current, sourceTimesheetId, sourceTimeLogId: '' }));
+  };
+
+  const selectLog = (sourceTimeLogId) => {
+    const log = sources.logs.find((item) => item._id === sourceTimeLogId);
+    if (!log) {
+      setField('sourceTimeLogId', '');
+      return;
+    }
+    const approvedHours = Number(log.adjustedHoursWorked || 0);
+    const actualHours = Number(log.hoursWorked || 0);
+    const unpaidOvertime = Math.max(0, actualHours - Math.max(8, approvedHours));
+    setForm((current) => ({
+      ...current,
+      sourceTimeLogId,
+      originalWorkDate: new Date(log.date).toISOString().slice(0, 10),
+      overtimeHours: current.type === 'PRIOR_PERIOD_OT' && unpaidOvertime > 0
+        ? unpaidOvertime.toFixed(2)
+        : current.overtimeHours,
+      holidayType: log.isHoliday ? String(log.holidayType || 'NONE').toUpperCase() : 'NONE'
+    }));
+  };
+
+  const selectedPayRun = sources.payRuns.find((item) => item._id === form.sourcePayRunId);
+  const availableTimesheets = sources.timesheets.filter((item) =>
+    !selectedPayRun || (selectedPayRun.timesheetIds || []).map(String).includes(item._id)
+  );
+  const availableLogs = sources.logs.filter((item) =>
+    !form.sourceTimesheetId || String(item.timesheetId) === form.sourceTimesheetId
+  );
 
   const changeType = (type) => {
     setForm((current) => ({
@@ -173,14 +231,29 @@ const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <label className="text-xs font-medium text-gray-700">Source timesheet ID
-            <input type="text" value={form.sourceTimesheetId} onChange={(e) => setField('sourceTimesheetId', e.target.value.trim())} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-xs font-medium text-gray-700">Source pay run
+            <select value={form.sourcePayRunId} onChange={(e) => selectPayRun(e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <option value="">Select pay run</option>
+              {sources.payRuns.map((item) => (
+                <option key={item._id} value={item._id}>{dateLabel(item.payrollPeriodStart)} - {dateLabel(item.payrollPeriodEnd)} ({item.status})</option>
+              ))}
+            </select>
           </label>
-          <label className="text-xs font-medium text-gray-700">Source pay-run ID
-            <input type="text" value={form.sourcePayRunId} onChange={(e) => setField('sourcePayRunId', e.target.value.trim())} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-xs font-medium text-gray-700">Source timesheet
+            <select value={form.sourceTimesheetId} onChange={(e) => selectTimesheet(e.target.value)} disabled={!form.sourcePayRunId} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100">
+              <option value="">Select timesheet</option>
+              {availableTimesheets.map((item) => (
+                <option key={item._id} value={item._id}>{item.name} ({dateLabel(item.startDate)} - {dateLabel(item.endDate)})</option>
+              ))}
+            </select>
           </label>
-          <label className="text-xs font-medium text-gray-700">Source time-log ID
-            <input type="text" value={form.sourceTimeLogId} onChange={(e) => setField('sourceTimeLogId', e.target.value.trim())} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-xs font-medium text-gray-700">Source attendance log
+            <select value={form.sourceTimeLogId} onChange={(e) => selectLog(e.target.value)} disabled={!form.sourceTimesheetId} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100">
+              <option value="">{form.type === 'ATTENDANCE_CORRECTION' ? 'No source log / missing log' : 'Select attendance log'}</option>
+              {availableLogs.map((item) => (
+                <option key={item._id} value={item._id}>{dateLabel(item.date)} | {timeLabel(item.timeIn)} - {timeLabel(item.timeOut)} | Actual {Number(item.hoursWorked || 0).toFixed(2)}h / Approved {Number(item.adjustedHoursWorked || 0).toFixed(2)}h</option>
+              ))}
+            </select>
           </label>
         </div>
 
