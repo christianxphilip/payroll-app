@@ -77,6 +77,14 @@ const payRunEmployeeSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  priorPeriodAdjustmentTotal: {
+    type: Number,
+    default: 0
+  },
+  priorPeriodAdjustments: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: []
+  },
   allowancesTotal: {
     type: Number,
     default: 0
@@ -99,5 +107,4 @@ const payRunEmployeeSchema = new mongoose.Schema({
 payRunEmployeeSchema.index({ payRunId: 1, employeeId: 1 }, { unique: true });
 
 export default mongoose.model('PayRunEmployee', payRunEmployeeSchema, 'payroll_app_payrunemployees');
-
 

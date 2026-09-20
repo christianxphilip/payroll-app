@@ -5,6 +5,7 @@ import { formatHours } from '../utils/formatters';
 import Modal from '../components/Modal';
 import ResponsiveTableWrapper from '../components/ResponsiveTableWrapper';
 import { openGmailPayslip } from '../utils/gmailUtils';
+import PayrollAdjustmentModal from '../components/PayrollAdjustmentModal';
 
 const PayRunDetailPage = () => {
   const { payRunId } = useParams();
@@ -24,6 +25,7 @@ const PayRunDetailPage = () => {
   });
   const [sort, setSort] = useState({ field: 'employeeName', direction: 'asc' });
   const [sendingEmailId, setSendingEmailId] = useState(null);
+  const [payrollAdjustmentEmployee, setPayrollAdjustmentEmployee] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -119,6 +121,7 @@ const PayRunDetailPage = () => {
           (emp.nightDiffPay || 0) +
           (emp.regularHolidayPay || 0) +
           (emp.specialHolidayPay || 0) +
+          (emp.priorPeriodAdjustmentTotal || 0) +
           (emp.allowancesTotal || 0);
         acc.totalGross += gross;
         acc.totalNet += emp.netSalary || 0;
@@ -766,6 +769,18 @@ const PayRunDetailPage = () => {
                         >
                           View
                         </button>
+                        {payRun.status === 'DRAFT' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPayrollAdjustmentEmployee(emp);
+                            }}
+                            className="w-24 px-3 py-1.5 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg"
+                          >
+                            Prior pay
+                          </button>
+                        )}
                         {payRun.status === 'PAID' && (
                           <button
                             type="button"
@@ -802,6 +817,19 @@ const PayRunDetailPage = () => {
             </tbody>
           </table>
         </ResponsiveTableWrapper>
+
+      <PayrollAdjustmentModal
+        isOpen={!!payrollAdjustmentEmployee}
+        onClose={() => setPayrollAdjustmentEmployee(null)}
+        payRun={payRun}
+        employee={payrollAdjustmentEmployee}
+        onUpdated={(updated) => {
+          if (!updated) return;
+          setPayrollAdjustmentEmployee(updated);
+          setEmployees((current) => current.map((item) => item._id === updated._id ? updated : item));
+          setMessage({ type: 'success', text: 'Prior-period pay updated.' });
+        }}
+      />
 
       {/* Adjustments & Overrides Modal */}
       <Modal
@@ -1096,5 +1124,4 @@ const PayRunDetailPage = () => {
 };
 
 export default PayRunDetailPage;
-
 

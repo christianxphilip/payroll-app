@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "start:test": "NODE_ENV=test node --env-file=.env.test src/server.js",
+    "seed:retro-test": "node src/scripts/seedRetroTestData.js"
   },
   "keywords": [
     "payroll",
