@@ -8,6 +8,7 @@ import Employee from '../models/Employee.js';
 import TimesheetLog from '../models/TimesheetLog.js';
 import Timesheet from '../models/Timesheet.js';
 import Settings from '../models/Settings.js';
+import { calculateActualDuration, calculateNDHours } from '../services/calculationService.js';
 import {
   calculatePayrollAdjustment,
   syncPayRunEmployeeAdjustments
@@ -116,10 +117,6 @@ router.post('/pay-runs/:payRunId/employees/:entryId', async (req, res, next) => 
     if (type === 'PRIOR_PERIOD_OT' && (!sourcePayRunId || !sourceTimesheetId || !sourceTimeLogId)) {
       throw new AppError('Source pay run, timesheet, and attendance log are required for prior-period OT', 400);
     }
-    if (Number(regularHours) + Number(overtimeHours) + Number(nightDiffHours) <= 0) {
-      throw new AppError('At least one approved hour value is required', 400);
-    }
-
     let sourceLog = null;
     if (sourceTimeLogId) {
       sourceLog = await TimesheetLog.findById(sourceTimeLogId);
@@ -165,9 +162,29 @@ router.post('/pay-runs/:payRunId/employees/:entryId', async (req, res, next) => 
         ? settings.specialHolidayMultiplier
         : 0;
 
-    const approvedRegularHours = type === 'PRIOR_PERIOD_OT' ? 0 : Number(regularHours) || 0;
-    const approvedOvertimeHours = Number(overtimeHours) || 0;
-    const approvedNightDiffHours = Number(nightDiffHours) || 0;
+    let approvedRegularHours = type === 'PRIOR_PERIOD_OT' ? 0 : Number(regularHours) || 0;
+    let approvedOvertimeHours = Number(overtimeHours) || 0;
+    let approvedNightDiffHours = Number(nightDiffHours) || 0;
+
+    if (type === 'ATTENDANCE_CORRECTION') {
+      if (!correctedTimeIn || !correctedTimeOut) {
+        throw new AppError('Corrected time-in and time-out are required for attendance corrections', 400);
+      }
+      const duration = calculateActualDuration(correctedTimeIn, correctedTimeOut);
+      const correctedHours = Math.max(0, duration - (Number(breakMinutes) || 0) / 60);
+      const correctedRegularHours = Math.min(correctedHours, 8);
+      const correctedOvertimeHours = Math.max(0, correctedHours - 8);
+      const correctedNightHours = calculateNDHours(correctedTimeIn, correctedTimeOut);
+      const previouslyApprovedHours = Number(sourceLog?.adjustedHoursWorked || 0);
+
+      approvedRegularHours = Math.max(0, correctedRegularHours - Math.min(previouslyApprovedHours, 8));
+      approvedOvertimeHours = Math.max(0, correctedOvertimeHours - Math.max(0, previouslyApprovedHours - 8));
+      approvedNightDiffHours = Math.max(0, correctedNightHours - Number(sourceLog?.ndHours || 0));
+    }
+
+    if (approvedRegularHours + approvedOvertimeHours + approvedNightDiffHours <= 0) {
+      throw new AppError('The correction does not add any payable hours', 400);
+    }
     const amounts = calculatePayrollAdjustment({
       hourlyRate,
       regularHours: approvedRegularHours,

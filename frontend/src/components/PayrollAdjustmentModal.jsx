@@ -35,6 +35,36 @@ const timeLabel = (value) => value ? new Date(value).toLocaleTimeString('en-US',
   hour: 'numeric', minute: '2-digit'
 }) : '--';
 
+const localDateTimeValue = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+};
+
+const calculateNightHours = (timeIn, timeOut) => {
+  if (!timeIn || !timeOut) return 0;
+  const start = new Date(timeIn);
+  const end = new Date(timeOut);
+  if (end <= start) return 0;
+  let total = 0;
+  const cursor = new Date(start);
+  cursor.setDate(cursor.getDate() - 1);
+  cursor.setHours(0, 0, 0, 0);
+  while (cursor < end) {
+    const nightStart = new Date(cursor);
+    nightStart.setHours(22, 0, 0, 0);
+    const nightEnd = new Date(cursor);
+    nightEnd.setDate(nightEnd.getDate() + 1);
+    nightEnd.setHours(6, 0, 0, 0);
+    const overlapStart = Math.max(start.getTime(), nightStart.getTime());
+    const overlapEnd = Math.min(end.getTime(), nightEnd.getTime());
+    if (overlapEnd > overlapStart) total += (overlapEnd - overlapStart) / 3600000;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return total;
+};
+
 const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }) => {
   const [form, setForm] = useState(emptyForm);
   const [items, setItems] = useState([]);
@@ -93,6 +123,8 @@ const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }
       overtimeHours: current.type === 'PRIOR_PERIOD_OT' && unpaidOvertime > 0
         ? unpaidOvertime.toFixed(2)
         : current.overtimeHours,
+      correctedTimeIn: current.type === 'ATTENDANCE_CORRECTION' ? localDateTimeValue(log.timeIn) : current.correctedTimeIn,
+      correctedTimeOut: current.type === 'ATTENDANCE_CORRECTION' ? localDateTimeValue(log.timeOut) : current.correctedTimeOut,
       holidayType: log.isHoliday ? String(log.holidayType || 'NONE').toUpperCase() : 'NONE'
     }));
   };
@@ -104,6 +136,21 @@ const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }
   const availableLogs = sources.logs.filter((item) =>
     !form.sourceTimesheetId || String(item.timesheetId) === form.sourceTimesheetId
   );
+  const selectedLog = sources.logs.find((item) => item._id === form.sourceTimeLogId);
+  const correctionHours = (() => {
+    if (form.type !== 'ATTENDANCE_CORRECTION' || !form.correctedTimeIn || !form.correctedTimeOut) {
+      return { regular: 0, overtime: 0, night: 0 };
+    }
+    const start = new Date(form.correctedTimeIn);
+    const end = new Date(form.correctedTimeOut);
+    const total = Math.max(0, (end - start) / 3600000 - Number(form.breakMinutes || 0) / 60);
+    const previous = Number(selectedLog?.adjustedHoursWorked || 0);
+    return {
+      regular: Math.max(0, Math.min(total, 8) - Math.min(previous, 8)),
+      overtime: Math.max(0, Math.max(0, total - 8) - Math.max(0, previous - 8)),
+      night: Math.max(0, calculateNightHours(start, end) - Number(selectedLog?.ndHours || 0))
+    };
+  })();
 
   const changeType = (type) => {
     setForm((current) => ({
@@ -122,15 +169,15 @@ const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }
     try {
       const payload = {
         ...form,
-        regularHours: Number(form.regularHours || 0),
-        overtimeHours: Number(form.overtimeHours || 0),
-        nightDiffHours: Number(form.nightDiffHours || 0),
+        regularHours: form.type === 'ATTENDANCE_CORRECTION' ? correctionHours.regular : 0,
+        overtimeHours: form.type === 'ATTENDANCE_CORRECTION' ? correctionHours.overtime : Number(form.overtimeHours || 0),
+        nightDiffHours: form.type === 'ATTENDANCE_CORRECTION' ? correctionHours.night : Number(form.nightDiffHours || 0),
         breakMinutes: Number(form.breakMinutes || 0),
         sourceTimesheetId: form.sourceTimesheetId || undefined,
         sourcePayRunId: form.sourcePayRunId || undefined,
         sourceTimeLogId: form.sourceTimeLogId || undefined,
-        correctedTimeIn: form.correctedTimeIn || undefined,
-        correctedTimeOut: form.correctedTimeOut || undefined
+        correctedTimeIn: form.correctedTimeIn ? new Date(form.correctedTimeIn).toISOString() : undefined,
+        correctedTimeOut: form.correctedTimeOut ? new Date(form.correctedTimeOut).toISOString() : undefined
       };
       const res = await payrollAdjustmentAPI.create(payRun._id, employee._id, payload);
       setItems((current) => [...current, res.data || res]);
@@ -234,10 +281,10 @@ const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }
         {form.type === 'ATTENDANCE_CORRECTION' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <label className="text-xs font-medium text-gray-700">Corrected time-in
-              <input type="datetime-local" value={form.correctedTimeIn} onChange={(e) => setField('correctedTimeIn', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              <input type="datetime-local" required value={form.correctedTimeIn} onChange={(e) => setField('correctedTimeIn', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             </label>
             <label className="text-xs font-medium text-gray-700">Corrected time-out
-              <input type="datetime-local" value={form.correctedTimeOut} onChange={(e) => setField('correctedTimeOut', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              <input type="datetime-local" required value={form.correctedTimeOut} onChange={(e) => setField('correctedTimeOut', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             </label>
             <label className="text-xs font-medium text-gray-700">Unpaid break (minutes)
               <input type="number" min="0" value={form.breakMinutes} onChange={(e) => setField('breakMinutes', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
@@ -248,14 +295,14 @@ const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {form.type === 'ATTENDANCE_CORRECTION' && (
             <label className="text-xs font-medium text-gray-700">Additional regular hours
-              <input type="number" min="0" step="0.01" value={form.regularHours} onChange={(e) => setField('regularHours', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              <input type="text" readOnly value={correctionHours.regular.toFixed(2)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm" />
             </label>
           )}
           <label className="text-xs font-medium text-gray-700">Additional OT hours
-            <input type="number" min="0" step="0.01" required={form.type === 'PRIOR_PERIOD_OT'} value={form.overtimeHours} onChange={(e) => setField('overtimeHours', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <input type={form.type === 'PRIOR_PERIOD_OT' ? 'number' : 'text'} min="0" step="0.01" readOnly={form.type === 'ATTENDANCE_CORRECTION'} required={form.type === 'PRIOR_PERIOD_OT'} value={form.type === 'ATTENDANCE_CORRECTION' ? correctionHours.overtime.toFixed(2) : form.overtimeHours} onChange={(e) => setField('overtimeHours', e.target.value)} className={`mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${form.type === 'ATTENDANCE_CORRECTION' ? 'bg-gray-100' : ''}`} />
           </label>
           <label className="text-xs font-medium text-gray-700">Additional ND hours
-            <input type="number" min="0" step="0.01" value={form.nightDiffHours} onChange={(e) => setField('nightDiffHours', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <input type="text" readOnly={form.type === 'ATTENDANCE_CORRECTION'} value={form.type === 'ATTENDANCE_CORRECTION' ? correctionHours.night.toFixed(2) : form.nightDiffHours} onChange={(e) => setField('nightDiffHours', e.target.value)} className={`mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${form.type === 'ATTENDANCE_CORRECTION' ? 'bg-gray-100' : ''}`} />
           </label>
         </div>
 
