@@ -113,6 +113,9 @@ router.post('/pay-runs/:payRunId/employees/:entryId', async (req, res, next) => 
     if (type === 'PRIOR_PERIOD_OT' && Number(overtimeHours) <= 0) {
       throw new AppError('Approved overtime hours must be greater than zero', 400);
     }
+    if (type === 'PRIOR_PERIOD_OT' && (!sourcePayRunId || !sourceTimesheetId || !sourceTimeLogId)) {
+      throw new AppError('Source pay run, timesheet, and attendance log are required for prior-period OT', 400);
+    }
     if (Number(regularHours) + Number(overtimeHours) + Number(nightDiffHours) <= 0) {
       throw new AppError('At least one approved hour value is required', 400);
     }

@@ -174,9 +174,38 @@ const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <label className="text-xs font-medium text-gray-700">Original work date
-            <input type="date" required value={form.originalWorkDate} onChange={(e) => setField('originalWorkDate', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-xs font-medium text-gray-700">Source pay run
+            <select required={form.type === 'PRIOR_PERIOD_OT'} value={form.sourcePayRunId} onChange={(e) => selectPayRun(e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <option value="">Select pay run</option>
+              {sources.payRuns.map((item) => (
+                <option key={item._id} value={item._id}>{dateLabel(item.payrollPeriodStart)} - {dateLabel(item.payrollPeriodEnd)} ({item.status})</option>
+              ))}
+            </select>
           </label>
+          <label className="text-xs font-medium text-gray-700">Source timesheet
+            <select required={form.type === 'PRIOR_PERIOD_OT'} value={form.sourceTimesheetId} onChange={(e) => selectTimesheet(e.target.value)} disabled={!form.sourcePayRunId} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100">
+              <option value="">Select timesheet</option>
+              {availableTimesheets.map((item) => (
+                <option key={item._id} value={item._id}>{item.name} ({dateLabel(item.startDate)} - {dateLabel(item.endDate)})</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-medium text-gray-700">Source attendance log
+            <select required={form.type === 'PRIOR_PERIOD_OT'} value={form.sourceTimeLogId} onChange={(e) => selectLog(e.target.value)} disabled={!form.sourceTimesheetId} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100">
+              <option value="">{form.type === 'ATTENDANCE_CORRECTION' ? 'No source log / missing log' : 'Select attendance log'}</option>
+              {availableLogs.map((item) => (
+                <option key={item._id} value={item._id}>{dateLabel(item.date)} | {timeLabel(item.timeIn)} - {timeLabel(item.timeOut)} | Actual {Number(item.hoursWorked || 0).toFixed(2)}h / Approved {Number(item.adjustedHoursWorked || 0).toFixed(2)}h</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {form.type === 'ATTENDANCE_CORRECTION' && (
+            <label className="text-xs font-medium text-gray-700">Work date
+              <input type="date" required value={form.originalWorkDate} onChange={(e) => setField('originalWorkDate', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </label>
+          )}
           <label className="text-xs font-medium text-gray-700">Correction type
             <select value={form.correctionType} onChange={(e) => setField('correctionType', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
               {form.type === 'PRIOR_PERIOD_OT' ? (
@@ -227,33 +256,6 @@ const PayrollAdjustmentModal = ({ isOpen, onClose, payRun, employee, onUpdated }
           </label>
           <label className="text-xs font-medium text-gray-700">Additional ND hours
             <input type="number" min="0" step="0.01" value={form.nightDiffHours} onChange={(e) => setField('nightDiffHours', e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <label className="text-xs font-medium text-gray-700">Source pay run
-            <select value={form.sourcePayRunId} onChange={(e) => selectPayRun(e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-              <option value="">Select pay run</option>
-              {sources.payRuns.map((item) => (
-                <option key={item._id} value={item._id}>{dateLabel(item.payrollPeriodStart)} - {dateLabel(item.payrollPeriodEnd)} ({item.status})</option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs font-medium text-gray-700">Source timesheet
-            <select value={form.sourceTimesheetId} onChange={(e) => selectTimesheet(e.target.value)} disabled={!form.sourcePayRunId} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100">
-              <option value="">Select timesheet</option>
-              {availableTimesheets.map((item) => (
-                <option key={item._id} value={item._id}>{item.name} ({dateLabel(item.startDate)} - {dateLabel(item.endDate)})</option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs font-medium text-gray-700">Source attendance log
-            <select value={form.sourceTimeLogId} onChange={(e) => selectLog(e.target.value)} disabled={!form.sourceTimesheetId} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100">
-              <option value="">{form.type === 'ATTENDANCE_CORRECTION' ? 'No source log / missing log' : 'Select attendance log'}</option>
-              {availableLogs.map((item) => (
-                <option key={item._id} value={item._id}>{dateLabel(item.date)} | {timeLabel(item.timeIn)} - {timeLabel(item.timeOut)} | Actual {Number(item.hoursWorked || 0).toFixed(2)}h / Approved {Number(item.adjustedHoursWorked || 0).toFixed(2)}h</option>
-              ))}
-            </select>
           </label>
         </div>
 
