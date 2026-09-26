@@ -29,7 +29,7 @@ const PayrollReportPage = () => {
 
   const fetchEmployees = async () => {
     try {
-      const response = await employeeAPI.getAll();
+      const response = await employeeAPI.getSelectable();
       setEmployees(response.data || []);
     } catch (error) {
       console.error('Failed to fetch employees');
@@ -433,4 +433,3 @@ const PayrollReportPage = () => {
 };
 
 export default PayrollReportPage;
-

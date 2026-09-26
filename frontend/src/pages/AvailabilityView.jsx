@@ -35,7 +35,7 @@ const AvailabilityView = () => {
 
     const fetchEmployees = async () => {
         try {
-            const response = await employeeAPI.getAll();
+            const response = await employeeAPI.getSelectable();
             setEmployees(response.data || []);
         } catch (error) {
             console.error('Failed to fetch employees');

@@ -52,6 +52,7 @@ export const authAPI = {
 // Employee API
 export const employeeAPI = {
   getAll: (search = '') => api.get('/employees', { params: { search } }),
+  getSelectable: () => api.get('/employees', { params: { excludeResigned: true } }),
   create: (data) => api.post('/employees', data),
   update: (name, data) => api.put(`/employees/${encodeURIComponent(name)}`, data),
   delete: (name) => api.delete(`/employees/${encodeURIComponent(name)}`),
@@ -238,4 +239,3 @@ export const employeePortalAPI = {
 };
 
 export default api;
-

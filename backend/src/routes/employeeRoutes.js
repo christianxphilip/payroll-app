@@ -50,11 +50,14 @@ router.post('/:id/password-reset-link', authorize(['admin']), async (req, res, n
 // GET /api/employees - List all employees
 router.get('/', async (req, res, next) => {
   try {
-    const { search } = req.query;
+    const { search, excludeResigned } = req.query;
     
     let query = {};
     if (search) {
       query.employeeName = { $regex: search, $options: 'i' };
+    }
+    if (excludeResigned === 'true') {
+      query.status = { $ne: 'RESIGNED' };
     }
     
     let projection = {};

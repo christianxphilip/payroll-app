@@ -399,7 +399,7 @@ const SchedulesCalendarPage = () => {
 
     const fetchEmployees = async () => {
         try {
-            const response = await employeeAPI.getAll();
+            const response = await employeeAPI.getSelectable();
             // Filter to show only active employees (not resigned or with lastWorkingDate before the date range)
             const rangeStart = new Date(dateRange.startDate);
 
