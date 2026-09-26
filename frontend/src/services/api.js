@@ -45,6 +45,8 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', typeof credentials === 'string' ? { password: credentials } : credentials),
   verify: () => api.post('/auth/verify'),
+  validateResetToken: (token) => api.get(`/auth/reset-password/${encodeURIComponent(token)}`),
+  resetPassword: (token, password) => api.post(`/auth/reset-password/${encodeURIComponent(token)}`, { password }),
 };
 
 // Employee API
@@ -53,6 +55,7 @@ export const employeeAPI = {
   create: (data) => api.post('/employees', data),
   update: (name, data) => api.put(`/employees/${encodeURIComponent(name)}`, data),
   delete: (name) => api.delete(`/employees/${encodeURIComponent(name)}`),
+  generatePasswordResetLink: (id) => api.post(`/employees/${id}/password-reset-link`),
   getAdjustments: (employeeId) =>
     api.get(`/employees/${employeeId}/adjustments`),
   createAdjustment: (employeeId, data) =>

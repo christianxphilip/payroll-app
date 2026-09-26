@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import Employee from '../models/Employee.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { authenticate } from '../middleware/authMiddleware.js';
@@ -94,6 +95,55 @@ router.post('/verify', authenticate, (req, res) => {
   });
 });
 
+const hashResetToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+// GET /api/auth/reset-password/:token - Check whether a reset link is still usable
+router.get('/reset-password/:token', async (req, res, next) => {
+  try {
+    const employee = await Employee.findOne({
+      passwordResetToken: hashResetToken(req.params.token),
+      passwordResetExpires: { $gt: new Date() }
+    }).select('employeeName username');
+
+    if (!employee) {
+      throw new AppError('This password reset link is invalid or has expired', 400);
+    }
+
+    res.json({
+      success: true,
+      data: { employeeName: employee.employeeName, username: employee.username }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/auth/reset-password/:token - Set a new password and consume the link
+router.post('/reset-password/:token', async (req, res, next) => {
+  try {
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
+    if (password.length < 8) {
+      throw new AppError('Password must be at least 8 characters long', 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const employee = await Employee.findOneAndUpdate({
+      passwordResetToken: hashResetToken(req.params.token),
+      passwordResetExpires: { $gt: new Date() }
+    }, {
+      $set: { password: hashedPassword },
+      $unset: { portalPassword: 1, passwordResetToken: 1, passwordResetExpires: 1 }
+    }, { new: true });
+
+    if (!employee) {
+      throw new AppError('This password reset link is invalid or has expired', 400);
+    }
+
+    res.json({ success: true, message: 'Password reset successfully. You can now log in.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 export default router;
-

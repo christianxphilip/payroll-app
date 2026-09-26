@@ -63,6 +63,14 @@ const employeeSchema = new mongoose.Schema({
     type: String,
     select: false
   },
+  passwordResetToken: {
+    type: String,
+    select: false
+  },
+  passwordResetExpires: {
+    type: Date,
+    select: false
+  },
   portalPassword: {
     type: String,
     trim: true
