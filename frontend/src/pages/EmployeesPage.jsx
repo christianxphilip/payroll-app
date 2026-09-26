@@ -43,6 +43,8 @@ const EmployeesPage = () => {
   const [showModalPassword, setShowModalPassword] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, employeeName: null });
+  const [resetLinkDetails, setResetLinkDetails] = useState(null);
+  const [generatingResetFor, setGeneratingResetFor] = useState(null);
 
   useEffect(() => {
     fetchEmployees();
@@ -185,6 +187,27 @@ const EmployeesPage = () => {
       setDeleteConfirm({ isOpen: false, employeeName: null });
     } catch (error) {
       showMessage('error', 'Failed to delete employee');
+    }
+  };
+
+  const handleGenerateResetLink = async (employee) => {
+    setGeneratingResetFor(employee._id);
+    try {
+      const response = await employeeAPI.generatePasswordResetLink(employee._id);
+      setResetLinkDetails(response.data);
+    } catch (error) {
+      showMessage('error', error.response?.data?.error || 'Failed to generate password reset link');
+    } finally {
+      setGeneratingResetFor(null);
+    }
+  };
+
+  const copyResetLink = async () => {
+    try {
+      await navigator.clipboard.writeText(resetLinkDetails.resetLink);
+      showMessage('success', 'Password reset link copied');
+    } catch {
+      showMessage('error', 'Could not copy automatically. Select and copy the link below.');
     }
   };
 
@@ -350,6 +373,15 @@ const EmployeesPage = () => {
                       Allowances
                     </button>
                   )}
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => handleGenerateResetLink(employee)}
+                      disabled={generatingResetFor === employee._id}
+                      className="flex-1 py-2 px-3 bg-indigo-50 text-indigo-700 rounded-md text-xs font-semibold hover:bg-indigo-100 disabled:opacity-50 min-h-[40px]"
+                    >
+                      {generatingResetFor === employee._id ? 'Generating...' : 'Reset Link'}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDelete(employee.employeeName)}
                     className="py-2 px-3 bg-red-50 text-red-700 rounded-md text-xs font-semibold hover:bg-red-100 min-h-[40px]"
@@ -437,6 +469,15 @@ const EmployeesPage = () => {
                           Allowances &amp; Deductions
                         </button>
                       )}
+                      {user?.role === 'admin' && (
+                        <button
+                          onClick={() => handleGenerateResetLink(employee)}
+                          disabled={generatingResetFor === employee._id}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4 disabled:opacity-50"
+                        >
+                          {generatingResetFor === employee._id ? 'Generating...' : 'Reset Password'}
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(employee.employeeName)}
                         className="text-red-600 hover:text-red-900"
@@ -463,6 +504,34 @@ const EmployeesPage = () => {
         cancelLabel="Cancel"
         type="danger"
       />
+
+      <Modal
+        isOpen={!!resetLinkDetails}
+        onClose={() => setResetLinkDetails(null)}
+        title="Employee Password Reset Link"
+      >
+        {resetLinkDetails && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              Send this link to <span className="font-semibold">{resetLinkDetails.employeeName}</span>. It expires in one hour and can only be used once.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reset link</label>
+              <textarea
+                readOnly
+                value={resetLinkDetails.resetLink}
+                onFocus={(event) => event.target.select()}
+                rows="3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm break-all"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setResetLinkDetails(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Close</button>
+              <button type="button" onClick={copyResetLink} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Copy link</button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Add/Edit Modal */}
       <Modal
@@ -892,4 +961,3 @@ const EmployeesPage = () => {
 };
 
 export default EmployeesPage;
-

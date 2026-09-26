@@ -5,6 +5,7 @@ import PayRunEmployee from '../models/PayRunEmployee.js';
 import Schedule from '../models/Schedule.js';
 import Availability from '../models/Availability.js';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -12,6 +13,39 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+// POST /api/employees/:id/password-reset-link - Generate a one-time reset link
+router.post('/:id/password-reset-link', authorize(['admin']), async (req, res, next) => {
+  try {
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) {
+      throw new AppError('Employee not found', 404);
+    }
+    if (!employee.username) {
+      throw new AppError('Set a portal username for this employee first', 400);
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    employee.passwordResetToken = crypto.createHash('sha256').update(token).digest('hex');
+    employee.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await employee.save({ validateBeforeSave: false });
+
+    const frontendUrl = (process.env.FRONTEND_URL || req.get('origin') || 'http://localhost:5173').replace(/\/$/, '');
+    const resetLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+    res.json({
+      success: true,
+      data: {
+        resetLink,
+        expiresAt: employee.passwordResetExpires,
+        employeeName: employee.employeeName
+      },
+      message: 'Password reset link generated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /api/employees - List all employees
 router.get('/', async (req, res, next) => {
@@ -140,6 +174,8 @@ router.put('/:name', async (req, res, next) => {
       const raw = updateData.password.trim();
       updateData.password = await bcrypt.hash(raw, 10);
       updateData.portalPassword = raw;
+      updateData.passwordResetToken = null;
+      updateData.passwordResetExpires = null;
     } else {
       delete updateData.password;
     }

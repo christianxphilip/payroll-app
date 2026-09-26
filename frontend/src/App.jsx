@@ -17,6 +17,7 @@ import PayRunPayslipPage from './pages/PayRunPayslipPage';
 import SettingsPage from './pages/SettingsPage';
 import EmployeePortalPage from './pages/EmployeePortalPage';
 import EmployeePayslipViewPage from './pages/EmployeePayslipViewPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Employee Portal Routes (Standalone Header Layout) */}
           <Route
@@ -70,4 +72,3 @@ function App() {
 }
 
 export default App;
-
