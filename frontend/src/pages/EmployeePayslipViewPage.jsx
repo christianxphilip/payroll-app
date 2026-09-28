@@ -79,7 +79,7 @@ const EmployeePayslipViewPage = () => {
     );
   }
 
-  const { payRun, entry, timesheetLogs = [], adjustments = [] } = data;
+  const { payRun, entry, timesheetLogs = [], adjustments = [], payrollAdjustments = [] } = data;
 
   const itemizedAllowances = adjustments.filter(
     (a) => a.type === 'ALLOWANCE' || (a.amount > 0 && a.type !== 'DEDUCTION')
@@ -95,7 +95,7 @@ const EmployeePayslipViewPage = () => {
     (entry.specialHolidayPay || 0) +
     (entry.overtimeRegularHolidayPay || 0) +
     (entry.overtimeSpecialHolidayPay || 0);
-  const knownEarnings = basicPay + (entry.overtimePay || 0) + nightDiffPay + allowancesTotal + itemizedHolidayPay;
+  const knownEarnings = basicPay + (entry.overtimePay || 0) + nightDiffPay + allowancesTotal + itemizedHolidayPay + (entry.priorPeriodAdjustmentTotal || 0);
   const unitemizedHolidayPay = Math.max(0, (entry.grossSalary || 0) - knownEarnings);
 
   return (
@@ -220,6 +220,14 @@ const EmployeePayslipViewPage = () => {
                     <td className="px-4 py-2 font-semibold text-right text-amber-800">₱{formatCurrency(unitemizedHolidayPay)}</td>
                   </tr>
                 )}
+                {payrollAdjustments.map((item) => (
+                  <tr key={item._id} className="bg-indigo-50/50">
+                    <td className="px-4 py-2 text-indigo-900">
+                      {item.type === 'PRIOR_PERIOD_OT' ? 'Prior-period OT' : 'Attendance correction'} ({formatDate(item.originalWorkDate)})
+                    </td>
+                    <td className="px-4 py-2 font-semibold text-right text-indigo-800">₱{formatCurrency(item.totalAmount)}</td>
+                  </tr>
+                ))}
 
                 {/* Itemized Allowances if present */}
                 {itemizedAllowances.map((item, idx) => (
@@ -250,6 +258,7 @@ const EmployeePayslipViewPage = () => {
                            (entry.specialHolidayPay || 0) +
                            (entry.overtimeRegularHolidayPay || 0) +
                            (entry.overtimeSpecialHolidayPay || 0) +
+                           (entry.priorPeriodAdjustmentTotal || 0) +
                            (entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0)))
                     )}
                   </td>

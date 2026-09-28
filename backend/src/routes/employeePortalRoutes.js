@@ -4,6 +4,7 @@ import PayRunEmployee from '../models/PayRunEmployee.js';
 import TimesheetLog from '../models/TimesheetLog.js';
 import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
+import PayrollAdjustment from '../models/PayrollAdjustment.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -89,7 +90,8 @@ router.get('/payslips', async (req, res, next) => {
         const allowancesTotal = entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0);
         const deductionsTotal = entry.deductionsTotal !== undefined ? entry.deductionsTotal : (entry.totalDeductions || 0);
 
-        const calculatedGross = basicSalary + overtimePay + nightDiffPay + regularHolidayPay + specialHolidayPay + overtimeRegularHolidayPay + overtimeSpecialHolidayPay + allowancesTotal;
+        const priorPeriodAdjustmentTotal = entry.priorPeriodAdjustmentTotal || 0;
+        const calculatedGross = basicSalary + overtimePay + nightDiffPay + regularHolidayPay + specialHolidayPay + overtimeRegularHolidayPay + overtimeSpecialHolidayPay + allowancesTotal + priorPeriodAdjustmentTotal;
         const grossSalary = (entry.grossSalary && entry.grossSalary > 0) ? entry.grossSalary : calculatedGross;
         const netSalary = entry.netSalary || (grossSalary - deductionsTotal);
 
@@ -117,6 +119,7 @@ router.get('/payslips', async (req, res, next) => {
           overtimeSpecialHolidayHours: entry.overtimeSpecialHolidayHours || 0,
           overtimeSpecialHolidayPay,
           allowancesTotal,
+          priorPeriodAdjustmentTotal,
           grossSalary,
           totalDeductions: deductionsTotal,
           netSalary
@@ -214,7 +217,8 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
     const allowancesTotal = entry.allowancesTotal !== undefined ? entry.allowancesTotal : (entry.allowances || 0);
     const deductionsTotal = entry.deductionsTotal !== undefined ? entry.deductionsTotal : (entry.totalDeductions || 0);
 
-    const calculatedGross = basicSalary + overtimePay + nightDiffPay + regularHolidayPay + specialHolidayPay + overtimeRegularHolidayPay + overtimeSpecialHolidayPay + allowancesTotal;
+    const priorPeriodAdjustmentTotal = entry.priorPeriodAdjustmentTotal || 0;
+    const calculatedGross = basicSalary + overtimePay + nightDiffPay + regularHolidayPay + specialHolidayPay + overtimeRegularHolidayPay + overtimeSpecialHolidayPay + allowancesTotal + priorPeriodAdjustmentTotal;
     const grossSalary = (entry.grossSalary && entry.grossSalary > 0) ? entry.grossSalary : calculatedGross;
     const netSalary = entry.netSalary || (grossSalary - deductionsTotal);
 
@@ -243,6 +247,7 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
       specialHolidayPay,
       overtimeRegularHolidayPay,
       overtimeSpecialHolidayPay,
+      priorPeriodAdjustmentTotal,
       allowancesTotal,
       allowances: allowancesTotal,
       deductionsTotal,
@@ -254,6 +259,12 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
       pagibigContribution,
       withholdingTax
     };
+
+    const payrollAdjustments = await PayrollAdjustment.find({
+      includedPayRunId: payRun._id,
+      employeeId: entry.employeeId,
+      status: 'PAID'
+    }).sort({ originalWorkDate: 1, createdAt: 1 }).lean();
 
     res.json({
       success: true,
@@ -271,7 +282,8 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
         },
         entry: mergedEntry,
         timesheetLogs,
-        adjustments
+        adjustments,
+        payrollAdjustments
       }
     });
   } catch (error) {

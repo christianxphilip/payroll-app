@@ -6,6 +6,7 @@ import PayRunEmployee from '../models/PayRunEmployee.js';
 import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
 import TimesheetLog from '../models/TimesheetLog.js';
+import PayrollAdjustment from '../models/PayrollAdjustment.js';
 
 const router = express.Router();
 
@@ -54,6 +55,12 @@ router.get('/pay-runs/:payRunId/payslips/:entryId', authenticate, authorize(['ad
       .sort({ date: 1, timeIn: 1 })
       .lean();
 
+    const payrollAdjustments = await PayrollAdjustment.find({
+      includedPayRunId: payRun._id,
+      employeeId: entry.employeeId,
+      status: { $in: ['INCLUDED_IN_PAYRUN', 'PAID'] }
+    }).sort({ originalWorkDate: 1, createdAt: 1 }).lean();
+
     res.json({
       success: true,
       data: {
@@ -61,6 +68,7 @@ router.get('/pay-runs/:payRunId/payslips/:entryId', authenticate, authorize(['ad
         entry,
         employee,
         adjustments,
+        payrollAdjustments,
         timesheetLogs
       }
     });
@@ -70,5 +78,4 @@ router.get('/pay-runs/:payRunId/payslips/:entryId', authenticate, authorize(['ad
 });
 
 export default router;
-
 

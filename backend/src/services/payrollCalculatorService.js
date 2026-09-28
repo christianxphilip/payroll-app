@@ -209,6 +209,8 @@ export const computePayRunForPeriod = async (payRun) => {
       nightDiffPay,
       regularHolidayPay,
       specialHolidayPay,
+      priorPeriodAdjustmentTotal: 0,
+      priorPeriodAdjustments: [],
       allowancesTotal,
       deductionsTotal,
       netSalary,
@@ -376,6 +378,7 @@ export const recomputePayRunFromEmployees = async (payRun) => {
       }
     });
 
+    const priorPeriodAdjustmentTotal = entry.priorPeriodAdjustmentTotal || 0;
     const netSalary =
       basicSalary +
       regularOvertimePay +
@@ -385,7 +388,8 @@ export const recomputePayRunFromEmployees = async (payRun) => {
       regularHolidayPay +
       specialHolidayPay +
       allowancesTotal -
-      deductionsTotal;
+      deductionsTotal +
+      priorPeriodAdjustmentTotal;
 
     const payload = {
       basicSalary,
@@ -399,6 +403,8 @@ export const recomputePayRunFromEmployees = async (payRun) => {
       nightDiffPay,
       regularHolidayPay,
       specialHolidayPay,
+      priorPeriodAdjustmentTotal,
+      priorPeriodAdjustments: entry.priorPeriodAdjustments || [],
       allowancesTotal,
       deductionsTotal,
       netSalary,
@@ -425,6 +431,5 @@ export const recomputePayRunFromEmployees = async (payRun) => {
 
   return updated;
 };
-
 
 

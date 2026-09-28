@@ -122,6 +122,7 @@ const EmployeePortalPage = () => {
                 (item.basicPay || 0) +
                 (item.overtimePay || 0) +
                 (item.ndPay || 0) +
+                (item.priorPeriodAdjustmentTotal || 0) +
                 (item.allowancesTotal || 0);
               const holidayPay = itemizedHolidayPay > 0
                 ? itemizedHolidayPay

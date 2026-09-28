@@ -45,7 +45,7 @@ const PayRunPayslipPage = () => {
     return <div className="p-6">Payslip not found.</div>;
   }
 
-  const { payRun, entry, employee, adjustments, timesheetLogs } = data;
+  const { payRun, entry, employee, adjustments, payrollAdjustments = [], timesheetLogs } = data;
 
   const computeDisplayRate = () => {
     if (!employee) return '';
@@ -290,6 +290,15 @@ const PayRunPayslipPage = () => {
               <span>Special Holiday Premium</span>
               <span>₱ {formatMoney(entry.specialHolidayPay)}</span>
             </div>
+            {payrollAdjustments.map((item) => (
+              <div key={item._id} className="flex justify-between text-indigo-700">
+                <span>
+                  {item.type === 'PRIOR_PERIOD_OT' ? 'Prior-period OT' : 'Attendance correction'} ·{' '}
+                  {new Date(item.originalWorkDate).toLocaleDateString()}
+                </span>
+                <span>₱ {formatMoney(item.totalAmount)}</span>
+              </div>
+            ))}
             <div className="flex justify-between">
               <span>Total Allowances</span>
               <span>₱ {formatMoney(entry.allowancesTotal)}</span>
@@ -311,6 +320,7 @@ const PayRunPayslipPage = () => {
                   (entry.nightDiffPay || 0) +
                   (entry.regularHolidayPay || 0) +
                   (entry.specialHolidayPay || 0) +
+                  (entry.priorPeriodAdjustmentTotal || 0) +
                   (entry.allowancesTotal || 0) -
                   (entry.deductionsTotal || 0)
                 )}
@@ -463,5 +473,4 @@ const PayRunPayslipPage = () => {
 };
 
 export default PayRunPayslipPage;
-
 

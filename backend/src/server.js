@@ -18,9 +18,24 @@ import shiftRoutes from './routes/shiftRoutes.js';
 import availabilityRoutes from './routes/availabilityRoutes.js';
 import shiftAllocationRoutes from './routes/shiftAllocationRoutes.js';
 import employeePortalRoutes from './routes/employeePortalRoutes.js';
+import payrollAdjustmentRoutes from './routes/payrollAdjustmentRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
+
+if (process.env.NODE_ENV === 'test' && process.env.TEST_DATABASE_NAME) {
+  process.env.MONGODB_URI = (process.env.MONGODB_URI || '').replace(
+    /\/([^/?]+)(\?|$)/,
+    `/${process.env.TEST_DATABASE_NAME}$2`
+  );
+}
+
+if (process.env.NODE_ENV === 'test') {
+  const databaseName = (process.env.MONGODB_URI || '').match(/\/([^/?]+)(?:\?|$)/)?.[1];
+  if (!databaseName || !databaseName.endsWith('_test')) {
+    throw new Error('Test mode requires a MongoDB database name ending in _test');
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 9001;
@@ -56,6 +71,7 @@ app.use('/api/shifts', shiftRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/shift-allocations', shiftAllocationRoutes);
 app.use('/api/employee-portal', employeePortalRoutes);
+app.use('/api/payroll-adjustments', payrollAdjustmentRoutes);
 
 // Error Handler (must be last)
 app.use(errorHandler);
@@ -63,4 +79,3 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
-

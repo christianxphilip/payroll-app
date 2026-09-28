@@ -7,6 +7,7 @@ import PayRunEmployee from '../models/PayRunEmployee.js';
 import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
 import TimesheetLog from '../models/TimesheetLog.js';
+import PayrollAdjustment from '../models/PayrollAdjustment.js';
 import {
   computePayRunForPeriod,
   recomputePayRunFromEmployees
@@ -262,11 +263,18 @@ router.post('/:id/email-payslips', async (req, res, next) => {
             .sort({ date: 1, timeIn: 1 })
             .lean();
 
+          const payrollAdjustments = await PayrollAdjustment.find({
+            includedPayRunId: payRun._id,
+            employeeId: entry.employeeId,
+            status: { $in: ['INCLUDED_IN_PAYRUN', 'PAID'] }
+          }).sort({ originalWorkDate: 1, createdAt: 1 }).lean();
+
           const html = generatePayslipHTML({
             payRun,
             entry,
             employee,
             adjustments,
+            payrollAdjustments,
             timesheetLogs
           });
 
@@ -362,11 +370,18 @@ router.post('/:id/email-payslips/:entryId', async (req, res, next) => {
       .sort({ date: 1, timeIn: 1 })
       .lean();
 
+    const payrollAdjustments = await PayrollAdjustment.find({
+      includedPayRunId: payRun._id,
+      employeeId: entry.employeeId,
+      status: { $in: ['INCLUDED_IN_PAYRUN', 'PAID'] }
+    }).sort({ originalWorkDate: 1, createdAt: 1 }).lean();
+
     const html = generatePayslipHTML({
       payRun,
       entry,
       employee,
       adjustments,
+      payrollAdjustments,
       timesheetLogs
     });
 
@@ -453,6 +468,10 @@ router.patch('/:id/status', async (req, res, next) => {
         ...(payRun.metadata || {}),
         paidAt: new Date()
       };
+      await PayrollAdjustment.updateMany(
+        { includedPayRunId: payRun._id, status: 'INCLUDED_IN_PAYRUN' },
+        { $set: { status: 'PAID', paidAt: new Date() } }
+      );
     }
     payRun.status = status;
     await payRun.save();
@@ -588,7 +607,8 @@ router.patch('/employees/:id', async (req, res, next) => {
       regularHolidayPay +
       specialHolidayPay +
       allowancesTotal -
-      deductionsTotal;
+      deductionsTotal +
+      (pre.priorPeriodAdjustmentTotal || 0);
 
     await pre.save();
 
@@ -612,6 +632,10 @@ router.delete('/:id', async (req, res, next) => {
     }
 
     await PayRunEmployee.deleteMany({ payRunId: id });
+    await PayrollAdjustment.updateMany(
+      { includedPayRunId: id, status: 'INCLUDED_IN_PAYRUN' },
+      { $set: { includedPayRunId: null, status: 'APPROVED_UNPAID' } }
+    );
     await PayRun.findByIdAndDelete(id);
 
     res.json({ success: true, message: 'Pay run deleted successfully' });

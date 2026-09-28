@@ -190,6 +190,16 @@ export const payRunAPI = {
   getFinancialReport: (filters) => api.get('/pay-runs/financial-report', { params: filters }),
 };
 
+export const payrollAdjustmentAPI = {
+  getForEmployee: (payRunId, entryId) =>
+    api.get(`/payroll-adjustments/pay-runs/${payRunId}/employees/${entryId}`),
+  getSources: (payRunId, entryId) =>
+    api.get(`/payroll-adjustments/pay-runs/${payRunId}/employees/${entryId}/sources`),
+  create: (payRunId, entryId, data) =>
+    api.post(`/payroll-adjustments/pay-runs/${payRunId}/employees/${entryId}`, data),
+  remove: (id) => api.delete(`/payroll-adjustments/${id}`),
+};
+
 // Timesheet API (time logs - child level)
 export const timesheetAPI = {
   getAll: (filters = {}) => api.get('/timesheets', { params: filters }),

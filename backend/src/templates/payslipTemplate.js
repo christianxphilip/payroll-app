@@ -58,7 +58,7 @@ function computeDisplayRate(employee) {
 /**
  * Generate payslip HTML using table-based layout for email compatibility
  */
-export function generatePayslipHTML({ payRun, entry, employee, adjustments, timesheetLogs }) {
+export function generatePayslipHTML({ payRun, entry, employee, adjustments, payrollAdjustments = [], timesheetLogs }) {
     const periodStart = formatDate(payRun.payrollPeriodStart);
     const periodEnd = formatDate(payRun.payrollPeriodEnd);
 
@@ -344,6 +344,13 @@ export function generatePayslipHTML({ payRun, entry, employee, adjustments, time
               <span class="comp-val">&#8369; ${formatMoney(entry.allowancesTotal)}</span>
               <div class="clear"></div>
             </div>
+            ${payrollAdjustments.map(adjustment => `
+            <div class="component-row">
+              <span class="comp-name">${adjustment.type === 'PRIOR_PERIOD_OT' ? 'Prior-period OT' : 'Attendance correction'} (${formatDate(adjustment.originalWorkDate)})</span>
+              <span class="comp-val">&#8369; ${formatMoney(adjustment.totalAmount)}</span>
+              <div class="clear"></div>
+            </div>
+            `).join('')}
             <div class="component-row">
               <span class="comp-name">Total Deductions</span>
               <span class="comp-val" style="color: #dc2626;">- &#8369; ${formatMoney(entry.deductionsTotal)}</span>
@@ -360,7 +367,8 @@ export function generatePayslipHTML({ payRun, entry, employee, adjustments, time
                 (entry.regularHolidayPay || 0) +
                 (entry.specialHolidayPay || 0) +
                 (entry.allowancesTotal || 0) -
-                (entry.deductionsTotal || 0)
+                (entry.deductionsTotal || 0) +
+                (entry.priorPeriodAdjustmentTotal || 0)
               )}</span>
               <div class="clear"></div>
             </div>
