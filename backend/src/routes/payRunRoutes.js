@@ -6,7 +6,6 @@ import PayRun from '../models/PayRun.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
 import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
-import TimesheetLog from '../models/TimesheetLog.js';
 import PayrollAdjustment from '../models/PayrollAdjustment.js';
 import {
   computePayRunForPeriod,
@@ -15,6 +14,7 @@ import {
 import { sendPayslipEmail } from '../services/emailService.js';
 import { generatePayslipHTML, getLogoPath } from '../templates/payslipTemplate.js';
 import { generatePayrollFinancialReport, formatPayrollFinancialReportAsCSV } from '../services/payrollFinancialService.js';
+import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
 
 const STANDARD_HOURS_PER_DAY = 8;
 const OT_MULTIPLIER = 1.25;
@@ -252,16 +252,7 @@ router.post('/:id/email-payslips', async (req, res, next) => {
             ]
           }).sort({ appliesFrom: 1 });
 
-          const timesheetLogs = await TimesheetLog.find({
-            employeeName: entry.employeeName, // Use employeeName as per original code
-            date: {
-              $gte: payrollPeriodStart,
-              $lte: payrollPeriodEnd
-            },
-            isSubmitted: true
-          })
-            .sort({ date: 1, timeIn: 1 })
-            .lean();
+          const timesheetLogs = await getPayRunTimesheetLogs(payRun, entry.employeeName);
 
           const payrollAdjustments = await PayrollAdjustment.find({
             includedPayRunId: payRun._id,
@@ -359,16 +350,7 @@ router.post('/:id/email-payslips/:entryId', async (req, res, next) => {
       ]
     }).sort({ appliesFrom: 1 });
 
-    const timesheetLogs = await TimesheetLog.find({
-      employeeName: entry.employeeName,
-      date: {
-        $gte: payrollPeriodStart,
-        $lte: payrollPeriodEnd
-      },
-      isSubmitted: true
-    })
-      .sort({ date: 1, timeIn: 1 })
-      .lean();
+    const timesheetLogs = await getPayRunTimesheetLogs(payRun, entry.employeeName);
 
     const payrollAdjustments = await PayrollAdjustment.find({
       includedPayRunId: payRun._id,

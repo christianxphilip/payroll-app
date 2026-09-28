@@ -391,7 +391,8 @@ const PayRunPayslipPage = () => {
                   <th className="px-2 py-1 text-left">Date</th>
                   <th className="px-2 py-1 text-left">Time In</th>
                   <th className="px-2 py-1 text-left">Time Out</th>
-                  <th className="px-2 py-1 text-right">Hours</th>
+                  <th className="px-2 py-1 text-right">Worked</th>
+                  <th className="px-2 py-1 text-right">Payable</th>
                   <th className="px-2 py-1 text-right">OT Hrs</th>
                   <th className="px-2 py-1 text-right">OT RH Hrs</th>
                   <th className="px-2 py-1 text-right">OT SH Hrs</th>
@@ -441,7 +442,10 @@ const PayRunPayslipPage = () => {
                           })}
                       </td>
                       <td className="px-2 py-1 text-right">
-                        {formatHours(log.adjustedHoursWorked || 0)}
+                        {formatHours(log.hoursWorked || 0)}
+                      </td>
+                      <td className="px-2 py-1 text-right font-medium">
+                        {formatHours(approvedHours)}
                       </td>
                       <td className="px-2 py-1 text-right">
                         {formatHours(regularOT)}
@@ -473,4 +477,3 @@ const PayRunPayslipPage = () => {
 };
 
 export default PayRunPayslipPage;
-

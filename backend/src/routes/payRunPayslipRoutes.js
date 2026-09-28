@@ -5,8 +5,8 @@ import PayRun from '../models/PayRun.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
 import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
-import TimesheetLog from '../models/TimesheetLog.js';
 import PayrollAdjustment from '../models/PayrollAdjustment.js';
+import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
 
 const router = express.Router();
 
@@ -43,17 +43,7 @@ router.get('/pay-runs/:payRunId/payslips/:entryId', authenticate, authorize(['ad
       ]
     }).sort({ appliesFrom: 1 });
 
-    // Pull timesheet logs for this employee in the pay run period
-    const timesheetLogs = await TimesheetLog.find({
-      employeeName: entry.employeeName,
-      date: {
-        $gte: payrollPeriodStart,
-        $lte: payrollPeriodEnd
-      },
-      isSubmitted: true
-    })
-      .sort({ date: 1, timeIn: 1 })
-      .lean();
+    const timesheetLogs = await getPayRunTimesheetLogs(payRun, entry.employeeName);
 
     const payrollAdjustments = await PayrollAdjustment.find({
       includedPayRunId: payRun._id,
@@ -78,4 +68,3 @@ router.get('/pay-runs/:payRunId/payslips/:entryId', authenticate, authorize(['ad
 });
 
 export default router;
-

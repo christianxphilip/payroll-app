@@ -336,7 +336,8 @@ const EmployeePayslipViewPage = () => {
                     <th className="px-3 py-2.5 whitespace-nowrap">Date</th>
                     <th className="px-3 py-2.5 whitespace-nowrap">Time In</th>
                     <th className="px-3 py-2.5 whitespace-nowrap">Time Out</th>
-                    <th className="px-3 py-2.5 text-right whitespace-nowrap">Hours</th>
+                    <th className="px-3 py-2.5 text-right whitespace-nowrap">Worked</th>
+                    <th className="px-3 py-2.5 text-right whitespace-nowrap">Payable</th>
                     <th className="px-3 py-2.5 text-right whitespace-nowrap">OT Hrs</th>
                     <th className="px-3 py-2.5 text-right whitespace-nowrap">ND Hrs</th>
                   </tr>
@@ -352,6 +353,7 @@ const EmployeePayslipViewPage = () => {
                         <td className="px-3 py-2 font-medium whitespace-nowrap">{formatDate(log.date)}</td>
                         <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{formatTime(log.timeIn)}</td>
                         <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{formatTime(log.timeOut)}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatHours(log.hoursWorked || 0)}</td>
                         <td className="px-3 py-2 font-semibold text-right whitespace-nowrap">{formatHours(approvedHours)}</td>
                         <td className="px-3 py-2 text-right text-gray-600 whitespace-nowrap">{formatHours(overtimeHours)}</td>
                         <td className="px-3 py-2 text-right text-gray-600 whitespace-nowrap">{formatHours(log.ndHours || 0)}</td>

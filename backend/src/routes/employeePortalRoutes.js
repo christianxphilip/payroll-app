@@ -1,12 +1,12 @@
 import express from 'express';
 import PayRun from '../models/PayRun.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
-import TimesheetLog from '../models/TimesheetLog.js';
 import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
 import PayrollAdjustment from '../models/PayrollAdjustment.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
 
 const router = express.Router();
 
@@ -176,16 +176,7 @@ router.get('/payslips/:payRunId', async (req, res, next) => {
     const end = payRun.payrollPeriodEnd || payRun.payPeriodEnd;
     const payout = payRun.payoutDate || payRun.paymentDate;
 
-    let timesheetLogs = [];
-    if (start && end && !isNaN(new Date(start).getTime()) && !isNaN(new Date(end).getTime())) {
-      timesheetLogs = await TimesheetLog.find({
-        employeeName: { $regex: '^' + escapeRegex(entry.employeeName) + '$', $options: 'i' },
-        date: {
-          $gte: new Date(start),
-          $lte: new Date(end)
-        }
-      }).sort({ date: 1 });
-    }
+    const timesheetLogs = await getPayRunTimesheetLogs(payRun, entry.employeeName);
 
     let adjustments = [];
     if (empDoc?._id || entry.employeeId) {

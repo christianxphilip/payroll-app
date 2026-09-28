@@ -418,7 +418,8 @@ export function generatePayslipHTML({ payRun, entry, employee, adjustments, payr
               <th>Date</th>
               <th>Time In</th>
               <th>Time Out</th>
-              <th class="text-right" style="text-align: right !important;">Hours</th>
+              <th class="text-right" style="text-align: right !important;">Worked</th>
+              <th class="text-right" style="text-align: right !important;">Payable</th>
               <th class="text-right" style="text-align: right !important;">OT Hrs</th>
               <th class="text-right" style="text-align: right !important;">OT RH Hrs</th>
               <th class="text-right" style="text-align: right !important;">OT SH Hrs</th>
@@ -454,7 +455,8 @@ export function generatePayslipHTML({ payRun, entry, employee, adjustments, payr
               <td>${log.date ? formatDate(log.date) : ''}</td>
               <td>${formatTime(log.timeIn)}</td>
               <td>${formatTime(log.timeOut)}</td>
-              <td class="text-right" style="text-align: right !important;">${formatHours(log.adjustedHoursWorked || 0)}</td>
+              <td class="text-right" style="text-align: right !important;">${formatHours(log.hoursWorked || 0)}</td>
+              <td class="text-right" style="text-align: right !important;">${formatHours(approvedHours)}</td>
               <td class="text-right" style="text-align: right !important;">${formatHours(regularOT)}</td>
               <td class="text-right" style="text-align: right !important; color: #9333ea;">${formatHours(otRH)}</td>
               <td class="text-right" style="text-align: right !important; color: #ec4899;">${formatHours(otSH)}</td>
