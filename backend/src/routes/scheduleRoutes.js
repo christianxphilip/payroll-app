@@ -9,12 +9,46 @@ import { parseScheduleCSV, validateSchedules } from '../services/scheduleParserS
 import { calculateEstimatedSalary } from '../services/estimatedSalaryService.js';
 import { generateICalContent } from '../services/icalService.js';
 import { syncSchedulesToGoogleCalendar, clearGoogleCalendarSchedules } from '../services/googleCalendarService.js';
+import { assertManagerCanManageEmployee, isDualPosition, managerAssignmentType, managerEmployeeQuery } from '../utils/managerScope.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // All routes require authentication
 router.use(authenticate);
+
+const getManagerEmployees = async (reqUser) => {
+  if (reqUser.role !== 'manager') return null;
+  return Employee.find(managerEmployeeQuery(reqUser.managerScope), 'employeeName position');
+};
+
+const assertManagerScheduleWrite = async (reqUser, scheduleData, existingSchedule = null) => {
+  if (reqUser.role !== 'manager') return;
+  const employeeName = scheduleData.employeeName || existingSchedule?.employeeName;
+  const scheduleDate = scheduleData.date || existingSchedule?.date;
+  const employee = await Employee.findOne({ employeeName }, 'employeeName position');
+  if (!employee) throw new AppError('Employee not found', 404);
+  assertManagerCanManageEmployee(employee, reqUser);
+
+  const requiredType = managerAssignmentType(reqUser.managerScope);
+  if (scheduleData.assignmentType && scheduleData.assignmentType !== requiredType) {
+    throw new AppError(`Managers can only create ${requiredType.toLowerCase()} schedules`, 403);
+  }
+  scheduleData.assignmentType = requiredType;
+
+  if (isDualPosition(employee.position) && scheduleDate) {
+    const date = new Date(scheduleDate);
+    const start = new Date(date); start.setHours(0, 0, 0, 0);
+    const end = new Date(date); end.setHours(23, 59, 59, 999);
+    const conflict = await Schedule.findOne({
+      _id: existingSchedule?._id ? { $ne: existingSchedule._id } : { $exists: true },
+      employeeName,
+      date: { $gte: start, $lte: end },
+      assignmentType: { $ne: requiredType }
+    });
+    if (conflict) throw new AppError(`Already assigned to ${conflict.assignmentType || 'the other department'} on this date`, 409);
+  }
+};
 
 // GET /api/schedules - Get schedules
 router.get('/', async (req, res, next) => {
@@ -32,6 +66,11 @@ router.get('/', async (req, res, next) => {
     
     if (employeeName) {
       query.employeeName = employeeName;
+    }
+    const managerEmployees = await getManagerEmployees(req.user);
+    if (managerEmployees) {
+      query.employeeName = { $in: managerEmployees.map(employee => employee.employeeName) };
+      if (employeeName) query.employeeName = { $in: managerEmployees.filter(employee => employee.employeeName === employeeName).map(employee => employee.employeeName) };
     }
     
     // Calculate pagination
@@ -166,6 +205,7 @@ router.post('/', async (req, res, next) => {
     if (!scheduleData.employeeName || !scheduleData.date) {
       throw new AppError('Employee name and date are required', 400);
     }
+    await assertManagerScheduleWrite(req.user, scheduleData);
     
     // Allow multiple schedules per employee per date
     const schedule = await Schedule.create(scheduleData);
@@ -188,6 +228,7 @@ router.post('/bulk', async (req, res, next) => {
     if (!Array.isArray(schedules) || schedules.length === 0) {
       throw new AppError('Schedules array is required', 400);
     }
+    for (const schedule of schedules) await assertManagerScheduleWrite(req.user, schedule);
     
     // Validate schedules
     const errors = validateSchedules(schedules);
@@ -220,6 +261,7 @@ router.post('/bulk', async (req, res, next) => {
 // POST /api/schedules/upload-csv - Parse and import CSV schedule
 router.post('/upload-csv', upload.single('file'), async (req, res, next) => {
   try {
+    if (req.user.role === 'manager') throw new AppError('CSV schedule import is only available to admins', 403);
     if (!req.file) {
       throw new AppError('No file uploaded', 400);
     }
@@ -306,6 +348,9 @@ router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    const existingSchedule = await Schedule.findById(id);
+    if (!existingSchedule) throw new AppError('Schedule not found', 404);
+    await assertManagerScheduleWrite(req.user, updateData, existingSchedule);
     
     const schedule = await Schedule.findByIdAndUpdate(
       id,
@@ -331,7 +376,14 @@ router.put('/:id', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+    const existingSchedule = await Schedule.findById(id);
+    if (existingSchedule && req.user.role === 'manager') {
+      const employee = await Employee.findOne({ employeeName: existingSchedule.employeeName }, 'position');
+      assertManagerCanManageEmployee(employee, req.user);
+      if (existingSchedule.assignmentType !== managerAssignmentType(req.user.managerScope)) {
+        throw new AppError('You cannot delete another department\'s schedule', 403);
+      }
+    }
     const schedule = await Schedule.findByIdAndDelete(id);
     
     if (!schedule) {
@@ -350,6 +402,7 @@ router.delete('/:id', async (req, res, next) => {
 // DELETE /api/schedules/range - Delete schedules by date range
 router.delete('/range/delete', async (req, res, next) => {
   try {
+    if (req.user.role === 'manager') throw new AppError('Bulk schedule deletion is only available to admins', 403);
     const { startDate, endDate, employeeName } = req.body;
     
     if (!startDate || !endDate) {
@@ -400,4 +453,3 @@ router.get('/estimated-salary', authorize(['admin']), async (req, res, next) => 
 });
 
 export default router;
-

@@ -29,6 +29,10 @@ function getMonday(date) {
 
 const SchedulesCalendarPage = () => {
     const { user } = useAuth();
+    const managerAssignmentType = user?.role === 'manager'
+        ? (user.managerScope === 'kitchen' ? 'KITCHEN' : 'BAR')
+        : null;
+    const oppositeManagerAssignmentType = managerAssignmentType === 'KITCHEN' ? 'BAR' : 'KITCHEN';
     const [employees, setEmployees] = useState([]);
     const [schedules, setSchedules] = useState([]);
     const [assignmentTypes, setAssignmentTypes] = useState([]);
@@ -378,7 +382,7 @@ const SchedulesCalendarPage = () => {
                 value: a.code,
                 label: a.label,
                 color: a.color
-            }));
+            })).filter(a => !managerAssignmentType || a.value === managerAssignmentType);
             setAssignmentTypes(assignments);
 
             // Set default assignment type if available and current selection doesn't exist
@@ -585,7 +589,25 @@ const SchedulesCalendarPage = () => {
         setTimeout(() => setMessage({ type: '', text: '' }), 5000);
     };
 
+    const isDualEmployee = (employee) => {
+        const position = String(employee?.position || '').toLowerCase();
+        return position.includes('kitchen') && (position.includes('barista') || /(^|\W)bar($|\W)/.test(position));
+    };
+
+    const getOppositeDepartmentSchedule = (employee, date) => {
+        if (!managerAssignmentType || !isDualEmployee(employee)) return null;
+        const dateStr = date.toISOString().split('T')[0];
+        return schedules.find(schedule => schedule.employeeName === employee.employeeName
+            && schedule.date.split('T')[0] === dateStr
+            && schedule.assignmentType === oppositeManagerAssignmentType);
+    };
+
     const handleCellClick = (employee, date, event) => {
+        const oppositeSchedule = getOppositeDepartmentSchedule(employee, date);
+        if (oppositeSchedule) {
+            showMessage('error', `${employee.employeeName} is already assigned to ${oppositeManagerAssignmentType.toLowerCase()} (${oppositeSchedule.scheduledStartTime} - ${oppositeSchedule.scheduledEndTime})`);
+            return;
+        }
         // Ctrl+Click to copy
         if (event.ctrlKey || event.metaKey) {
             event.preventDefault();
@@ -648,6 +670,7 @@ const SchedulesCalendarPage = () => {
 
     const handleCellRightClick = (employee, date, event) => {
         event.preventDefault();
+        if (getOppositeDepartmentSchedule(employee, date)) return;
         const dateStr = date.toISOString().split('T')[0];
         const existingSchedules = schedules.filter(
             s => s.employeeName === employee.employeeName &&
@@ -1631,6 +1654,7 @@ const SchedulesCalendarPage = () => {
                                             </td>
                                             {dateRangeDates.map((date, dateIdx) => {
                                                 const cellSchedules = getScheduleForCell(employee.employeeName, date);
+                                                const oppositeSchedule = getOppositeDepartmentSchedule(employee, date);
                                                 const closed = isClosed(date);
                                                 const holidayColor = getHolidayColor(date);
                                                 const isDragOver = dragOverCell &&
@@ -1642,7 +1666,9 @@ const SchedulesCalendarPage = () => {
 
                                                 // Determine background color
                                                 let bgColor = '';
-                                                if (closed) {
+                                                if (oppositeSchedule) {
+                                                    bgColor = 'bg-gray-300';
+                                                } else if (closed) {
                                                     bgColor = 'bg-gray-200';
                                                 } else if (isDragOver) {
                                                     bgColor = 'bg-blue-200';
@@ -1655,7 +1681,7 @@ const SchedulesCalendarPage = () => {
                                                 return (
                                                     <td
                                                         key={dateIdx}
-                                                        className={`px-2 py-3 text-center cursor-pointer align-middle ${bgColor} ${!closed && !isDragOver && !holidayColor && !isDragging ? 'hover:bg-blue-50' : ''} ${isDragOver ? 'border-2 border-blue-500' : ''}`}
+                                                        className={`px-2 py-3 text-center align-middle ${oppositeSchedule ? 'cursor-not-allowed' : 'cursor-pointer'} ${bgColor} ${!oppositeSchedule && !closed && !isDragOver && !holidayColor && !isDragging ? 'hover:bg-blue-50' : ''} ${isDragOver ? 'border-2 border-blue-500' : ''}`}
                                                         style={{
                                                             border: '1px solid #d1d5db',
                                                             borderLeft: dateIdx === 0 ? 'none' : '1px solid #d1d5db',
@@ -1663,11 +1689,16 @@ const SchedulesCalendarPage = () => {
                                                         }}
                                                         onClick={(e) => handleCellClick(employee, date, e)}
                                                         onContextMenu={(e) => handleCellRightClick(employee, date, e)}
-                                                        onDragOver={(e) => handleDragOver(e, employee, date)}
+                                                        onDragOver={(e) => { if (!oppositeSchedule) handleDragOver(e, employee, date); }}
                                                         onDragLeave={handleDragLeave}
                                                         onDrop={(e) => handleDrop(e, employee, date)}
                                                     >
-                                                        {cellSchedules.length > 0 ? (
+                                                        {oppositeSchedule ? (
+                                                            <div className="bg-gray-400 text-gray-800 px-2 py-1 rounded text-xs font-semibold">
+                                                                {oppositeSchedule.scheduledStartTime} - {oppositeSchedule.scheduledEndTime}
+                                                                <div className="uppercase mt-1">{oppositeManagerAssignmentType}</div>
+                                                            </div>
+                                                        ) : cellSchedules.length > 0 ? (
                                                             <div className="space-y-1">
                                                                 {cellSchedules.map((schedule, idx) => (
                                                                     schedule.isOff ? (
@@ -1693,6 +1724,10 @@ const SchedulesCalendarPage = () => {
                                                                     )
                                                                 ))}
                                                             </div>
+                                                        ) : managerAssignmentType && isDualEmployee(employee) && !closed ? (
+                                                            <span className="inline-flex px-2 py-1 rounded bg-green-50 text-green-700 text-[10px] font-semibold uppercase">
+                                                                Available
+                                                            </span>
                                                         ) : null}
                                                     </td>
                                                 );

@@ -18,6 +18,12 @@ import SettingsPage from './pages/SettingsPage';
 import EmployeePortalPage from './pages/EmployeePortalPage';
 import EmployeePayslipViewPage from './pages/EmployeePayslipViewPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import { useAuth } from './context/AuthContext';
+
+const HomeRedirect = () => {
+  const { user } = useAuth();
+  return <Navigate to={user?.role === 'manager' ? '/schedules' : '/dashboard'} replace />;
+};
 
 function App() {
   return (
@@ -46,17 +52,17 @@ function App() {
           />
           
           <Route path="/" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout /></ProtectedRoute>}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route index element={<HomeRedirect />} />
+            <Route path="dashboard" element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="holidays" element={<HolidaysPage />} />
-            <Route path="assignments" element={<AssignmentsPage />} />
+            <Route path="assignments" element={<ProtectedRoute allowedRoles={['admin']}><AssignmentsPage /></ProtectedRoute>} />
             <Route path="schedules" element={<SchedulesPage />} />
-            <Route path="timesheet-entries" element={<TimesheetEntriesPage />} />
-            <Route path="timesheets/:timesheetId" element={<TimesheetsPage />} />
-            <Route path="reports" element={<ReportsPage />} />
-            <Route path="payroll" element={<ReportsPage />} />
-            <Route path="timesheet-report" element={<ReportsPage />} />
+            <Route path="timesheet-entries" element={<ProtectedRoute allowedRoles={['admin']}><TimesheetEntriesPage /></ProtectedRoute>} />
+            <Route path="timesheets/:timesheetId" element={<ProtectedRoute allowedRoles={['admin']}><TimesheetsPage /></ProtectedRoute>} />
+            <Route path="reports" element={<ProtectedRoute allowedRoles={['admin']}><ReportsPage /></ProtectedRoute>} />
+            <Route path="payroll" element={<ProtectedRoute allowedRoles={['admin']}><ReportsPage /></ProtectedRoute>} />
+            <Route path="timesheet-report" element={<ProtectedRoute allowedRoles={['admin']}><ReportsPage /></ProtectedRoute>} />
             <Route path="pay-runs" element={<ProtectedRoute allowedRoles={['admin']}><PayRunsPage /></ProtectedRoute>} />
             <Route path="pay-runs/:payRunId" element={<ProtectedRoute allowedRoles={['admin']}><PayRunDetailPage /></ProtectedRoute>} />
             <Route

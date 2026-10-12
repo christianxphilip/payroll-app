@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { holidayAPI } from '../services/api';
 import Modal from '../components/Modal';
 import { formatDate } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
 
 const HolidaysPage = () => {
+  const { user } = useAuth();
+  const canEdit = user?.role === 'admin';
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -112,7 +115,7 @@ const HolidaysPage = () => {
     <div className="px-4 py-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Holidays</h1>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        {canEdit && <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={handleImportHolidays}
             disabled={importing}
@@ -126,7 +129,7 @@ const HolidaysPage = () => {
           >
             Add Holiday
           </button>
-        </div>
+        </div>}
       </div>
 
       {message.text && (
@@ -175,7 +178,7 @@ const HolidaysPage = () => {
                   {holiday.type}
                 </span>
               </div>
-              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              {canEdit && <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
                 <button
                   onClick={() => openEditModal(holiday)}
                   className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded text-xs font-medium min-h-[36px]"
@@ -188,7 +191,7 @@ const HolidaysPage = () => {
                 >
                   Delete
                 </button>
-              </div>
+              </div>}
             </div>
           ))
         )}
@@ -208,15 +211,15 @@ const HolidaysPage = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Type
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+              {canEdit && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                 Actions
-              </th>
+              </th>}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {holidays.length === 0 ? (
               <tr>
-                <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={canEdit ? 4 : 3} className="px-6 py-4 text-center text-gray-500">
                   No holidays found
                 </td>
               </tr>
@@ -238,7 +241,7 @@ const HolidaysPage = () => {
                       {holiday.type}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  {canEdit && <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => openEditModal(holiday)}
                       className="text-blue-600 hover:text-blue-900 mr-4"
@@ -251,7 +254,7 @@ const HolidaysPage = () => {
                     >
                       Delete
                     </button>
-                  </td>
+                  </td>}
                 </tr>
               ))
             )}
@@ -260,7 +263,7 @@ const HolidaysPage = () => {
       </div>
 
       {/* Add/Edit Modal */}
-      <Modal
+      {canEdit && <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingHoliday ? 'Edit Holiday' : 'Add Holiday'}
@@ -314,10 +317,9 @@ const HolidaysPage = () => {
             </button>
           </div>
         </form>
-      </Modal>
+      </Modal>}
     </div>
   );
 };
 
 export default HolidaysPage;
-

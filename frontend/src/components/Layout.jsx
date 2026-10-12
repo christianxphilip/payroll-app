@@ -8,14 +8,14 @@ const Layout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard' },
+    ...(user?.role === 'admin' ? [{ path: '/dashboard', label: 'Dashboard' }] : []),
     { path: '/employees', label: 'Employees' },
     { path: '/holidays', label: 'Holidays' },
     { path: '/schedules', label: 'Schedules' },
-    { path: '/assignments', label: 'Assignment' },
-    { path: '/timesheet-entries', label: 'Timesheet' },
+    ...(user?.role === 'admin' ? [{ path: '/assignments', label: 'Assignment' }] : []),
+    ...(user?.role === 'admin' ? [{ path: '/timesheet-entries', label: 'Timesheet' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/pay-runs', label: 'Payruns' }] : []),
-    { path: '/reports', label: 'Reports' },
+    ...(user?.role === 'admin' ? [{ path: '/reports', label: 'Reports' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/settings', label: 'Settings' }] : []),
   ];
 
@@ -31,7 +31,7 @@ const Layout = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <Link to="/dashboard" className="text-xl font-bold tracking-wide">Espro Payroll</Link>
+              <Link to={user?.role === 'manager' ? '/schedules' : '/dashboard'} className="text-xl font-bold tracking-wide">Espro Payroll</Link>
             </div>
 
             {/* Desktop Nav Items */}
@@ -115,4 +115,3 @@ const Layout = () => {
 };
 
 export default Layout;
-

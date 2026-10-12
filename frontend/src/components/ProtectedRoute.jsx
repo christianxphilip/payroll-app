@@ -20,11 +20,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (user?.role === 'employee') {
       return <Navigate to="/employee/payslips" replace />;
     }
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={user?.role === 'manager' ? '/schedules' : '/dashboard'} replace />;
   }
 
   return children;
 };
 
 export default ProtectedRoute;
-

@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { assertManagerCanManageEmployee, isEmployeeInManagerScope, managerEmployeeQuery } from '../utils/managerScope.js';
 
 const router = express.Router();
 
@@ -59,6 +60,9 @@ router.get('/', async (req, res, next) => {
     if (excludeResigned === 'true') {
       query.status = { $ne: 'RESIGNED' };
     }
+    if (req.user.role === 'manager') {
+      query = { $and: [query, managerEmployeeQuery(req.user.managerScope)] };
+    }
     
     let projection = {};
     if (req.user.role === 'manager') {
@@ -99,6 +103,10 @@ router.post('/', async (req, res, next) => {
       username,
       password
     } = req.body;
+
+    if (req.user.role === 'manager' && !isEmployeeInManagerScope(position, req.user.managerScope)) {
+      throw new AppError('Managers can only create employees in their department', 403);
+    }
     
     if (!employeeName || !employeeName.trim()) {
       throw new AppError('Employee name is required', 400);
@@ -155,6 +163,12 @@ router.put('/:name', async (req, res, next) => {
   try {
     const { name } = req.params;
     const updateData = { ...req.body };
+    const currentEmployee = await Employee.findOne({ employeeName: name.trim() });
+    if (!currentEmployee) throw new AppError('Employee not found', 404);
+    assertManagerCanManageEmployee(currentEmployee, req.user);
+    if (req.user.role === 'manager' && updateData.position !== undefined && !isEmployeeInManagerScope(updateData.position, req.user.managerScope)) {
+      throw new AppError('Managers cannot move employees outside their department', 403);
+    }
     
     if (req.user.role === 'manager') {
       delete updateData.wageType;

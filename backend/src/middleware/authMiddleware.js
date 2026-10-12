@@ -12,6 +12,9 @@ export const authenticate = (req, res, next) => {
     const token = authHeader.split(' ')[1];
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role === 'manager' && !['kitchen', 'bar'].includes(decoded.managerScope)) {
+      throw new AppError('Manager session must be renewed', 401);
+    }
     req.user = {
       role: decoded.role || 'admin',
       username: decoded.username || 'admin',
@@ -40,5 +43,4 @@ export const authorize = (roles = []) => {
     next();
   };
 };
-
 

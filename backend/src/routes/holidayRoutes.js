@@ -1,6 +1,6 @@
 import express from 'express';
 import Holiday from '../models/Holiday.js';
-import { authenticate } from '../middleware/authMiddleware.js';
+import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router = express.Router();
@@ -39,7 +39,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /api/holidays - Add holiday
-router.post('/', async (req, res, next) => {
+router.post('/', authorize(['admin']), async (req, res, next) => {
   try {
     const { date, description, type } = req.body;
     
@@ -60,7 +60,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // POST /api/holidays/bulk - Bulk create holidays
-router.post('/bulk', async (req, res, next) => {
+router.post('/bulk', authorize(['admin']), async (req, res, next) => {
   try {
     const { holidays } = req.body;
     
@@ -82,7 +82,7 @@ router.post('/bulk', async (req, res, next) => {
 });
 
 // PUT /api/holidays/:id - Update holiday
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authorize(['admin']), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { date, description, type } = req.body;
@@ -108,7 +108,7 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // DELETE /api/holidays/:id - Delete holiday
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authorize(['admin']), async (req, res, next) => {
   try {
     const { id } = req.params;
     
@@ -128,7 +128,7 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 // POST /api/holidays/fetch-external - Fetch and import holidays for a specific year
-router.post('/fetch-external', async (req, res, next) => {
+router.post('/fetch-external', authorize(['admin']), async (req, res, next) => {
   try {
     const year = parseInt(req.body.year) || new Date().getFullYear();
     const { fetchHolidaysFromExternal } = await import('../services/holidayCrawlerService.js');
@@ -181,5 +181,4 @@ router.post('/fetch-external', async (req, res, next) => {
 });
 
 export default router;
-
 

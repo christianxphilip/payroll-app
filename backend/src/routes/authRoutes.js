@@ -19,26 +19,33 @@ router.post('/login', async (req, res, next) => {
     
     const adminPassword = process.env.ADMIN_PASSWORD || process.env.AUTH_PASSWORD || 'admin123';
     const managerPassword = process.env.MANAGER_PASSWORD || 'manager123';
+    const kitchenManagerPassword = process.env.KITCHEN_MANAGER_PASSWORD || managerPassword;
+    const barManagerPassword = process.env.BAR_MANAGER_PASSWORD || managerPassword;
     
     let resolvedRole = null;
     let resolvedUsername = null;
     let employeeId = null;
     let employeeName = null;
+    let managerScope = null;
     
     const cleanUsername = username ? username.trim().toLowerCase() : '';
 
     if (cleanUsername === 'admin' && password === adminPassword) {
       resolvedRole = 'admin';
       resolvedUsername = 'admin';
-    } else if (cleanUsername === 'manager' && password === managerPassword) {
+    } else if (['kitchen manager', 'kitchen-manager', 'kitchen_manager', 'kitchenmanager'].includes(cleanUsername) && password === kitchenManagerPassword) {
       resolvedRole = 'manager';
-      resolvedUsername = 'manager';
+      resolvedUsername = 'kitchen-manager';
+      managerScope = 'kitchen';
+    } else if (['bar manager', 'bar-manager', 'bar_manager', 'barmanager'].includes(cleanUsername) && password === barManagerPassword) {
+      resolvedRole = 'manager';
+      resolvedUsername = 'bar-manager';
+      managerScope = 'bar';
+    } else if (cleanUsername === 'manager' && password === managerPassword) {
+      throw new AppError('Use the kitchen manager or bar manager username', 401);
     } else if (!cleanUsername && password === adminPassword) {
       resolvedRole = 'admin';
       resolvedUsername = 'admin';
-    } else if (!cleanUsername && password === managerPassword) {
-      resolvedRole = 'manager';
-      resolvedUsername = 'manager';
     } else if (cleanUsername) {
       // Check Employee collection for matching username
       const emp = await Employee.findOne({ username: cleanUsername }).select('+password');
@@ -64,7 +71,8 @@ router.post('/login', async (req, res, next) => {
         username: resolvedUsername,
         role: resolvedRole,
         employeeId,
-        employeeName
+        employeeName,
+        managerScope
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
@@ -77,7 +85,8 @@ router.post('/login', async (req, res, next) => {
         username: resolvedUsername,
         role: resolvedRole,
         employeeId,
-        employeeName
+        employeeName,
+        managerScope
       },
       message: 'Login successful'
     });
