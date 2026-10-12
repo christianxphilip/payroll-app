@@ -8,6 +8,8 @@ const GoogleCalendarScheduleView = ({
   operatingHours,
   holidays,
   getAssignmentColor,
+  getScheduleVisual,
+  canEditSchedule,
   onEditSchedule,
   onAddSchedule,
   onNavigatePrev,
@@ -21,7 +23,8 @@ const GoogleCalendarScheduleView = ({
   onComputeSalary,
   loadingEstimatedSalary,
   viewMode,
-  onToggleViewMode
+  onToggleViewMode,
+  onExportImage
 }) => {
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState('');
   const [selectedAssignmentFilter, setSelectedAssignmentFilter] = useState('');
@@ -220,6 +223,11 @@ const GoogleCalendarScheduleView = ({
               📅 Export .ics
             </button>
           )}
+          {onExportImage && (
+            <button onClick={onExportImage} className="px-2.5 py-1 bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 rounded-md font-medium whitespace-nowrap">
+              🖼 Export Image
+            </button>
+          )}
           {onOpenShiftTargets && (
             <button
               onClick={onOpenShiftTargets}
@@ -325,13 +333,16 @@ const GoogleCalendarScheduleView = ({
                   ) : (
                     daySchedules.map((schedule, schedIdx) => {
                       const color = getAssignmentColor(schedule.assignmentType);
+                      const visual = getScheduleVisual ? getScheduleVisual(schedule) : { backgroundColor: '#ffffff', textColor: '#111827', assignmentColor: color, shiftName: '' };
+                      const editable = canEditSchedule ? canEditSchedule(schedule) : true;
 
                       return (
                         <React.Fragment key={schedule._id || schedIdx}>
                           {/* Event Card / Timeline Item */}
                           <div
-                            onClick={() => onEditSchedule(schedule)}
-                            className="group flex items-start sm:items-center gap-3 p-2.5 rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 transition-all cursor-pointer"
+                            onClick={() => editable && onEditSchedule(schedule)}
+                            className={`group flex items-start sm:items-center gap-3 p-2.5 rounded-lg border transition-all ${editable ? 'hover:shadow-sm cursor-pointer' : 'cursor-not-allowed opacity-75'}`}
+                            style={{ backgroundColor: editable ? visual.backgroundColor : '#e5e7eb', borderColor: visual.assignmentColor, borderLeftWidth: '5px', color: visual.textColor }}
                           >
                             {/* Dot Indicator */}
                             <div className="mt-1 sm:mt-0 w-4 flex items-center justify-center shrink-0">
@@ -370,13 +381,13 @@ const GoogleCalendarScheduleView = ({
                                 )}
                               </div>
                               <div className="text-[11px] text-gray-400 font-medium tracking-wide">
-                                ESPRO Coffee
+                                {[visual.shiftName, 'ESPRO Coffee'].filter(Boolean).join(' • ')}
                               </div>
                             </div>
 
                             {/* Edit Pencil Icon */}
-                            <div className="text-gray-300 group-hover:text-blue-600 text-xs shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                              ✏️ Edit
+                            <div className="text-gray-500 text-xs shrink-0">
+                              {editable ? '✏️ Edit' : `🔒 ${schedule.assignmentType}`}
                             </div>
                           </div>
                         </React.Fragment>

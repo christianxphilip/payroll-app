@@ -37,6 +37,7 @@ const SchedulesCalendarPage = () => {
     const [schedules, setSchedules] = useState([]);
     const [assignmentTypes, setAssignmentTypes] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [scheduleAction, setScheduleAction] = useState('');
 
     // Format date as YYYY-MM-DD in local timezone (not UTC)
     const formatDateLocal = (date) => {
@@ -89,9 +90,14 @@ const SchedulesCalendarPage = () => {
     });
 
     const handleEditScheduleFromAgenda = (schedule) => {
-        const employee = employees.find(e => e.employeeName === schedule.employeeName) || { employeeName: schedule.employeeName };
+        const employee = employees.find(e => e.employeeName === schedule.employeeName);
+        if (managerAssignmentType && isDualEmployee(employee) && schedule.assignmentType === oppositeManagerAssignmentType) {
+            showMessage('error', `This ${oppositeManagerAssignmentType.toLowerCase()} schedule is read-only.`);
+            return;
+        }
+        const selectedEmployee = employee || { employeeName: schedule.employeeName };
         const date = new Date(schedule.date);
-        setSelectedCell({ employee, date, existing: schedule, allSchedules: [schedule] });
+        setSelectedCell({ employee: selectedEmployee, date, existing: schedule, allSchedules: [schedule] });
 
         const validAssignmentType = assignmentTypes.find(a => a.value === schedule.assignmentType)
             ? schedule.assignmentType
@@ -763,6 +769,7 @@ const SchedulesCalendarPage = () => {
         e.preventDefault();
         if (!selectedCell) return;
 
+        setScheduleAction(selectedCell.existing ? 'Saving schedule…' : 'Adding schedule…');
         try {
             // Auto-calculate duration if start and end times are provided
             let duration = formData.scheduledDuration ? parseFloat(formData.scheduledDuration) : 0;
@@ -834,6 +841,8 @@ const SchedulesCalendarPage = () => {
             fetchSchedules();
         } catch (error) {
             showMessage('error', error.response?.data?.error || 'Operation failed');
+        } finally {
+            setScheduleAction('');
         }
     };
 
@@ -1046,6 +1055,81 @@ const SchedulesCalendarPage = () => {
         return 'bg-white text-gray-900 border-gray-100 hover:border-blue-300 hover:bg-blue-50';
     };
 
+    const getScheduleShift = (schedule) => shifts.find(shift => {
+        const normalize = value => String(value || '').replace(/\s+/g, '').toUpperCase();
+        return normalize(shift.startTime) === normalize(schedule.scheduledStartTime)
+            && normalize(shift.endTime) === normalize(schedule.scheduledEndTime);
+    });
+
+    const getScheduleVisual = (schedule) => {
+        const shiftName = getScheduleShift(schedule)?.name || '';
+        const name = shiftName.toLowerCase();
+        const backgroundColor = name.includes('opening') ? '#dbeafe'
+            : name.includes('mid') ? '#dcfce7'
+            : name.includes('closing') ? '#f3e8ff'
+            : '#f8fafc';
+        const textColor = name.includes('opening') ? '#1e40af'
+            : name.includes('mid') ? '#166534'
+            : name.includes('closing') ? '#6b21a8'
+            : '#1f2937';
+        return { shiftName, backgroundColor, textColor, assignmentColor: getAssignmentColor(schedule.assignmentType) };
+    };
+
+    const exportScheduleImage = () => {
+        const dates = getDateRangeDates();
+        const rows = filteredEmployees;
+        const nameWidth = 240;
+        const cellWidth = 180;
+        const headerHeight = 70;
+        const rowHeight = 92;
+        const scale = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = (nameWidth + dates.length * cellWidth) * scale;
+        canvas.height = (headerHeight + rows.length * rowHeight) * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = 'bold 15px Arial';
+        ctx.fillStyle = '#111827';
+        ctx.fillText(`${dateRange.startDate} to ${dateRange.endDate}`, 14, 28);
+        dates.forEach((date, index) => {
+            const x = nameWidth + index * cellWidth;
+            ctx.fillStyle = '#f3f4f6'; ctx.fillRect(x, 0, cellWidth, headerHeight);
+            ctx.strokeStyle = '#d1d5db'; ctx.strokeRect(x, 0, cellWidth, headerHeight);
+            ctx.fillStyle = '#111827'; ctx.font = 'bold 13px Arial';
+            ctx.fillText(date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), x + 10, 42);
+        });
+        rows.forEach((employee, rowIndex) => {
+            const y = headerHeight + rowIndex * rowHeight;
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, y, nameWidth, rowHeight);
+            ctx.strokeStyle = '#d1d5db'; ctx.strokeRect(0, y, nameWidth, rowHeight);
+            ctx.fillStyle = '#111827'; ctx.font = 'bold 13px Arial'; ctx.fillText(employee.employeeName, 12, y + 32);
+            ctx.fillStyle = '#6b7280'; ctx.font = '11px Arial'; ctx.fillText(employee.position || '', 12, y + 51);
+            dates.forEach((date, dateIndex) => {
+                const x = nameWidth + dateIndex * cellWidth;
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, cellWidth, rowHeight);
+                ctx.strokeStyle = '#d1d5db'; ctx.strokeRect(x, y, cellWidth, rowHeight);
+                const items = getScheduleForCell(employee.employeeName, date);
+                items.slice(0, 2).forEach((schedule, itemIndex) => {
+                    const visual = getScheduleVisual(schedule);
+                    const top = y + 8 + itemIndex * 39;
+                    ctx.fillStyle = schedule.isOff ? '#e5e7eb' : visual.backgroundColor;
+                    ctx.fillRect(x + 8, top, cellWidth - 16, 33);
+                    ctx.fillStyle = schedule.isOff ? '#6b7280' : visual.assignmentColor;
+                    ctx.fillRect(x + 8, top, 6, 33);
+                    ctx.fillStyle = visual.textColor; ctx.font = 'bold 11px Arial';
+                    ctx.fillText(schedule.isOff ? 'OFF' : `${schedule.scheduledStartTime} - ${schedule.scheduledEndTime}`, x + 20, top + 15);
+                    ctx.font = '9px Arial'; ctx.fillText([visual.shiftName, schedule.assignmentType].filter(Boolean).join(' • '), x + 20, top + 27);
+                });
+            });
+        });
+        const link = document.createElement('a');
+        link.download = `espro-schedule-${dateRange.startDate}-to-${dateRange.endDate}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    };
+
     const getAvailabilityForDate = (date) => {
         const dateStr = date.toISOString().split('T')[0];
         const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
@@ -1092,6 +1176,7 @@ const SchedulesCalendarPage = () => {
             return;
         }
 
+        setScheduleAction('Adding schedule…');
         try {
             const dateStr = date.toISOString().split('T')[0];
             const submitData = {
@@ -1112,6 +1197,8 @@ const SchedulesCalendarPage = () => {
             fetchSchedules();
         } catch (error) {
             showMessage('error', 'Failed to paste schedule');
+        } finally {
+            setScheduleAction('');
         }
     };
 
@@ -1155,6 +1242,7 @@ const SchedulesCalendarPage = () => {
             return;
         }
 
+        setScheduleAction('Moving schedule…');
         try {
             const targetDateStr = targetDate.toISOString().split('T')[0];
 
@@ -1182,6 +1270,7 @@ const SchedulesCalendarPage = () => {
             showMessage('error', 'Failed to move schedule');
         } finally {
             setDraggedSchedule(null);
+            setScheduleAction('');
         }
     };
 
@@ -1252,6 +1341,14 @@ const SchedulesCalendarPage = () => {
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
+            {scheduleAction && (
+                <div className="fixed inset-0 z-[100] bg-black/25 flex items-center justify-center">
+                    <div className="bg-white rounded-xl px-6 py-4 shadow-xl flex items-center gap-3 font-semibold text-gray-800">
+                        <span className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                        {scheduleAction}
+                    </div>
+                </div>
+            )}
             {message.text && (
                 <div
                     className={`m-4 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -1293,6 +1390,11 @@ const SchedulesCalendarPage = () => {
                     operatingHours={operatingHours}
                     holidays={holidays}
                     getAssignmentColor={getAssignmentColor}
+                    getScheduleVisual={getScheduleVisual}
+                    canEditSchedule={(schedule) => {
+                        const employee = employees.find(e => e.employeeName === schedule.employeeName);
+                        return !(managerAssignmentType && isDualEmployee(employee) && schedule.assignmentType === oppositeManagerAssignmentType);
+                    }}
                     onEditSchedule={handleEditScheduleFromAgenda}
                     onAddSchedule={handleAddScheduleFromAgenda}
                     onNavigatePrev={navigateToPreviousWeek}
@@ -1307,6 +1409,7 @@ const SchedulesCalendarPage = () => {
                     loadingEstimatedSalary={loadingEstimatedSalary}
                     viewMode={calendarViewMode}
                     onToggleViewMode={setCalendarViewMode}
+                    onExportImage={exportScheduleImage}
                 />
             ) : (
                 <>
@@ -1390,6 +1493,9 @@ const SchedulesCalendarPage = () => {
                                     className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-1.5"
                                 >
                                     📅 Export to Google Calendar (.ics)
+                                </button>
+                                <button onClick={exportScheduleImage} className="px-4 py-2 bg-sky-600 text-white hover:bg-sky-700 rounded-lg text-sm font-medium">
+                                    🖼 Export Image
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1706,28 +1812,30 @@ const SchedulesCalendarPage = () => {
                                                                             OFF
                                                                         </div>
                                                                     ) : (
+                                                                        (() => {
+                                                                            const visual = getScheduleVisual(schedule);
+                                                                            return (
                                                                         <div
                                                                             key={idx}
-                                                                            className="px-2 py-1 rounded text-white text-sm font-semibold"
-                                                                            style={{ backgroundColor: getAssignmentColor(schedule.assignmentType) }}
+                                                                            className="px-2 py-1 rounded text-sm font-semibold"
+                                                                            style={{ backgroundColor: visual.backgroundColor, color: visual.textColor, borderLeft: `5px solid ${visual.assignmentColor}` }}
                                                                             draggable
                                                                             onDragStart={(e) => handleDragStart(e, schedule, employee, date)}
                                                                             onDragEnd={handleDragEnd}
                                                                         >
                                                                             {schedule.scheduledStartTime} - {schedule.scheduledEndTime}
+                                                                            {visual.shiftName && <div className="text-[9px] uppercase tracking-wide opacity-80">{visual.shiftName} • {schedule.assignmentType}</div>}
                                                                             {schedule.notes && (
                                                                                 <div className="mt-1 italic" style={{ fontSize: '0.6rem', lineHeight: '1.2' }}>
                                                                                     {schedule.notes}
                                                                                 </div>
                                                                             )}
                                                                         </div>
+                                                                            );
+                                                                        })()
                                                                     )
                                                                 ))}
                                                             </div>
-                                                        ) : managerAssignmentType && isDualEmployee(employee) && !closed ? (
-                                                            <span className="inline-flex px-2 py-1 rounded bg-green-50 text-green-700 text-[10px] font-semibold uppercase">
-                                                                Available
-                                                            </span>
                                                         ) : null}
                                                     </td>
                                                 );
