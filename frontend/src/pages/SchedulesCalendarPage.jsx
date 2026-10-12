@@ -1110,7 +1110,10 @@ const SchedulesCalendarPage = () => {
                 const x = nameWidth + dateIndex * cellWidth;
                 ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, cellWidth, rowHeight);
                 ctx.strokeStyle = '#d1d5db'; ctx.strokeRect(x, y, cellWidth, rowHeight);
-                const items = getScheduleForCell(employee.employeeName, date);
+                const items = getScheduleForCell(employee.employeeName, date).filter(schedule => {
+                    if (!managerAssignmentType || !isDualEmployee(employee)) return true;
+                    return schedule.assignmentType !== oppositeManagerAssignmentType;
+                });
                 items.slice(0, 2).forEach((schedule, itemIndex) => {
                     const visual = getScheduleVisual(schedule);
                     const top = y + 8 + itemIndex * 39;
