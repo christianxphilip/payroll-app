@@ -13,9 +13,27 @@ import { assertManagerCanManageEmployee, isDualPosition, managerAssignmentType, 
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
+const calendarSyncTimers = new Map();
 
 // All routes require authentication
 router.use(authenticate);
+
+const queueCalendarSync = (dateInput) => {
+  if (process.env.AUTO_SYNC_GOOGLE_CALENDAR === 'false' || !dateInput) return;
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return;
+  const day = date.toISOString().split('T')[0];
+  clearTimeout(calendarSyncTimers.get(day));
+  calendarSyncTimers.set(day, setTimeout(async () => {
+    calendarSyncTimers.delete(day);
+    try {
+      await syncSchedulesToGoogleCalendar(day, day);
+      console.log(`[Calendar auto-sync] Completed ${day}`);
+    } catch (error) {
+      console.error(`[Calendar auto-sync] Failed ${day}:`, error.message);
+    }
+  }, 750));
+};
 
 const getManagerEmployees = async (reqUser) => {
   if (reqUser.role !== 'manager') return null;
@@ -209,6 +227,7 @@ router.post('/', async (req, res, next) => {
     
     // Allow multiple schedules per employee per date
     const schedule = await Schedule.create(scheduleData);
+    queueCalendarSync(schedule.date);
     
     res.status(201).json({
       success: true,
@@ -247,6 +266,7 @@ router.post('/bulk', async (req, res, next) => {
       });
     
     const insertedCount = Array.isArray(result) ? result.length : result.insertedCount;
+    schedules.forEach(schedule => queueCalendarSync(schedule.date));
     
     res.status(201).json({
       success: true,
@@ -328,6 +348,7 @@ router.post('/upload-csv', upload.single('file'), async (req, res, next) => {
       } else {
         updatedCount++;
       }
+      queueCalendarSync(schedule.date);
     }
     
     res.status(201).json({
@@ -357,6 +378,8 @@ router.put('/:id', async (req, res, next) => {
       updateData,
       { new: true, runValidators: true }
     );
+    queueCalendarSync(existingSchedule.date);
+    queueCalendarSync(schedule.date);
     
     if (!schedule) {
       throw new AppError('Schedule not found', 404);
@@ -389,6 +412,7 @@ router.delete('/:id', async (req, res, next) => {
     if (!schedule) {
       throw new AppError('Schedule not found', 404);
     }
+    queueCalendarSync(schedule.date);
     
     res.json({
       success: true,
@@ -421,6 +445,12 @@ router.delete('/range/delete', async (req, res, next) => {
     }
     
     const result = await Schedule.deleteMany(query);
+    const cursor = new Date(startDate);
+    const last = new Date(endDate);
+    while (cursor <= last) {
+      queueCalendarSync(cursor);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
     
     res.json({
       success: true,
