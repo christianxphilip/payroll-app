@@ -6,6 +6,7 @@ import ExportICalModal from '../components/ExportICalModal';
 import { useUndo } from '../hooks/useUndo';
 import UndoToast from '../components/UndoToast';
 import GoogleCalendarScheduleView from '../components/GoogleCalendarScheduleView';
+import ScheduleTutorial from '../components/ScheduleTutorial';
 
 const formatMoney = (amount) => {
     return new Intl.NumberFormat('en-PH', {
@@ -38,6 +39,7 @@ const SchedulesCalendarPage = () => {
     const [assignmentTypes, setAssignmentTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [scheduleAction, setScheduleAction] = useState('');
+    const [showTutorial, setShowTutorial] = useState(() => localStorage.getItem('espro_schedule_tutorial_seen') !== 'true');
 
     // Format date as YYYY-MM-DD in local timezone (not UTC)
     const formatDateLocal = (date) => {
@@ -593,6 +595,11 @@ const SchedulesCalendarPage = () => {
     const showMessage = (type, text) => {
         setMessage({ type, text });
         setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+    };
+
+    const closeTutorial = () => {
+        localStorage.setItem('espro_schedule_tutorial_seen', 'true');
+        setShowTutorial(false);
     };
 
     const isDualEmployee = (employee) => {
@@ -1344,6 +1351,7 @@ const SchedulesCalendarPage = () => {
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
+            <ScheduleTutorial isOpen={showTutorial} onClose={closeTutorial} />
             {scheduleAction && (
                 <div className="fixed inset-0 z-[100] bg-black/25 flex items-center justify-center">
                     <div className="bg-white rounded-xl px-6 py-4 shadow-xl flex items-center gap-3 font-semibold text-gray-800">
@@ -1413,6 +1421,7 @@ const SchedulesCalendarPage = () => {
                     viewMode={calendarViewMode}
                     onToggleViewMode={setCalendarViewMode}
                     onExportImage={exportScheduleImage}
+                    onOpenTutorial={() => setShowTutorial(true)}
                 />
             ) : (
                 <>
@@ -1502,6 +1511,12 @@ const SchedulesCalendarPage = () => {
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowTutorial(true)}
+                                    className="px-4 py-2 bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 rounded-lg text-sm font-semibold"
+                                >
+                                    ❓ Tutorial
+                                </button>
                                 <button
                                     onClick={navigateToPreviousWeek}
                                     className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"

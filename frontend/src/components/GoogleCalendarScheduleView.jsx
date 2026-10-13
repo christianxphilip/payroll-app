@@ -24,7 +24,8 @@ const GoogleCalendarScheduleView = ({
   loadingEstimatedSalary,
   viewMode,
   onToggleViewMode,
-  onExportImage
+  onExportImage,
+  onOpenTutorial
 }) => {
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState('');
   const [selectedAssignmentFilter, setSelectedAssignmentFilter] = useState('');
@@ -215,6 +216,11 @@ const GoogleCalendarScheduleView = ({
 
         {/* Admin / Additional Action Bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5 text-xs">
+          {onOpenTutorial && (
+            <button onClick={onOpenTutorial} className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 rounded-md font-medium whitespace-nowrap">
+              ❓ Tutorial
+            </button>
+          )}
           {onOpenExportICal && (
             <button
               onClick={onOpenExportICal}
