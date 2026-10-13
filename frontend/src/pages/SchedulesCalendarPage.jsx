@@ -1082,17 +1082,21 @@ const SchedulesCalendarPage = () => {
         return { shiftName, backgroundColor, textColor, assignmentColor: getAssignmentColor(schedule.assignmentType) };
     };
 
-    const exportScheduleImage = () => {
+    const exportScheduleImage = async () => {
+        setScheduleAction('Preparing schedule image…');
+        try {
         const dates = getDateRangeDates();
         const rows = filteredEmployees;
         const nameWidth = 240;
         const cellWidth = 180;
         const headerHeight = 70;
         const rowHeight = 92;
-        const scale = 2;
+        const baseWidth = nameWidth + dates.length * cellWidth;
+        const baseHeight = headerHeight + rows.length * rowHeight;
+        const scale = Math.min(2, 4096 / baseWidth, 4096 / baseHeight, Math.sqrt(12000000 / (baseWidth * baseHeight)));
         const canvas = document.createElement('canvas');
-        canvas.width = (nameWidth + dates.length * cellWidth) * scale;
-        canvas.height = (headerHeight + rows.length * rowHeight) * scale;
+        canvas.width = Math.floor(baseWidth * scale);
+        canvas.height = Math.floor(baseHeight * scale);
         const ctx = canvas.getContext('2d');
         ctx.scale(scale, scale);
         ctx.fillStyle = '#ffffff';
@@ -1134,10 +1138,29 @@ const SchedulesCalendarPage = () => {
                 });
             });
         });
-        const link = document.createElement('a');
-        link.download = `espro-schedule-${dateRange.startDate}-to-${dateRange.endDate}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        const filename = `espro-schedule-${dateRange.startDate}-to-${dateRange.endDate}.png`;
+        const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('Unable to create image')), 'image/png'));
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'ESPRO Staff Schedule' });
+            showMessage('success', 'Schedule image is ready to save or share.');
+        } else {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            showMessage('success', 'Schedule image downloaded. On iPhone, long-press the opened image and choose Save to Photos if needed.');
+        }
+        } catch (error) {
+            if (error?.name !== 'AbortError') showMessage('error', 'Unable to create the schedule image. Please try a shorter date range.');
+        } finally {
+            setScheduleAction('');
+        }
     };
 
     const getAvailabilityForDate = (date) => {

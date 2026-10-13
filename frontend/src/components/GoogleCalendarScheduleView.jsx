@@ -107,7 +107,7 @@ const GoogleCalendarScheduleView = ({
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           {/* Week Label & Navigation */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <h2 className="text-base sm:text-lg font-bold text-gray-900">{getWeekLabel()}</h2>
             <div className="inline-flex rounded-lg border border-gray-300 bg-white shadow-xs">
               <button
@@ -170,14 +170,14 @@ const GoogleCalendarScheduleView = ({
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg bg-white border border-gray-200 p-2">
+        <div className="grid grid-cols-2 gap-2 rounded-lg bg-white border border-gray-200 p-2 min-w-0">
           <label className="text-[11px] font-semibold text-gray-600">
             Start Date
-            <input type="date" value={dateRange?.startDate || ''} onChange={(event) => onDateRangeChange?.('startDate', event.target.value)} className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white" />
+            <input type="date" value={dateRange?.startDate || ''} onChange={(event) => onDateRangeChange?.('startDate', event.target.value)} className="mt-1 block w-full min-w-0 h-10 px-2 py-1 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white appearance-none" />
           </label>
           <label className="text-[11px] font-semibold text-gray-600">
             End Date
-            <input type="date" value={dateRange?.endDate || ''} onChange={(event) => onDateRangeChange?.('endDate', event.target.value)} className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white" />
+            <input type="date" value={dateRange?.endDate || ''} onChange={(event) => onDateRangeChange?.('endDate', event.target.value)} className="mt-1 block w-full min-w-0 h-10 px-2 py-1 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white appearance-none" />
           </label>
         </div>
 
@@ -227,29 +227,29 @@ const GoogleCalendarScheduleView = ({
         </div>
 
         {/* Admin / Additional Action Bar */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 text-xs">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pb-0.5 text-xs">
           {onOpenTutorial && (
-            <button onClick={onOpenTutorial} className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 rounded-md font-medium whitespace-nowrap">
+            <button onClick={onOpenTutorial} className="w-full px-2.5 py-2 bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 rounded-md font-medium whitespace-nowrap">
               ❓ Tutorial
             </button>
           )}
           {onOpenExportICal && (
             <button
               onClick={onOpenExportICal}
-              className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 rounded-md font-medium whitespace-nowrap"
+              className="w-full px-2.5 py-2 bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 rounded-md font-medium whitespace-nowrap"
             >
               📅 Export .ics
             </button>
           )}
           {onExportImage && (
-            <button onClick={onExportImage} className="px-2.5 py-1 bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 rounded-md font-medium whitespace-nowrap">
+            <button onClick={onExportImage} className="w-full px-2.5 py-2 bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 rounded-md font-medium whitespace-nowrap">
               🖼 Export Image
             </button>
           )}
           {onOpenShiftTargets && (
             <button
               onClick={onOpenShiftTargets}
-              className="px-2.5 py-1 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md font-medium whitespace-nowrap"
+              className="w-full px-2.5 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md font-medium whitespace-nowrap"
             >
               🎯 Targets
             </button>
