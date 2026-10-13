@@ -1413,6 +1413,7 @@ const SchedulesCalendarPage = () => {
                     onNavigateToday={resetToCurrentWeek}
                     getWeekLabel={getWeekLabel}
                     dateRange={dateRange}
+                    onDateRangeChange={handleDateRangeChange}
                     user={user}
                     onOpenExportICal={() => setIsExportICalModalOpen(true)}
                     onOpenShiftTargets={() => setIsShiftTargetsModalOpen(true)}

@@ -85,7 +85,7 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
     <Modal isOpen={isOpen} onClose={onClose} title="📅 Sync to Google Calendar" maxWidth="xl">
       <div className="space-y-4">
 
-        {/* Server-managed automatic sync banner */}
+        {/* Server-managed manual sync banner */}
         <div className="rounded-xl p-4 border flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white font-bold bg-emerald-500">
@@ -93,10 +93,10 @@ const ExportICalModal = ({ isOpen, onClose, initialStartDate, initialEndDate }) 
             </div>
             <div>
               <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                Automatic Google Calendar Sync
+                Google Calendar Sync
               </p>
               <p className="text-xs mt-0.5 text-emerald-600 dark:text-emerald-400">
-                Schedule additions, edits, moves, and deletions sync automatically—no Google sign-in required.
+                Pindutin ang Sync Now kapag final na ang schedule. Hindi kailangan ang paulit-ulit na Google sign-in.
               </p>
             </div>
           </div>

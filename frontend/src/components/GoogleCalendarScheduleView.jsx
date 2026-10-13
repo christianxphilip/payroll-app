@@ -17,6 +17,7 @@ const GoogleCalendarScheduleView = ({
   onNavigateToday,
   getWeekLabel,
   dateRange,
+  onDateRangeChange,
   user,
   onOpenExportICal,
   onOpenShiftTargets,
@@ -169,6 +170,17 @@ const GoogleCalendarScheduleView = ({
         </div>
 
         {/* Filter Controls Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg bg-white border border-gray-200 p-2">
+          <label className="text-[11px] font-semibold text-gray-600">
+            Start Date
+            <input type="date" value={dateRange?.startDate || ''} onChange={(event) => onDateRangeChange?.('startDate', event.target.value)} className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white" />
+          </label>
+          <label className="text-[11px] font-semibold text-gray-600">
+            End Date
+            <input type="date" value={dateRange?.endDate || ''} onChange={(event) => onDateRangeChange?.('endDate', event.target.value)} className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white" />
+          </label>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {/* Employee Filter */}
           <div>
