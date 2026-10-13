@@ -1,4 +1,13 @@
-const Modal = ({ isOpen, onClose, title, children, maxWidth = 'lg' }) => {
+const Modal = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  maxWidth = 'lg',
+  panelClassName = '',
+  contentClassName = '',
+  titleClassName = ''
+}) => {
   if (!isOpen) return null;
 
   const maxWidthClasses = {
@@ -24,12 +33,12 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'lg' }) => {
       ></div>
 
       {/* Modal panel */}
-      <div className={`relative bg-white rounded-xl text-left shadow-2xl transform transition-all w-[95%] sm:w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] flex flex-col z-10 my-auto`}>
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 flex-1 overflow-y-auto">
+      <div className={`relative bg-white rounded-xl text-left shadow-2xl transform transition-all w-[95%] sm:w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] flex flex-col z-10 my-auto ${panelClassName}`}>
+          <div className={`bg-white px-4 pt-5 pb-4 sm:p-6 flex-1 overflow-y-auto ${contentClassName}`}>
             <div className="sm:flex sm:items-start">
               <div className="mt-1 text-center sm:mt-0 sm:text-left w-full">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg leading-6 font-semibold text-gray-900">
+                  <h3 className={`text-lg leading-6 font-semibold text-gray-900 ${titleClassName}`}>
                     {title}
                   </h3>
                   <button
@@ -52,4 +61,3 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'lg' }) => {
 };
 
 export default Modal;
-

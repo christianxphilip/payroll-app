@@ -2085,14 +2085,17 @@ const SchedulesCalendarPage = () => {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 title={selectedCell ? `Schedule for ${formData.employeeName || selectedCell.employee.employeeName} - ${selectedCell.date.toLocaleDateString()}` : 'Schedule'}
+                panelClassName="max-sm:w-[calc(100%-1rem)] max-sm:max-h-[calc(100dvh-1rem)]"
+                contentClassName="max-sm:px-4 max-sm:pt-3 max-sm:pb-0"
+                titleClassName="max-sm:text-base max-sm:leading-5 max-sm:text-left max-sm:pr-2"
             >
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="text-left">
                     <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-1 font-semibold">Employee</label>
                         <select
                             value={formData.employeeName || ''}
                             onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-blue-500"
+                            className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg text-base sm:text-sm bg-white font-medium focus:ring-2 focus:ring-blue-500"
                             required
                         >
                             <option value="">Select Employee</option>
@@ -2114,7 +2117,7 @@ const SchedulesCalendarPage = () => {
                             }).length === 0 ? (
                                 <p className="text-xs text-gray-500 italic">No shifts configured for this day.</p>
                             ) : (
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2">
                                     {shifts.filter(s => {
                                         if (!selectedCell?.date) return false;
                                         const day = selectedCell.date.toLocaleDateString('en-US', { weekday: 'long' });
@@ -2122,7 +2125,7 @@ const SchedulesCalendarPage = () => {
                                     }).map(s => (
                                         <div
                                             key={s._id}
-                                            className={`flex flex-col items-center justify-center p-1.5 rounded border transition-colors cursor-pointer ${getShiftColor(s.name)}`}
+                                            className={`flex min-h-[52px] flex-col items-center justify-center p-1.5 rounded border transition-colors cursor-pointer ${getShiftColor(s.name)}`}
                                             onClick={() => {
                                                 const newDuration = calculateDuration(s.startTime, s.endTime);
                                                 setFormData({
@@ -2143,13 +2146,13 @@ const SchedulesCalendarPage = () => {
 
                         <label className="block text-sm font-medium text-gray-700 mb-2">Assignment Type</label>
                         {assignmentTypes.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
+                            <div className="grid grid-cols-2 min-[380px]:grid-cols-3 sm:flex sm:flex-wrap gap-2">
                                 {assignmentTypes.map((type) => (
                                     <button
                                         key={type.value}
                                         type="button"
                                         onClick={() => setFormData({ ...formData, assignmentType: type.value })}
-                                        className={`px-3 py-1 text-sm rounded-full border ${formData.assignmentType === type.value
+                                        className={`min-h-[40px] px-2 sm:px-3 py-1 text-xs sm:text-sm leading-tight rounded-full border ${formData.assignmentType === type.value
                                             ? 'ring-2 ring-offset-1 ring-gray-400 font-semibold'
                                             : 'opacity-70 hover:opacity-100'
                                             }`}
@@ -2170,7 +2173,7 @@ const SchedulesCalendarPage = () => {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Start Time
@@ -2187,7 +2190,7 @@ const SchedulesCalendarPage = () => {
                                         scheduledDuration: newDuration > 0 ? (newDuration % 1 === 0 ? newDuration.toString() : newDuration.toFixed(2)) : formData.scheduledDuration
                                     });
                                 }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg text-base"
                                 placeholder="e.g. 3PM"
                             />
                         </div>
@@ -2207,11 +2210,11 @@ const SchedulesCalendarPage = () => {
                                         scheduledDuration: newDuration > 0 ? (newDuration % 1 === 0 ? newDuration.toString() : newDuration.toFixed(2)) : formData.scheduledDuration
                                     });
                                 }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg text-base"
                                 placeholder="e.g. 12AM"
                             />
                         </div>
-                        <div>
+                        <div className="col-span-2 sm:col-span-1">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Duration (hours)
                             </label>
@@ -2220,7 +2223,7 @@ const SchedulesCalendarPage = () => {
                                 step="0.01"
                                 value={formData.scheduledDuration}
                                 onChange={(e) => setFormData({ ...formData, scheduledDuration: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg text-base"
                                 placeholder="e.g. 8"
                             />
                             <div className="text-xs text-gray-500 mt-1">(auto-calculated)</div>
@@ -2233,34 +2236,34 @@ const SchedulesCalendarPage = () => {
                             type="text"
                             value={formData.notes}
                             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg text-base"
                             placeholder="Optional notes"
                         />
                     </div>
 
-                    <div className="flex justify-between pt-4 border-t">
-                        <div className="flex gap-2">
+                    <div className="sticky bottom-0 -mx-4 grid grid-cols-1 gap-2 border-t bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:static sm:mx-0 sm:flex sm:justify-between sm:gap-0 sm:px-0 sm:pb-0 sm:pt-4">
+                        <div className="order-2 flex sm:order-1 gap-2">
                             {selectedCell?.existing && (
                                 <button
                                     type="button"
                                     onClick={handleDelete}
-                                    className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-300"
+                                    className="min-h-[44px] w-full sm:w-auto px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-300"
                                 >
                                     Delete
                                 </button>
                             )}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="order-1 grid grid-cols-2 gap-2 sm:order-2 sm:flex">
                             <button
                                 type="button"
                                 onClick={() => setIsModalOpen(false)}
-                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                                className="min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                className="min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                             >
                                 Save
                             </button>
