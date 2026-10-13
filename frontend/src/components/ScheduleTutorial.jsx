@@ -1,85 +1,49 @@
-const steps = [
-  {
-    icon: '📅',
-    title: 'Pumili ng petsa',
-    body: 'Gamitin ang Start Date at End Date para piliin ang mga araw na gusto mong ayusin. Puwede ring gamitin ang Previous Week, Current Week, at Next Week.'
-  },
-  {
-    icon: '➕',
-    title: 'Maglagay ng schedule',
-    body: 'I-click ang kahon ng empleyado sa napiling araw. Pumili ng Opening, Mid, o Closing shift, tiyaking tama ang oras, at pindutin ang Save.'
-  },
-  {
-    icon: '↔️',
-    title: 'Ilipat ang schedule',
-    body: 'I-drag ang schedule papunta sa ibang empleyado o petsa. Hintaying matapos ang loading bago gumawa ng susunod na pagbabago.'
-  },
-  {
-    icon: '🎨',
-    title: 'Basahin ang mga kulay',
-    body: 'Ang background color ay para sa Opening, Mid, o Closing. Ang kulay sa gilid ay nagpapakita kung Kitchen o Bar ang assignment.'
-  },
-  {
-    icon: '🔒',
-    title: 'Dual-role staff',
-    body: 'Kapag naka-schedule na ang dual-role employee sa kabilang department, magiging gray at read-only ang schedule. Hindi ito puwedeng baguhin ng manager ng kabilang department.'
-  },
-  {
-    icon: '🔄',
-    title: 'Automatic ang Google Calendar',
-    body: 'Awtomatikong nagsi-sync ang pag-add, edit, move, at delete. Hindi na kailangang paulit-ulit na kumonekta sa Google.'
-  },
-  {
-    icon: '🖼️',
-    title: 'I-share ang schedule',
-    body: 'Pindutin ang Export Image para gumawa ng horizontal PNG ng napiling date range. Hindi kasama sa manager export ang gray na schedule ng kabilang department.'
-  }
+import { useEffect, useState } from 'react';
+
+const lessons = [
+  { icon:'👋', title:'Maligayang pagdating!', subtitle:'Ano ang magagawa sa Schedule?', intro:'Dito ginagawa, inaayos, at sini-share ang weekly schedule ng team.', actions:['Tingnan ang schedule sa Schedule View o Grid View.','Gumawa, mag-edit, at maglipat ng shift.','I-sync sa Google Calendar at mag-export ng image.'], tip:'Mas madaling magsimula sa Grid View dahil sabay mong makikita ang staff at mga petsa.', visual:'views' },
+  { icon:'📅', title:'Piliin ang tamang date range', subtitle:'Hakbang 1: Itakda muna ang mga araw', intro:'Lahat ng gagawin at ie-export ay nakabase sa Start Date at End Date.', actions:['Piliin ang unang araw sa Start Date.','Piliin ang huling araw sa End Date.','Gamitin ang Previous, Current, o Next Week para mabilis lumipat.'], warning:'Bago gumawa ng schedule, siguraduhing tama ang week na nasa screen.', visual:'dates' },
+  { icon:'➕', title:'Gumawa ng bagong schedule', subtitle:'Hakbang 2: Employee + araw + shift', intro:'Sa Grid View, bawat kahon ay para sa isang employee at isang petsa.', actions:['I-click ang bakanteng kahon sa gustong araw.','Piliin ang Opening, Mid, o Closing sa Shifts Guide.','I-check ang oras at Kitchen/Bar assignment.','Maglagay ng Notes kung kailangan, pagkatapos pindutin ang Save.'], tip:'Kapag pinili ang shift sa guide, awtomatikong ilalagay ang oras at duration.', visual:'add' },
+  { icon:'✏️', title:'Mag-edit o maglipat', subtitle:'Hakbang 3: Ayusin nang mabilis', intro:'Puwedeng baguhin ang detalye o ilipat ang buong shift.', actions:['Para mag-edit, i-click ang schedule at baguhin ang detalye.','Para maglipat, i-drag ito sa bagong employee o petsa.','Hintaying mawala ang loading bago gumawa ulit.','Kung nagkamali, pindutin agad ang Undo.'], warning:'Huwag i-refresh habang may Adding o Moving schedule na loading.', visual:'move' },
+  { icon:'🎨', title:'Unawain ang mga kulay', subtitle:'Mabilis na pagbasa ng schedule', intro:'Magkaiba ang kulay para sa shift at department.', actions:['Blue background = Opening.','Green background = Mid.','Purple background = Closing.','Ang colored line sa kaliwa = Kitchen o Bar assignment.'], tip:'Basahin pa rin ang oras at label; mabilis na gabay lamang ang kulay.', visual:'colors' },
+  { icon:'🔒', title:'Dual-role employee', subtitle:'Mahalagang Kitchen at Bar rule', intro:'Ang Barista / Kitchen Staff ay puwedeng i-schedule ng alinmang department, pero hindi sabay sa parehong araw.', actions:['Kung bakante, puwedeng bigyan ng shift ng iyong department.','Kung assigned na sa kabila, magiging gray at locked ito.','Makikita ang oras at BAR o KITCHEN label.','Kausapin ang kabilang manager kung kailangang baguhin.'], warning:'Hindi puwedeng i-edit, i-drag, o i-delete ang gray na schedule.', visual:'dual' },
+  { icon:'🔄', title:'Google Calendar sync', subtitle:'Automatic—walang paulit-ulit na connect', intro:'Awtomatikong ipinapadala ang schedule changes sa shared Google Calendar.', actions:['Automatic ang add, edit, move, at delete.','Maghintay ng ilang segundo bago tingnan ang Calendar.','Kung kailangan, gamitin ang Sync Now.'], tip:'Hindi kailangang mag-sign in sa Google sa bawat paggamit.', visual:'sync' },
+  { icon:'🖼️', title:'I-export at i-share', subtitle:'Gumawa ng horizontal schedule image', intro:'Ang PNG ay madaling ipadala sa staff group chat.', actions:['I-check ang Start at End Date.','Pindutin ang Export Image.','Hintaying ma-download ang PNG.','I-review muna bago i-share.'], warning:'Hindi kasama sa manager export ang gray/locked shift ng kabilang department.', visual:'export' },
+  { icon:'✅', title:'Handa ka na!', subtitle:'Final checklist', intro:'Bago i-announce ang schedule, i-check ang mga ito.', actions:['Tama ang date range.','Kumpleto ang Opening, Mid, at Closing.','Walang dual-role conflict.','Tama ang Kitchen at Bar assignments.','Na-review ang image at Google Calendar.'], tip:'Buksan ulit anumang oras gamit ang ❓ Tutorial button.', visual:'done' }
 ];
 
+const LessonVisual = ({ type }) => {
+  if (type==='colors') return <div className="grid grid-cols-3 gap-2">{[['Opening','#dbeafe','#1e40af'],['Mid','#dcfce7','#166534'],['Closing','#f3e8ff','#6b21a8']].map(([n,b,c])=><div key={n} className="rounded-lg p-3 text-center font-bold text-xs border-l-4 border-orange-500" style={{backgroundColor:b,color:c}}>{n}<div className="font-normal mt-1">Department line</div></div>)}</div>;
+  if (type==='dual') return <div className="grid grid-cols-2 gap-3"><div className="rounded-lg border-2 border-dashed border-green-300 bg-green-50 p-3 text-center text-green-800"><b>Bakante</b><br/><span className="text-xs">Puwedeng lagyan</span></div><div className="rounded-lg bg-gray-300 p-3 text-center text-gray-800"><b>5PM – 2AM</b><br/><span className="text-xs font-bold">🔒 BAR</span></div></div>;
+  if (type==='dates') return <div className="flex items-center justify-center gap-2 text-xs"><span className="border rounded px-3 py-2 bg-white">Start Date</span><span>→</span><span className="border rounded px-3 py-2 bg-white">End Date</span></div>;
+  if (type==='move') return <div className="flex items-center justify-center gap-3"><span className="rounded bg-blue-100 border-l-4 border-orange-500 px-3 py-2 text-blue-800 font-bold text-xs">Opening 7AM–4PM</span><span className="text-2xl">→</span><span className="rounded border-2 border-dashed border-blue-300 px-4 py-3 text-xs">Bagong kahon</span></div>;
+  if (type==='sync') return <div className="flex items-center justify-center gap-3 font-bold text-sm"><span>Schedule</span><span className="text-2xl text-green-600">↔</span><span>Google Calendar</span><span className="rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs">AUTO</span></div>;
+  if (type==='export') return <div className="mx-auto max-w-md rounded border bg-white p-2 shadow-sm"><div className="grid grid-cols-4 gap-1">{Array.from({length:12}).map((_,i)=><div key={i} className={`h-5 rounded ${i%3===0?'bg-blue-100':i%3===1?'bg-green-100':'bg-purple-100'}`}/>)}</div><p className="text-center text-[10px] text-gray-500 mt-2">Horizontal PNG</p></div>;
+  if (type==='done') return <div className="text-center text-5xl">🎉</div>;
+  if (type==='views') return <div className="flex justify-center gap-3"><span className="rounded bg-orange-600 text-white px-4 py-2 text-xs font-bold">📱 Schedule View</span><span className="rounded bg-white border px-4 py-2 text-xs font-bold">📊 Grid View</span></div>;
+  return <div className="grid grid-cols-3 gap-2"><div className="p-2 rounded border bg-white text-center text-xs">Employee</div><div className="p-2 rounded bg-blue-100 text-center text-xs">Opening</div><div className="p-2 rounded border-2 border-dashed text-center text-xs">I-click dito</div></div>;
+};
+
 const ScheduleTutorial = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="schedule-tutorial-title">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="px-5 sm:px-7 py-5 bg-gradient-to-r from-orange-500 to-amber-500 text-white flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-orange-100">Gabay sa Staff</p>
-            <h2 id="schedule-tutorial-title" className="text-2xl font-bold mt-1">Paano gamitin ang Schedule</h2>
-            <p className="text-sm text-orange-50 mt-1">Madaling gabay para sa paggawa at pag-share ng schedule.</p>
-          </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-xl" aria-label="Isara ang tutorial">×</button>
-        </div>
-
-        <div className="overflow-y-auto p-5 sm:p-7">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {steps.map((step, index) => (
-              <div key={step.title} className="rounded-xl border border-gray-200 bg-gray-50 p-4 flex gap-3">
-                <div className="w-10 h-10 shrink-0 rounded-full bg-orange-100 flex items-center justify-center text-xl">{step.icon}</div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-orange-600 uppercase">Hakbang {index + 1}</span>
-                  </div>
-                  <h3 className="font-bold text-gray-900">{step.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1 leading-relaxed">{step.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-5 rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900">
-            <strong>Tip:</strong> Kapag nagkamali, gamitin agad ang Undo habang nakikita pa ang notification. Kung hindi sigurado sa gray na schedule, huwag itong galawin at kausapin ang manager ng kabilang department.
-          </div>
-        </div>
-
-        <div className="px-5 sm:px-7 py-4 border-t bg-white flex justify-end">
-          <button onClick={onClose} className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold">
-            Naiintindihan ko
-          </button>
-        </div>
+  const [current,setCurrent]=useState(0);
+  useEffect(()=>{ if(isOpen) setCurrent(0); },[isOpen]);
+  if(!isOpen) return null;
+  const lesson=lessons[current]; const last=current===lessons.length-1;
+  return <div className="fixed inset-0 z-[110] bg-black/55 flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="schedule-tutorial-title">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+      <div className="px-5 sm:px-7 py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white">
+        <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-orange-100">Gabay sa Staff</p><h2 id="schedule-tutorial-title" className="text-xl sm:text-2xl font-bold">Paano gamitin ang Schedule</h2></div><button onClick={onClose} className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-xl" aria-label="Isara">×</button></div>
+        <div className="mt-4 flex items-center gap-3"><div className="h-2 flex-1 rounded-full bg-white/30 overflow-hidden"><div className="h-full bg-white transition-all" style={{width:`${((current+1)/lessons.length)*100}%`}}/></div><span className="text-xs font-bold">{current+1} / {lessons.length}</span></div>
       </div>
+      <div className="overflow-y-auto p-5 sm:p-7">
+        <div className="flex gap-4 items-start"><div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center text-3xl shrink-0">{lesson.icon}</div><div><p className="text-xs font-bold uppercase tracking-wide text-orange-600">{lesson.subtitle}</p><h3 className="text-xl sm:text-2xl font-bold text-gray-900">{lesson.title}</h3><p className="text-gray-600 mt-2">{lesson.intro}</p></div></div>
+        <div className="my-5 rounded-xl bg-gray-50 border border-gray-200 p-4"><LessonVisual type={lesson.visual}/></div>
+        <ol className="space-y-3">{lesson.actions.map((a,i)=><li key={a} className="flex gap-3 text-sm sm:text-base text-gray-700"><span className="w-7 h-7 rounded-full bg-orange-600 text-white flex items-center justify-center font-bold text-xs shrink-0">{i+1}</span><span className="pt-0.5">{a}</span></li>)}</ol>
+        {lesson.tip&&<div className="mt-5 rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900"><b>💡 Tip:</b> {lesson.tip}</div>}{lesson.warning&&<div className="mt-5 rounded-xl bg-amber-50 border border-amber-300 p-4 text-sm text-amber-900"><b>⚠️ Tandaan:</b> {lesson.warning}</div>}
+      </div>
+      <div className="px-5 sm:px-7 py-4 border-t bg-white flex justify-between gap-3"><button onClick={()=>setCurrent(v=>Math.max(0,v-1))} disabled={current===0} className="px-4 py-2.5 border rounded-lg font-semibold text-gray-700 disabled:opacity-30">← Bumalik</button><button onClick={()=>last?onClose():setCurrent(v=>v+1)} className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold">{last?'Tapusin ang Tutorial':'Susunod →'}</button></div>
     </div>
-  );
+  </div>;
 };
 
 export default ScheduleTutorial;
