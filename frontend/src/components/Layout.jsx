@@ -107,7 +107,7 @@ const Layout = () => {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 py-4 sm:py-6 px-3 sm:px-6 lg:px-8 max-w-7xl w-full mx-auto">
+      <main className={`flex-1 py-4 sm:py-6 px-3 sm:px-6 lg:px-8 w-full mx-auto ${location.pathname.startsWith('/payroll') ? 'max-w-[1800px]' : 'max-w-7xl'}`}>
         <Outlet />
       </main>
     </div>

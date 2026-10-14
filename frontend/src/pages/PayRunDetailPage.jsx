@@ -458,7 +458,8 @@ const PayRunDetailPage = () => {
       </div>
 
       <ResponsiveTableWrapper stickyFirstColumn={true}>
-        <table className="w-full divide-y divide-gray-200">
+        <style>{`@media (min-width: 1024px) { .payrun-breakdown-table th, .payrun-breakdown-table td { padding-left: .35rem !important; padding-right: .35rem !important; font-size: 11px !important; white-space: nowrap; } .payrun-breakdown-table th button { gap: .2rem !important; } }`}</style>
+        <table className="payrun-breakdown-table w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -843,6 +844,7 @@ const PayRunDetailPage = () => {
       <Modal
         isOpen={isAdjustModalOpen}
         onClose={() => setIsAdjustModalOpen(false)}
+        maxWidth="xl"
         title={
           adjustEmployee
             ? `Adjustments – ${adjustEmployee.employeeName}`
@@ -1088,7 +1090,7 @@ const PayRunDetailPage = () => {
                       <tr className="text-xs text-gray-500 uppercase">
                         <th className="px-2 py-1 text-left">Name</th>
                         <th className="px-2 py-1 text-left">Type</th>
-                        <th className="px-2 py-1 text-right">Amount</th>
+                        <th className="px-2 py-1 text-right">Pay Run Amount</th>
                         <th className="px-2 py-1 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -1107,7 +1109,12 @@ const PayRunDetailPage = () => {
                             </span>
                           </td>
                           <td className="px-2 py-1 text-right">
-                            {formatMoney(a.amount)}
+                            {formatMoney(a.type === 'ALLOWANCE' && a.frequency === 'HOURLY' ? a.amount * (Number(adjustEmployee.totalHoursWorked) || 0) : a.amount)}
+                            {a.type === 'ALLOWANCE' && a.frequency === 'HOURLY' && (
+                              <div className="text-[10px] text-gray-400 whitespace-nowrap">
+                                {formatMoney(a.amount)}/hr × {formatHours(adjustEmployee.totalHoursWorked)} hrs
+                              </div>
+                            )}
                           </td>
                           <td className="px-2 py-1 text-right">
                             <button

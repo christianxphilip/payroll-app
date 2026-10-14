@@ -25,7 +25,7 @@ const PayrollPage = () => (
       ))}
     </nav>
 
-    <div className="md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-4 items-start">
+    <div className="md:grid md:grid-cols-[190px_minmax(0,1fr)] md:gap-4 items-start">
       {/* Persistent desktop module sidebar */}
       <aside className="hidden md:block sticky top-20 rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
         <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">Modules</div>
