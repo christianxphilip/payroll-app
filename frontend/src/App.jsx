@@ -75,13 +75,15 @@ function App() {
             <Route path="timesheet-entries" element={<ProtectedRoute allowedRoles={['admin']}><TimesheetEntriesPage /></ProtectedRoute>} />
             <Route path="timesheets/:timesheetId" element={<ProtectedRoute allowedRoles={['admin']}><TimesheetsPage /></ProtectedRoute>} />
             <Route path="reports" element={<ProtectedRoute allowedRoles={['admin']}><ReportsPage /></ProtectedRoute>} />
-            <Route path="payroll" element={<ProtectedRoute allowedRoles={['admin']}><PayrollPage /></ProtectedRoute>} />
-            <Route path="payroll/pay-runs" element={<ProtectedRoute allowedRoles={['admin']}><PayRunsPage /></ProtectedRoute>} />
-            <Route path="payroll/pay-runs/:payRunId" element={<ProtectedRoute allowedRoles={['admin']}><PayRunDetailPage /></ProtectedRoute>} />
-            <Route path="payroll/pay-runs/:payRunId/payslips/:entryId" element={<ProtectedRoute allowedRoles={['admin']}><PayRunPayslipPage /></ProtectedRoute>} />
-            <Route path="payroll/13th-month" element={<ProtectedRoute allowedRoles={['admin']}><ThirteenthMonthRunsPage /></ProtectedRoute>} />
-            <Route path="payroll/13th-month/:runId" element={<ProtectedRoute allowedRoles={['admin']}><ThirteenthMonthDetailPage /></ProtectedRoute>} />
-            <Route path="payroll/13th-month/:runId/payslips/:entryId" element={<ProtectedRoute allowedRoles={['admin']}><ThirteenthMonthPayslipPage /></ProtectedRoute>} />
+            <Route path="payroll" element={<ProtectedRoute allowedRoles={['admin']}><PayrollPage /></ProtectedRoute>}>
+              <Route index element={<Navigate to="pay-runs" replace />} />
+              <Route path="pay-runs" element={<PayRunsPage />} />
+              <Route path="pay-runs/:payRunId" element={<PayRunDetailPage />} />
+              <Route path="pay-runs/:payRunId/payslips/:entryId" element={<PayRunPayslipPage />} />
+              <Route path="13th-month" element={<ThirteenthMonthRunsPage />} />
+              <Route path="13th-month/:runId" element={<ThirteenthMonthDetailPage />} />
+              <Route path="13th-month/:runId/payslips/:entryId" element={<ThirteenthMonthPayslipPage />} />
+            </Route>
             <Route path="timesheet-report" element={<ProtectedRoute allowedRoles={['admin']}><ReportsPage /></ProtectedRoute>} />
             <Route path="pay-runs" element={<Navigate to="/payroll/pay-runs" replace />} />
             <Route path="pay-runs/:payRunId" element={<PayRunLegacyRedirect />} />
