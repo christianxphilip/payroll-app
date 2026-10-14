@@ -19,6 +19,20 @@ const ThirteenthMonthDetailPage = () => {
   };
   useEffect(() => { load(); }, [runId]);
   const action = async callback => { setBusy(true); try { const response = await callback(); if (response?.data?.run) setData(response.data); else await load(); } catch (error) { setMessage({ type:'error', text:error.response?.data?.error || 'Operation failed' }); } finally { setBusy(false); } };
+  const deleteRun = async () => {
+    const attachedWarning = run.paymentMethod === 'PAY_RUN'
+      ? '\n\nThe 13th-month credits will also be removed from the attached Draft pay run.'
+      : '';
+    if (!window.confirm(`Delete this Draft 13th-month calculation?${attachedWarning}\n\nThis cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      await thirteenthMonthAPI.delete(runId);
+      navigate('/payroll/13th-month', { replace: true });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to delete calculation' });
+      setBusy(false);
+    }
+  };
   const adjust = entry => {
     const amount = window.prompt(`Eligible basic-salary adjustment for ${entry.employeeName}`, String(entry.manualAdjustment || 0));
     if (amount === null || Number.isNaN(Number(amount))) return;
@@ -36,6 +50,7 @@ const ThirteenthMonthDetailPage = () => {
         <div className="flex flex-wrap gap-2">
           <span className="px-3 py-2 rounded-lg bg-blue-100 text-blue-800 text-sm font-bold">{run.status}</span>
           {run.status === 'DRAFT' && <button disabled={busy} onClick={() => action(() => thirteenthMonthAPI.recalculate(runId))} className="px-3 py-2 border rounded-lg text-sm">Recalculate</button>}
+          {run.status === 'DRAFT' && <button disabled={busy} onClick={deleteRun} className="px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 rounded-lg text-sm">Delete</button>}
           {run.paymentMethod === 'SEPARATE' && run.status === 'DRAFT' && <button disabled={busy} onClick={() => action(() => thirteenthMonthAPI.updateStatus(runId,'APPROVED'))} className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm">Approve</button>}
           {run.paymentMethod === 'SEPARATE' && run.status === 'APPROVED' && <button disabled={busy} onClick={() => action(() => thirteenthMonthAPI.updateStatus(runId,'PAID'))} className="px-3 py-2 bg-blue-700 text-white rounded-lg text-sm">Mark Paid</button>}
         </div>
