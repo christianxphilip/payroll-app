@@ -37,6 +37,7 @@ const EmployeesPage = () => {
     employmentType: 'FULL_TIME',
     wageType: 'HOURLY',
     wageRate: '',
+    eligibleForThirteenthMonth: true,
     username: '',
     password: ''
   });
@@ -110,6 +111,7 @@ const EmployeesPage = () => {
       employmentType: 'FULL_TIME',
       wageType: 'HOURLY',
       wageRate: '',
+      eligibleForThirteenthMonth: true,
       username: '',
       password: ''
     });
@@ -131,6 +133,7 @@ const EmployeesPage = () => {
       employmentType: employee.employmentType || 'FULL_TIME',
       wageType: employee.wageType || 'HOURLY',
       wageRate: employee.wageRate != null ? String(employee.wageRate) : '',
+      eligibleForThirteenthMonth: employee.eligibleForThirteenthMonth !== false,
       username: employee.username || '',
       password: employee.portalPassword || ''
     });
@@ -785,6 +788,12 @@ const EmployeesPage = () => {
                 </p>
               )}
             </div>
+          )}
+          {user?.role === 'admin' && (
+            <label className="mb-4 flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3 text-left">
+              <input type="checkbox" checked={formData.eligibleForThirteenthMonth} onChange={(e) => setFormData({ ...formData, eligibleForThirteenthMonth: e.target.checked })} className="mt-1 h-4 w-4 rounded" />
+              <span><span className="block text-sm font-semibold text-gray-800">Eligible for 13th Month Pay</span><span className="block text-xs text-gray-600">Enabled by default. Turn this off only when the employee is not legally or contractually eligible.</span></span>
+            </label>
           )}
           <div className="flex justify-end gap-2">
             <button

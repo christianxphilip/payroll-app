@@ -244,7 +244,7 @@ const PayRunsPage = () => {
 
               <div className="flex flex-wrap gap-2 pt-1 justify-end">
                 <button
-                  onClick={() => navigate(`/pay-runs/${pr._id}`)}
+                  onClick={() => navigate(`/payroll/pay-runs/${pr._id}`)}
                   className="flex-1 py-2 px-3 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 min-h-[38px]"
                 >
                   View Breakdown
@@ -348,7 +348,7 @@ const PayRunsPage = () => {
                   </td>
                   <td className="px-4 py-3 text-sm text-right space-x-2">
                     <button
-                      onClick={() => navigate(`/pay-runs/${pr._id}`)}
+                      onClick={() => navigate(`/payroll/pay-runs/${pr._id}`)}
                       className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
                       View
@@ -471,5 +471,4 @@ const PayRunsPage = () => {
 };
 
 export default PayRunsPage;
-
 

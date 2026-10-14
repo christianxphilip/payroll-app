@@ -114,7 +114,7 @@ const PayRunPayslipPage = () => {
           />
           <div>
             <button
-              onClick={() => navigate(`/pay-runs/${payRunId}`)}
+              onClick={() => navigate(`/payroll/pay-runs/${payRunId}`)}
               className="text-sm text-blue-600 hover:underline mb-1 no-print"
             >
               ← Back to Pay Run
@@ -303,6 +303,12 @@ const PayRunPayslipPage = () => {
               <span>Total Allowances</span>
               <span>₱ {formatMoney(entry.allowancesTotal)}</span>
             </div>
+            {(entry.thirteenthMonthPay || 0) > 0 && (
+              <div className="flex justify-between font-semibold text-orange-700">
+                <span>13th Month Pay</span>
+                <span>₱ {formatMoney(entry.thirteenthMonthPay)}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span>Total Deductions</span>
               <span className="text-red-600">- ₱ {formatMoney(entry.deductionsTotal)}</span>
@@ -322,7 +328,8 @@ const PayRunPayslipPage = () => {
                   (entry.specialHolidayPay || 0) +
                   (entry.priorPeriodAdjustmentTotal || 0) +
                   (entry.allowancesTotal || 0) -
-                  (entry.deductionsTotal || 0)
+                  (entry.deductionsTotal || 0) +
+                  (entry.thirteenthMonthPay || 0)
                 )}
               </span>
             </div>

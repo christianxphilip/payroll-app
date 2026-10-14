@@ -152,7 +152,7 @@ const TimesheetEntriesPage = () => {
       startDate: entry.startDate.split('T')[0],
       endDate: entry.endDate.split('T')[0]
     });
-    navigate(`/pay-runs?${params.toString()}`);
+    navigate(`/payroll/pay-runs?${params.toString()}`);
   };
 
   if (loading) {

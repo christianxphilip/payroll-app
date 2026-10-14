@@ -93,6 +93,15 @@ const payRunEmployeeSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  thirteenthMonthPay: {
+    type: Number,
+    default: 0
+  },
+  thirteenthMonthRunId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ThirteenthMonthRun',
+    default: null
+  },
   netSalary: {
     type: Number,
     default: 0
@@ -107,4 +116,3 @@ const payRunEmployeeSchema = new mongoose.Schema({
 payRunEmployeeSchema.index({ payRunId: 1, employeeId: 1 }, { unique: true });
 
 export default mongoose.model('PayRunEmployee', payRunEmployeeSchema, 'payroll_app_payrunemployees');
-

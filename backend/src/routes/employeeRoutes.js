@@ -86,6 +86,7 @@ router.post('/', async (req, res, next) => {
     if (req.user.role === 'manager') {
       delete req.body.wageType;
       delete req.body.wageRate;
+      delete req.body.eligibleForThirteenthMonth;
     }
     const {
       employeeName,
@@ -100,6 +101,7 @@ router.post('/', async (req, res, next) => {
       employmentType,
       wageType,
       wageRate,
+      eligibleForThirteenthMonth,
       username,
       password
     } = req.body;
@@ -133,6 +135,7 @@ router.post('/', async (req, res, next) => {
       employmentType,
       wageType,
       wageRate,
+      eligibleForThirteenthMonth,
       username: username ? username.trim().toLowerCase() : undefined,
       password: hashedPassword,
       portalPassword
@@ -173,6 +176,7 @@ router.put('/:name', async (req, res, next) => {
     if (req.user.role === 'manager') {
       delete updateData.wageType;
       delete updateData.wageRate;
+      delete updateData.eligibleForThirteenthMonth;
     }
     
     if (updateData.employeeName && !updateData.employeeName.trim()) {

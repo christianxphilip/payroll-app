@@ -53,6 +53,10 @@ const employeeSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  eligibleForThirteenthMonth: {
+    type: Boolean,
+    default: true
+  },
   username: {
     type: String,
     trim: true,

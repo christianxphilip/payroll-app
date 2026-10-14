@@ -389,7 +389,8 @@ export const recomputePayRunFromEmployees = async (payRun) => {
       specialHolidayPay +
       allowancesTotal -
       deductionsTotal +
-      priorPeriodAdjustmentTotal;
+      priorPeriodAdjustmentTotal +
+      (entry.thirteenthMonthPay || 0);
 
     const payload = {
       basicSalary,
@@ -407,6 +408,8 @@ export const recomputePayRunFromEmployees = async (payRun) => {
       priorPeriodAdjustments: entry.priorPeriodAdjustments || [],
       allowancesTotal,
       deductionsTotal,
+      thirteenthMonthPay: entry.thirteenthMonthPay || 0,
+      thirteenthMonthRunId: entry.thirteenthMonthRunId || null,
       netSalary,
       breakdown: {
         ...(entry.breakdown || {}),
@@ -431,5 +434,4 @@ export const recomputePayRunFromEmployees = async (payRun) => {
 
   return updated;
 };
-
 

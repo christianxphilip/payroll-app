@@ -15,6 +15,8 @@ import { sendPayslipEmail } from '../services/emailService.js';
 import { generatePayslipHTML, getLogoPath } from '../templates/payslipTemplate.js';
 import { generatePayrollFinancialReport, formatPayrollFinancialReportAsCSV } from '../services/payrollFinancialService.js';
 import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
+import ThirteenthMonthRun from '../models/ThirteenthMonthRun.js';
+import ThirteenthMonthEmployee from '../models/ThirteenthMonthEmployee.js';
 
 const STANDARD_HOURS_PER_DAY = 8;
 const OT_MULTIPLIER = 1.25;
@@ -440,12 +442,28 @@ router.patch('/:id/status', async (req, res, next) => {
 
     // Track when a pay run was approved/paid
     if (status === 'APPROVED' && payRun.status === 'DRAFT') {
+      const thirteenthMonthRun = await ThirteenthMonthRun.findOne({ attachedPayRunId: payRun._id });
+      if (thirteenthMonthRun) {
+        thirteenthMonthRun.status = 'APPROVED';
+        thirteenthMonthRun.approvedAt = new Date();
+        await thirteenthMonthRun.save();
+      }
       payRun.metadata = {
         ...(payRun.metadata || {}),
         approvedAt: new Date()
       };
     }
     if (status === 'PAID' && payRun.status === 'APPROVED') {
+      const thirteenthMonthRun = await ThirteenthMonthRun.findOne({ attachedPayRunId: payRun._id });
+      if (thirteenthMonthRun) {
+        thirteenthMonthRun.status = 'PAID';
+        thirteenthMonthRun.paidAt = new Date();
+        await thirteenthMonthRun.save();
+        await ThirteenthMonthEmployee.updateMany(
+          { runId: thirteenthMonthRun._id },
+          [{ $set: { paidAmount: '$thirteenthMonthPay' } }]
+        );
+      }
       payRun.metadata = {
         ...(payRun.metadata || {}),
         paidAt: new Date()
@@ -454,6 +472,14 @@ router.patch('/:id/status', async (req, res, next) => {
         { includedPayRunId: payRun._id, status: 'INCLUDED_IN_PAYRUN' },
         { $set: { status: 'PAID', paidAt: new Date() } }
       );
+    }
+    if (status === 'DRAFT' && payRun.status === 'APPROVED') {
+      const thirteenthMonthRun = await ThirteenthMonthRun.findOne({ attachedPayRunId: payRun._id });
+      if (thirteenthMonthRun) {
+        thirteenthMonthRun.status = 'DRAFT';
+        thirteenthMonthRun.approvedAt = undefined;
+        await thirteenthMonthRun.save();
+      }
     }
     payRun.status = status;
     await payRun.save();
@@ -611,6 +637,11 @@ router.delete('/:id', async (req, res, next) => {
 
     if (payRun.status !== 'DRAFT') {
       throw new AppError('Only DRAFT pay runs can be deleted', 400);
+    }
+
+    const attachedThirteenthMonth = await ThirteenthMonthRun.findOne({ attachedPayRunId: id });
+    if (attachedThirteenthMonth) {
+      throw new AppError('Delete the attached 13th-month calculation before deleting this pay run', 400);
     }
 
     await PayRunEmployee.deleteMany({ payRunId: id });

@@ -344,6 +344,12 @@ export function generatePayslipHTML({ payRun, entry, employee, adjustments, payr
               <span class="comp-val">&#8369; ${formatMoney(entry.allowancesTotal)}</span>
               <div class="clear"></div>
             </div>
+            ${(entry.thirteenthMonthPay || 0) > 0 ? `
+            <div class="component-row" style="color: #c2410c; font-weight: bold;">
+              <span class="comp-name">13th Month Pay</span>
+              <span class="comp-val">&#8369; ${formatMoney(entry.thirteenthMonthPay)}</span>
+              <div class="clear"></div>
+            </div>` : ''}
             ${payrollAdjustments.map(adjustment => `
             <div class="component-row">
               <span class="comp-name">${adjustment.type === 'PRIOR_PERIOD_OT' ? 'Prior-period OT' : 'Attendance correction'} (${formatDate(adjustment.originalWorkDate)})</span>
@@ -368,7 +374,8 @@ export function generatePayslipHTML({ payRun, entry, employee, adjustments, payr
                 (entry.specialHolidayPay || 0) +
                 (entry.allowancesTotal || 0) -
                 (entry.deductionsTotal || 0) +
-                (entry.priorPeriodAdjustmentTotal || 0)
+                (entry.priorPeriodAdjustmentTotal || 0) +
+                (entry.thirteenthMonthPay || 0)
               )}</span>
               <div class="clear"></div>
             </div>

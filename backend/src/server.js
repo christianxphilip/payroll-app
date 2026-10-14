@@ -19,6 +19,7 @@ import availabilityRoutes from './routes/availabilityRoutes.js';
 import shiftAllocationRoutes from './routes/shiftAllocationRoutes.js';
 import employeePortalRoutes from './routes/employeePortalRoutes.js';
 import payrollAdjustmentRoutes from './routes/payrollAdjustmentRoutes.js';
+import thirteenthMonthRoutes from './routes/thirteenthMonthRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -72,6 +73,7 @@ app.use('/api/availability', availabilityRoutes);
 app.use('/api/shift-allocations', shiftAllocationRoutes);
 app.use('/api/employee-portal', employeePortalRoutes);
 app.use('/api/payroll-adjustments', payrollAdjustmentRoutes);
+app.use('/api/13th-month-runs', thirteenthMonthRoutes);
 
 // Error Handler (must be last)
 app.use(errorHandler);

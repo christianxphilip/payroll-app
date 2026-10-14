@@ -14,12 +14,12 @@ const Layout = () => {
     { path: '/schedules', label: 'Schedules' },
     ...(user?.role === 'admin' ? [{ path: '/assignments', label: 'Assignment' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/timesheet-entries', label: 'Timesheet' }] : []),
-    ...(user?.role === 'admin' ? [{ path: '/pay-runs', label: 'Payruns' }] : []),
+    ...(user?.role === 'admin' ? [{ path: '/payroll', label: 'Payroll' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/reports', label: 'Reports' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/settings', label: 'Settings' }] : []),
   ];
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

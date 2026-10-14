@@ -190,6 +190,18 @@ export const payRunAPI = {
   getFinancialReport: (filters) => api.get('/pay-runs/financial-report', { params: filters }),
 };
 
+export const thirteenthMonthAPI = {
+  getAll: () => api.get('/13th-month-runs'),
+  getById: (id) => api.get(`/13th-month-runs/${id}`),
+  getDraftPayRuns: () => api.get('/13th-month-runs/draft-pay-runs'),
+  create: (data) => api.post('/13th-month-runs', data),
+  recalculate: (id) => api.post(`/13th-month-runs/${id}/recalculate`),
+  updateEmployee: (id, entryId, data) => api.patch(`/13th-month-runs/${id}/employees/${entryId}`, data),
+  updateStatus: (id, status) => api.patch(`/13th-month-runs/${id}/status`, { status }),
+  getPayslip: (id, entryId) => api.get(`/13th-month-runs/${id}/payslips/${entryId}`),
+  delete: (id) => api.delete(`/13th-month-runs/${id}`)
+};
+
 export const payrollAdjustmentAPI = {
   getForEmployee: (payRunId, entryId) =>
     api.get(`/payroll-adjustments/pay-runs/${payRunId}/employees/${entryId}`),

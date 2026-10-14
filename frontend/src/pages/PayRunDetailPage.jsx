@@ -665,6 +665,11 @@ const PayRunDetailPage = () => {
                     </span>
                   </button>
                 </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  <button type="button" onClick={() => handleSort('thirteenthMonthPay')} className="flex items-center gap-2 w-full justify-end">
+                    <span>13th Month</span><span className="text-[10px]">{getSortIcon('thirteenthMonthPay')}</span>
+                  </button>
+                </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-24">
                   <button
                     type="button"
@@ -754,6 +759,9 @@ const PayRunDetailPage = () => {
                     <td className="px-4 py-3 text-sm text-right">
                       {formatMoney(emp.deductionsTotal)}
                     </td>
+                    <td className="px-4 py-3 text-sm text-right font-medium text-orange-700">
+                      {formatMoney(emp.thirteenthMonthPay || 0)}
+                    </td>
                     <td className="px-4 py-3 text-sm text-right font-semibold w-24">
                       {formatMoney(emp.netSalary)}
                     </td>
@@ -763,7 +771,7 @@ const PayRunDetailPage = () => {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/pay-runs/${payRunId}/payslips/${emp._id}`);
+                            navigate(`/payroll/pay-runs/${payRunId}/payslips/${emp._id}`);
                           }}
                           className="w-24 px-3 py-1.5 text-xs bg-gray-800 text-white rounded-lg hover:bg-gray-900"
                         >
@@ -797,7 +805,7 @@ const PayRunDetailPage = () => {
                                 grossSalary: emp.grossSalary,
                                 totalDeductions: emp.totalDeductions,
                                 netSalary: emp.netSalary,
-                                payslipUrl: `${window.location.origin}/pay-runs/${payRunId}/payslips/${emp._id}`
+                                payslipUrl: `${window.location.origin}/payroll/pay-runs/${payRunId}/payslips/${emp._id}`
                               });
                             }}
                             className="w-24 px-3 py-1.5 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center justify-center gap-1"
@@ -1124,4 +1132,3 @@ const PayRunDetailPage = () => {
 };
 
 export default PayRunDetailPage;
-
