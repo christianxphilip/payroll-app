@@ -1906,6 +1906,11 @@ const SchedulesCalendarPage = () => {
                                                                                     {schedule.notes}
                                                                                 </div>
                                                                             )}
+                                                                            {schedule.createdBy && (
+                                                                                <div className="mt-1 text-[9px] font-normal leading-none opacity-60">
+                                                                                    Added by {schedule.createdBy}
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                             );
                                                                         })()

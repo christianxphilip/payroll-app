@@ -424,6 +424,11 @@ const GoogleCalendarScheduleView = ({
                               <div className="text-[11px] text-gray-400 font-medium tracking-wide">
                                 {[visual.shiftName, 'ESPRO Coffee'].filter(Boolean).join(' • ')}
                               </div>
+                              {schedule.createdBy && (
+                                <div className="mt-0.5 text-[9px] leading-none text-gray-400">
+                                  Added by {schedule.createdBy}
+                                </div>
+                              )}
                             </div>
 
                             {/* Edit Pencil Icon */}

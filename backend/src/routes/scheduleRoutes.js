@@ -14,6 +14,8 @@ import { assertManagerCanManageEmployee, isDualPosition, managerAssignmentType, 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+const scheduleActorName = (user) => user?.username || user?.employeeName || user?.role || 'Unknown user';
+
 // All routes require authentication
 router.use(authenticate);
 
@@ -208,7 +210,10 @@ router.post('/', async (req, res, next) => {
     await assertManagerScheduleWrite(req.user, scheduleData);
     
     // Allow multiple schedules per employee per date
-    const schedule = await Schedule.create(scheduleData);
+    const schedule = await Schedule.create({
+      ...scheduleData,
+      createdBy: scheduleActorName(req.user)
+    });
     
     res.status(201).json({
       success: true,
@@ -228,7 +233,10 @@ router.post('/bulk', async (req, res, next) => {
     if (!Array.isArray(schedules) || schedules.length === 0) {
       throw new AppError('Schedules array is required', 400);
     }
-    for (const schedule of schedules) await assertManagerScheduleWrite(req.user, schedule);
+    for (const schedule of schedules) {
+      await assertManagerScheduleWrite(req.user, schedule);
+      schedule.createdBy = scheduleActorName(req.user);
+    }
     
     // Validate schedules
     const errors = validateSchedules(schedules);
@@ -318,7 +326,10 @@ router.post('/upload-csv', upload.single('file'), async (req, res, next) => {
             $lte: new Date(new Date(schedule.date).setHours(23, 59, 59, 999))
           }
         },
-        schedule,
+        {
+          $set: schedule,
+          $setOnInsert: { createdBy: scheduleActorName(req.user) }
+        },
         { upsert: true, new: true }
       );
       
@@ -348,6 +359,7 @@ router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    delete updateData.createdBy;
     const existingSchedule = await Schedule.findById(id);
     if (!existingSchedule) throw new AppError('Schedule not found', 404);
     await assertManagerScheduleWrite(req.user, updateData, existingSchedule);

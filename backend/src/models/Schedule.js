@@ -39,6 +39,10 @@ const scheduleSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  createdBy: {
+    type: String,
+    trim: true
+  },
   googleEventId: {
     type: String,
     trim: true
@@ -51,4 +55,3 @@ const scheduleSchema = new mongoose.Schema({
 scheduleSchema.index({ employeeName: 1, date: 1 });
 
 export default mongoose.model('Schedule', scheduleSchema, 'payroll_app_schedules');
-
