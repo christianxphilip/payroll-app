@@ -65,7 +65,7 @@ const ThirteenthMonthRunsPage = () => {
       </div>
       <Modal isOpen={open} onClose={() => setOpen(false)} title="Create 13th Month Pay" maxWidth="xl">
         <form onSubmit={create} className="space-y-4 text-left">
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">Uses eligible basic salary only. Actual submitted attendance is used through the cutoff; schedules are used after the cutoff through the coverage end.</div>
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">Actual amounts sum the Basic field from Approved and Paid pay runs ending by the cutoff. Schedules are used after the cutoff through the coverage end.</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[['coverageStart','Coverage Start'],['coverageEnd','Coverage End'],['actualCutoff','Actual Attendance Cutoff'],['payoutDate','Payout Date']].map(([key,label]) => <label key={key} className="text-sm font-semibold text-gray-700">{label}<input type="date" required value={form[key]} onChange={e => setForm({...form,[key]:e.target.value})} className="mt-1 w-full min-h-[44px] border rounded-lg px-3 text-base" /></label>)}
           </div>

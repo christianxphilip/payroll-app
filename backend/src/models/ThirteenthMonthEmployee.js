@@ -11,7 +11,8 @@ const thirteenthMonthEmployeeSchema = new mongoose.Schema({
   eligibleBasicSalary: { type: Number, default: 0 },
   thirteenthMonthPay: { type: Number, default: 0 },
   paidAmount: { type: Number, default: 0 },
-  actualDays: { type: Number, default: 0 },
+  actualPayRunCount: { type: Number, default: 0 },
+  actualPayRunIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PayRun' }],
   projectedDays: { type: Number, default: 0 },
   calculationNotes: [{ type: String }]
 }, { timestamps: true });

@@ -1,5 +1,4 @@
 import Employee from '../models/Employee.js';
-import TimesheetLog from '../models/TimesheetLog.js';
 import Schedule from '../models/Schedule.js';
 import PayRun from '../models/PayRun.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
@@ -31,12 +30,16 @@ export const calculateThirteenthMonthRun = async (run) => {
   });
 
   const names = employees.map(employee => employee.employeeName);
-  const [logs, schedules] = await Promise.all([
-    TimesheetLog.find({
-      employeeName: { $in: names },
-      date: { $gte: coverageStart, $lte: actualCutoff },
-      isSubmitted: true
-    }).lean(),
+  const finalizedPayRuns = await PayRun.find({
+    status: { $in: ['APPROVED', 'PAID'] },
+    payrollPeriodEnd: { $gte: coverageStart, $lte: actualCutoff },
+    payrollPeriodStart: { $lte: actualCutoff }
+  }, '_id payrollPeriodStart payrollPeriodEnd').lean();
+  const finalizedPayRunIds = finalizedPayRuns.map(payRun => payRun._id);
+  const [payrollEntries, schedules] = await Promise.all([
+    finalizedPayRunIds.length
+      ? PayRunEmployee.find({ payRunId: { $in: finalizedPayRunIds } }, 'payRunId employeeId employeeName basicSalary').lean()
+      : [],
     projectionStart <= coverageEnd
       ? Schedule.find({
           employeeName: { $in: names },
@@ -46,10 +49,11 @@ export const calculateThirteenthMonthRun = async (run) => {
       : []
   ]);
 
-  const logsByEmployeeDay = new Map();
-  for (const log of logs) {
-    const key = `${log.employeeName}|${dayKey(log.date)}`;
-    logsByEmployeeDay.set(key, (logsByEmployeeDay.get(key) || 0) + (Number(log.adjustedHoursWorked) || 0));
+  const payrollEntriesByEmployee = new Map();
+  for (const payrollEntry of payrollEntries) {
+    const key = String(payrollEntry.employeeId);
+    if (!payrollEntriesByEmployee.has(key)) payrollEntriesByEmployee.set(key, []);
+    payrollEntriesByEmployee.get(key).push(payrollEntry);
   }
   const schedulesByEmployeeDay = new Map();
   for (const schedule of schedules) {
@@ -66,19 +70,10 @@ export const calculateThirteenthMonthRun = async (run) => {
     const employeeStart = employee.hiredDate ? startOfDay(employee.hiredDate) : coverageStart;
     const employeeEndValue = employee.lastWorkingDate || employee.resignedDate;
     const employeeEnd = employeeEndValue ? endOfDay(employeeEndValue) : coverageEnd;
-    let actualHours = 0;
-    let actualDays = 0;
     let projectedHours = 0;
     let projectedDays = 0;
 
-    for (const [key, hours] of logsByEmployeeDay.entries()) {
-      if (!key.startsWith(`${employee.employeeName}|`)) continue;
-      const workDate = startOfDay(key.slice(key.lastIndexOf('|') + 1));
-      if (workDate < employeeStart || workDate > employeeEnd) continue;
-      const eligibleHours = Math.min(Math.max(hours, 0), HOURS_PER_DAY);
-      if (eligibleHours > 0) actualDays += 1;
-      actualHours += eligibleHours;
-    }
+    const employeePayrollEntries = payrollEntriesByEmployee.get(String(employee._id)) || [];
     for (const [key, hours] of schedulesByEmployeeDay.entries()) {
       if (!key.startsWith(`${employee.employeeName}|`)) continue;
       const workDate = startOfDay(key.slice(key.lastIndexOf('|') + 1));
@@ -89,13 +84,13 @@ export const calculateThirteenthMonthRun = async (run) => {
     }
 
     const prior = existingByEmployee.get(String(employee._id));
-    const actualBasicSalary = money(actualHours * hourlyRate);
+    const actualBasicSalary = money(employeePayrollEntries.reduce((sum, payrollEntry) => sum + (Number(payrollEntry.basicSalary) || 0), 0));
     const projectedBasicSalary = money(projectedHours * hourlyRate);
     const manualAdjustment = Number(prior?.manualAdjustment) || 0;
     const eligibleBasicSalary = money(Math.max(0, actualBasicSalary + projectedBasicSalary + manualAdjustment));
     const thirteenthMonthPay = money(eligibleBasicSalary / 12);
     const calculationNotes = [];
-    if (!actualDays) calculationNotes.push('No submitted attendance in the actual period');
+    if (!employeePayrollEntries.length) calculationNotes.push('No Approved or Paid pay runs ending on or before the actual cutoff');
     if (projectionStart <= coverageEnd && !projectedDays) calculationNotes.push('No schedules in the projected period');
 
     const entry = await ThirteenthMonthEmployee.findOneAndUpdate(
@@ -111,7 +106,8 @@ export const calculateThirteenthMonthRun = async (run) => {
         eligibleBasicSalary,
         thirteenthMonthPay,
         paidAmount: prior?.paidAmount || 0,
-        actualDays,
+        actualPayRunCount: employeePayrollEntries.length,
+        actualPayRunIds: employeePayrollEntries.map(payrollEntry => payrollEntry.payRunId),
         projectedDays,
         calculationNotes
       },
