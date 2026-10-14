@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const GoogleCalendarScheduleView = ({
   dateRangeDates,
@@ -26,11 +26,19 @@ const GoogleCalendarScheduleView = ({
   viewMode,
   onToggleViewMode,
   onExportImage,
-  onOpenTutorial
+  onOpenTutorial,
+  teamFilter,
+  onTeamFilterChange
 }) => {
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState('');
   const [selectedAssignmentFilter, setSelectedAssignmentFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (selectedEmployeeFilter && !employees.some((employee) => employee.employeeName === selectedEmployeeFilter)) {
+      setSelectedEmployeeFilter('');
+    }
+  }, [employees, selectedEmployeeFilter]);
 
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -181,7 +189,7 @@ const GoogleCalendarScheduleView = ({
           </label>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className={`grid grid-cols-1 gap-2 ${user?.role === 'admin' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
           {/* Employee Filter */}
           <div>
             <select
@@ -197,6 +205,21 @@ const GoogleCalendarScheduleView = ({
               ))}
             </select>
           </div>
+
+          {user?.role === 'admin' && (
+            <div>
+              <select
+                value={teamFilter || ''}
+                onChange={(event) => onTeamFilterChange?.(event.target.value)}
+                className="w-full px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                aria-label="Filter schedule by team"
+              >
+                <option value="">All Teams</option>
+                <option value="kitchen">Kitchen</option>
+                <option value="bar">Bar</option>
+              </select>
+            </div>
+          )}
 
           {/* Assignment Role Filter */}
           <div>

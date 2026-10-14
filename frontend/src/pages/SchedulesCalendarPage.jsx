@@ -74,6 +74,7 @@ const SchedulesCalendarPage = () => {
     const [dragOverCell, setDragOverCell] = useState(null);
     const [contextMenu, setContextMenu] = useState(null);
     const [simplifyView, setSimplifyView] = useState(false);
+    const [adminTeamFilter, setAdminTeamFilter] = useState('');
     const [isEstimatedSalaryModalOpen, setIsEstimatedSalaryModalOpen] = useState(false);
     const [estimatedSalaryData, setEstimatedSalaryData] = useState(null);
     const [loadingEstimatedSalary, setLoadingEstimatedSalary] = useState(false);
@@ -1360,9 +1361,23 @@ const SchedulesCalendarPage = () => {
 
     const dateRangeDates = getDateRangeDates();
 
-    // Filter employees based on simplify view
+    const employeeMatchesAdminTeam = (employee) => {
+        if (!adminTeamFilter) return true;
+        const position = String(employee?.position || '').toLowerCase();
+        if (adminTeamFilter === 'kitchen') return position.includes('kitchen');
+        if (adminTeamFilter === 'bar') {
+            return position.includes('barista') || /(^|\W)bar($|\W)/.test(position);
+        }
+        return true;
+    };
+
+    const teamFilteredEmployees = user?.role === 'admin'
+        ? employees.filter(employeeMatchesAdminTeam)
+        : employees;
+
+    // Filter employees based on team and simplify view
     const filteredEmployees = simplifyView
-        ? employees.filter(employee => {
+        ? teamFilteredEmployees.filter(employee => {
             // Check if employee has any schedule in the selected date range
             return schedules.some(schedule => {
                 const scheduleDate = new Date(schedule.date).toISOString().split('T')[0];
@@ -1370,7 +1385,12 @@ const SchedulesCalendarPage = () => {
                     dateRangeDates.some(date => date.toISOString().split('T')[0] === scheduleDate);
             });
         })
-        : employees;
+        : teamFilteredEmployees;
+
+    const teamEmployeeNames = new Set(teamFilteredEmployees.map(employee => employee.employeeName));
+    const teamFilteredSchedules = user?.role === 'admin' && adminTeamFilter
+        ? schedules.filter(schedule => teamEmployeeNames.has(schedule.employeeName))
+        : schedules;
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -1418,7 +1438,7 @@ const SchedulesCalendarPage = () => {
             {calendarViewMode === 'agenda' ? (
                 <GoogleCalendarScheduleView
                     dateRangeDates={dateRangeDates}
-                    schedules={schedules}
+                    schedules={teamFilteredSchedules}
                     employees={filteredEmployees}
                     assignmentTypes={assignmentTypes}
                     operatingHours={operatingHours}
@@ -1446,6 +1466,8 @@ const SchedulesCalendarPage = () => {
                     onToggleViewMode={setCalendarViewMode}
                     onExportImage={exportScheduleImage}
                     onOpenTutorial={() => setShowTutorial(true)}
+                    teamFilter={adminTeamFilter}
+                    onTeamFilterChange={setAdminTeamFilter}
                 />
             ) : (
                 <>
@@ -1496,6 +1518,18 @@ const SchedulesCalendarPage = () => {
                                 >
                                     {showAvailability ? 'Hide Availability' : 'Show Availability'}
                                 </button>
+                                {user?.role === 'admin' && (
+                                    <select
+                                        value={adminTeamFilter}
+                                        onChange={(event) => setAdminTeamFilter(event.target.value)}
+                                        className="min-h-[38px] px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500"
+                                        aria-label="Filter schedule by team"
+                                    >
+                                        <option value="">All Teams</option>
+                                        <option value="kitchen">Kitchen</option>
+                                        <option value="bar">Bar</option>
+                                    </select>
+                                )}
                                 <button
                                     onClick={() => setIsShiftTargetsModalOpen(true)}
                                     className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700"
