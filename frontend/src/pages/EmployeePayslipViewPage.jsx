@@ -233,7 +233,7 @@ const EmployeePayslipViewPage = () => {
                 {itemizedAllowances.map((item, idx) => (
                   <tr key={item._id || idx} className="bg-emerald-50/50">
                     <td className="px-4 py-2 text-emerald-900 font-medium">{item.name || 'Allowance'}</td>
-                    <td className="px-4 py-2 font-semibold text-right text-emerald-700">₱{formatCurrency(item.amount)}</td>
+                    <td className="px-4 py-2 font-semibold text-right text-emerald-700">₱{formatCurrency(item.frequency === 'HOURLY' ? item.amount * (entry.totalHoursWorked || 0) : item.amount)}</td>
                   </tr>
                 ))}
 

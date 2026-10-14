@@ -831,7 +831,7 @@ const EmployeesPage = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                   <select
                     value={adjustmentForm.type}
-                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, type: e.target.value })}
+                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, type: e.target.value, frequency: e.target.value === 'DEDUCTION' && adjustmentForm.frequency === 'HOURLY' ? 'MONTHLY' : adjustmentForm.frequency })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
                     <option value="ALLOWANCE">ALLOWANCE</option>
@@ -845,6 +845,7 @@ const EmployeesPage = () => {
                     onChange={(e) => setAdjustmentForm({ ...adjustmentForm, frequency: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
+                    {adjustmentForm.type === 'ALLOWANCE' && <option value="HOURLY">HOURLY (rate × worked hours)</option>}
                     <option value="WEEKLY">WEEKLY</option>
                     <option value="MONTHLY">MONTHLY</option>
                     <option value="YEARLY">YEARLY</option>
@@ -852,7 +853,7 @@ const EmployeesPage = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{adjustmentForm.frequency === 'HOURLY' ? 'Rate per Hour' : 'Amount'}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -861,6 +862,7 @@ const EmployeesPage = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     required
                   />
+                  {adjustmentForm.frequency === 'HOURLY' && <p className="mt-1 text-[11px] text-gray-500">This rate is multiplied by total worked hours in each pay run.</p>}
                 </div>
               </div>
               <div>
@@ -939,7 +941,7 @@ const EmployeesPage = () => {
                           </td>
                           <td className="px-2 py-1 text-xs text-gray-600">{item.frequency}</td>
                           <td className="px-2 py-1 text-right">
-                            {Number(item.amount || 0).toFixed(2)}
+                            {Number(item.amount || 0).toFixed(2)}{item.frequency === 'HOURLY' ? '/hr' : ''}
                           </td>
                           <td className="px-2 py-1 text-xs text-gray-600">
                             {item.appliesFrom &&

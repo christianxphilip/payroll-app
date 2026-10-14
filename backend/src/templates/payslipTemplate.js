@@ -403,7 +403,7 @@ export function generatePayslipHTML({ payRun, entry, employee, adjustments, payr
                       ${a.type === 'ALLOWANCE' ? 'ALLOWANCE' : 'DEDUCTION'}
                     </span>
                   </td>
-                  <td style="text-align: right;">&#8369; ${formatMoney(a.amount)}</td>
+                  <td style="text-align: right;">&#8369; ${formatMoney(a.type === 'ALLOWANCE' && a.frequency === 'HOURLY' ? a.amount * (entry.totalHoursWorked || 0) : a.amount)}${a.frequency === 'HOURLY' ? `<br><span style="font-size:9px;color:#9ca3af;">&#8369;${formatMoney(a.amount)}/hr × ${formatHours(entry.totalHoursWorked)}</span>` : ''}</td>
                 </tr>
                 `).join('')}
               </tbody>

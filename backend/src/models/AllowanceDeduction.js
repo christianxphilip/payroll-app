@@ -23,7 +23,7 @@ const allowanceDeductionSchema = new mongoose.Schema({
   },
   frequency: {
     type: String,
-    enum: ['WEEKLY', 'MONTHLY', 'YEARLY', 'ONE_TIME'],
+    enum: ['HOURLY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'ONE_TIME'],
     required: true
   },
   appliesFrom: {
@@ -46,5 +46,4 @@ const allowanceDeductionSchema = new mongoose.Schema({
 allowanceDeductionSchema.index({ employeeId: 1, frequency: 1 });
 
 export default mongoose.model('AllowanceDeduction', allowanceDeductionSchema, 'payroll_app_allowancedeductions');
-
 

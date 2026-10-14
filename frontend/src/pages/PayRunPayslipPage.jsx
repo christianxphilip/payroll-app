@@ -370,7 +370,8 @@ const PayRunPayslipPage = () => {
                         </span>
                       </td>
                       <td className="px-1 py-1 text-right">
-                        ₱ {formatMoney(a.amount)}
+                        ₱ {formatMoney(a.frequency === 'HOURLY' && a.type === 'ALLOWANCE' ? a.amount * (entry.totalHoursWorked || 0) : a.amount)}
+                        {a.frequency === 'HOURLY' && <div className="text-[9px] text-gray-400">₱{formatMoney(a.amount)}/hr × {formatHours(entry.totalHoursWorked)}</div>}
                       </td>
                     </tr>
                   ))}

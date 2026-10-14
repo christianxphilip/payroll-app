@@ -31,8 +31,11 @@ router.post('/employees/:employeeId/adjustments', authenticate, authorize(['admi
     if (amount === undefined || amount === null) {
       throw new AppError('amount is required', 400);
     }
-    if (!frequency || !['WEEKLY', 'MONTHLY', 'YEARLY', 'ONE_TIME'].includes(frequency)) {
+    if (!frequency || !['HOURLY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'ONE_TIME'].includes(frequency)) {
       throw new AppError('Invalid frequency', 400);
+    }
+    if (frequency === 'HOURLY' && type !== 'ALLOWANCE') {
+      throw new AppError('Hourly frequency is available for allowances only', 400);
     }
     if (!appliesFrom) {
       throw new AppError('appliesFrom is required', 400);
@@ -66,6 +69,13 @@ router.put('/adjustments/:id', authenticate, authorize(['admin']), async (req, r
     if (updateData.name) {
       updateData.name = updateData.name.trim();
     }
+    const existing = await AllowanceDeduction.findById(id);
+    if (!existing) throw new AppError('Allowance/Deduction not found', 404);
+    const nextType = updateData.type || existing.type;
+    const nextFrequency = updateData.frequency || existing.frequency;
+    if (nextFrequency === 'HOURLY' && nextType !== 'ALLOWANCE') {
+      throw new AppError('Hourly frequency is available for allowances only', 400);
+    }
 
     const item = await AllowanceDeduction.findByIdAndUpdate(
       id,
@@ -98,5 +108,4 @@ router.delete('/adjustments/:id', authenticate, authorize(['admin']), async (req
 });
 
 export default router;
-
 
