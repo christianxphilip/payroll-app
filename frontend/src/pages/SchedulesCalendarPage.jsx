@@ -86,8 +86,9 @@ const SchedulesCalendarPage = () => {
     const [selectedAvailabilityDate, setSelectedAvailabilityDate] = useState(null);
     const [shiftAllocations, setShiftAllocations] = useState([]);
     const [isShiftTargetsModalOpen, setIsShiftTargetsModalOpen] = useState(false);
+    const [shiftTargetDepartment, setShiftTargetDepartment] = useState('bar');
     const [showAvailability, setShowAvailability] = useState(false);
-    const [editingAllocations, setEditingAllocations] = useState({}); // { "Monday_shiftId": count }
+    const [editingAllocations, setEditingAllocations] = useState({}); // { "department_Monday_shiftId": count }
     const [calendarViewMode, setCalendarViewMode] = useState(() => {
         return typeof window !== 'undefined' && window.innerWidth < 768 ? 'agenda' : 'grid';
     });
@@ -147,8 +148,9 @@ const SchedulesCalendarPage = () => {
         const dateStr = date.toISOString().split('T')[0];
 
         // Find all allocations for this day of week that require at least 1 person
+        const activeDepartment = user?.role === 'manager' ? user.managerScope : adminTeamFilter;
         const dayAllocations = shiftAllocations.filter(
-            a => a.dayOfWeek === dayOfWeek && a.requiredCount > 0
+            a => a.department === activeDepartment && a.dayOfWeek === dayOfWeek && a.requiredCount > 0
         );
 
         if (dayAllocations.length === 0) {
@@ -517,7 +519,7 @@ const SchedulesCalendarPage = () => {
             const initialEditingState = {};
             (response.data || []).forEach(alloc => {
                 if (alloc.shiftId) {
-                    const key = `${alloc.dayOfWeek}_${alloc.shiftId._id || alloc.shiftId}`;
+                    const key = `${alloc.department}_${alloc.dayOfWeek}_${alloc.shiftId._id || alloc.shiftId}`;
                     initialEditingState[key] = alloc.requiredCount;
                 }
             });
@@ -530,17 +532,19 @@ const SchedulesCalendarPage = () => {
     const handleSaveShiftAllocations = async () => {
         try {
             const allocationsToSave = [];
+            const department = user?.role === 'manager' ? user.managerScope : shiftTargetDepartment;
 
             // Iterate through all shifts and days
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
             shifts.forEach(shift => {
                 days.forEach(day => {
-                    const key = `${day}_${shift._id}`;
+                    const key = `${department}_${day}_${shift._id}`;
                     if (editingAllocations[key] !== undefined) {
                         allocationsToSave.push({
                             dayOfWeek: day,
                             shiftId: shift._id,
+                            department,
                             requiredCount: parseInt(editingAllocations[key]) || 0
                         });
                     }
@@ -558,8 +562,9 @@ const SchedulesCalendarPage = () => {
 
     const getAvailableSlots = (date, shift) => {
         const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
+        const activeDepartment = user?.role === 'manager' ? user.managerScope : adminTeamFilter;
         const allocation = shiftAllocations.find(
-            a => a.dayOfWeek === dayOfWeek && (a.shiftId._id === shift._id || a.shiftId === shift._id)
+            a => a.department === activeDepartment && a.dayOfWeek === dayOfWeek && (a.shiftId._id === shift._id || a.shiftId === shift._id)
         );
 
         if (!allocation || !allocation.requiredCount) return null;
@@ -1455,7 +1460,7 @@ const SchedulesCalendarPage = () => {
                     assignmentTypes={assignmentTypes}
                     operatingHours={operatingHours}
                     holidays={holidays}
-                    shiftAllocations={shiftAllocations}
+                    shiftAllocations={shiftAllocations.filter(allocation => allocation.department === (user?.role === 'manager' ? user.managerScope : adminTeamFilter))}
                     getAssignmentColor={getAssignmentColor}
                     getScheduleVisual={getScheduleVisual}
                     canEditSchedule={(schedule) => {
@@ -1472,7 +1477,10 @@ const SchedulesCalendarPage = () => {
                     onDateRangeChange={handleDateRangeChange}
                     user={user}
                     onOpenExportICal={() => setIsExportICalModalOpen(true)}
-                    onOpenShiftTargets={() => setIsShiftTargetsModalOpen(true)}
+                    onOpenShiftTargets={() => {
+                        if (user?.role === 'admin' && adminTeamFilter) setShiftTargetDepartment(adminTeamFilter);
+                        setIsShiftTargetsModalOpen(true);
+                    }}
                     onComputeSalary={handleComputeEstimatedSalary}
                     loadingEstimatedSalary={loadingEstimatedSalary}
                     viewMode={calendarViewMode}
@@ -2345,6 +2353,28 @@ const SchedulesCalendarPage = () => {
                 title="Configure Shift Targets (Headcount)"
                 maxWidth="4xl"
             >
+                <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <div>
+                        <div className="text-sm font-semibold text-gray-800">Department targets</div>
+                        <div className="text-xs text-gray-500">Headcount is configured separately for Bar and Kitchen.</div>
+                    </div>
+                    {user?.role === 'admin' ? (
+                        <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1 text-sm">
+                            {['bar', 'kitchen'].map(department => (
+                                <button
+                                    key={department}
+                                    type="button"
+                                    onClick={() => setShiftTargetDepartment(department)}
+                                    className={`rounded-md px-3 py-1.5 font-medium capitalize ${shiftTargetDepartment === department ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                                >
+                                    {department}
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase text-blue-800">{user?.managerScope}</span>
+                    )}
+                </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -2367,7 +2397,8 @@ const SchedulesCalendarPage = () => {
                                         </div>
                                     </td>
                                     {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-                                        const key = `${day}_${shift._id}`;
+                                        const department = user?.role === 'manager' ? user.managerScope : shiftTargetDepartment;
+                                        const key = `${department}_${day}_${shift._id}`;
                                         return (
                                             <td key={day} className="px-2 py-2 text-center">
                                                 <input

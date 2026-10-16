@@ -16,6 +16,14 @@ const shiftAllocationSchema = new mongoose.Schema({
         required: true,
         min: 0,
         default: 0
+    },
+    barRequiredCount: {
+        type: Number,
+        min: 0
+    },
+    kitchenRequiredCount: {
+        type: Number,
+        min: 0
     }
 }, {
     timestamps: true

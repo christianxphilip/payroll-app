@@ -10,9 +10,21 @@ router.use(authenticate);
 router.get('/', async (req, res, next) => {
     try {
         const allocations = await ShiftAllocation.find().populate('shiftId');
+        const departments = req.user.role === 'manager'
+            ? [req.user.managerScope]
+            : ['bar', 'kitchen'];
+        const departmentAllocations = allocations.flatMap((allocation) => departments.map((department) => {
+            const record = allocation.toObject();
+            const departmentCount = department === 'bar' ? record.barRequiredCount : record.kitchenRequiredCount;
+            return {
+                ...record,
+                department,
+                requiredCount: departmentCount ?? record.requiredCount ?? 0
+            };
+        }));
         res.json({
             success: true,
-            data: allocations
+            data: departmentAllocations
         });
     } catch (error) {
         next(error);
@@ -31,10 +43,16 @@ router.post('/', async (req, res, next) => {
         const results = [];
         for (const alloc of allocations) {
             const { dayOfWeek, shiftId, requiredCount } = alloc;
+            const requestedDepartment = String(alloc.department || '').toLowerCase();
+            const department = req.user.role === 'manager' ? req.user.managerScope : requestedDepartment;
+            if (!['bar', 'kitchen'].includes(department)) {
+                return res.status(400).json({ error: 'Department must be bar or kitchen' });
+            }
+            const countField = department === 'bar' ? 'barRequiredCount' : 'kitchenRequiredCount';
 
             const result = await ShiftAllocation.findOneAndUpdate(
                 { dayOfWeek, shiftId },
-                { requiredCount },
+                { $set: { [countField]: requiredCount }, $setOnInsert: { requiredCount: 0 } },
                 { upsert: true, new: true, setDefaultsOnInsert: true }
             );
             results.push(result);
