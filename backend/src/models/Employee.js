@@ -78,6 +78,10 @@ const employeeSchema = new mongoose.Schema({
   portalPassword: {
     type: String,
     trim: true
+  },
+  odooEmployeeId: {
+    type: Number,
+    min: 1
   }
 }, {
   timestamps: true
@@ -85,6 +89,7 @@ const employeeSchema = new mongoose.Schema({
 
 employeeSchema.index({ email: 1 }, { unique: true, sparse: true });
 employeeSchema.index({ username: 1 }, { unique: true, sparse: true });
+employeeSchema.index({ odooEmployeeId: 1 }, { unique: true, sparse: true });
 
 employeeSchema.pre('save', function(next) {
   // Auto-derive status based on resigned/last working dates if not explicitly set

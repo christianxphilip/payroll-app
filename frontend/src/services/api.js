@@ -258,6 +258,7 @@ export const shiftAllocationAPI = {
 export const employeePortalAPI = {
   getPayslips: () => api.get('/employee-portal/payslips'),
   getPayslipDetail: (payRunId) => api.get(`/employee-portal/payslips/${payRunId}`),
+  getAttendance: (startDate, endDate) => api.get('/employee-portal/attendance', { params: { startDate, endDate } }),
 };
 
 export default api;

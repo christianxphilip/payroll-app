@@ -17,6 +17,7 @@ import PayRunPayslipPage from './pages/PayRunPayslipPage';
 import SettingsPage from './pages/SettingsPage';
 import EmployeePortalPage from './pages/EmployeePortalPage';
 import EmployeePayslipViewPage from './pages/EmployeePayslipViewPage';
+import EmployeeTimesheetPage from './pages/EmployeeTimesheetPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import PayrollPage from './pages/PayrollPage';
 import ThirteenthMonthRunsPage from './pages/ThirteenthMonthRunsPage';
@@ -61,6 +62,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['employee']}>
                 <EmployeePayslipViewPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employee/timesheet"
+            element={
+              <ProtectedRoute allowedRoles={['employee']}>
+                <EmployeeTimesheetPage />
               </ProtectedRoute>
             }
           />

@@ -7,6 +7,7 @@ import PayrollAdjustment from '../models/PayrollAdjustment.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
+import { findOdooEmployeeByName, getEmployeeAttendance } from '../services/odooAttendanceService.js';
 
 const router = express.Router();
 
@@ -43,8 +44,42 @@ async function resolveEmployee(req) {
     throw new AppError(`Employee profile not found for account "${req.user.username || 'unknown'}".`, 404);
   }
 
-  return { employeeId: employee._id, employeeName: employee.employeeName };
+  return { employeeId: employee._id, employeeName: employee.employeeName, employee };
 }
+
+// GET /api/employee-portal/attendance - Read the logged-in employee's Odoo attendance
+router.get('/attendance', async (req, res, next) => {
+  try {
+    if (req.user.role !== 'employee') throw new AppError('Employee access only', 403);
+    const { employee } = await resolveEmployee(req);
+    const startDate = String(req.query.startDate || '');
+    const endDate = String(req.query.endDate || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) {
+      throw new AppError('A valid start and end date are required', 400);
+    }
+
+    let odooEmployeeId = employee.odooEmployeeId;
+    let linkedByName = false;
+    if (!odooEmployeeId) {
+      const odooEmployee = await findOdooEmployeeByName(employee.employeeName);
+      if (!odooEmployee) throw new AppError(`No Odoo employee matched "${employee.employeeName}".`, 404);
+      odooEmployeeId = odooEmployee.id;
+      employee.odooEmployeeId = odooEmployeeId;
+      await employee.save();
+      linkedByName = true;
+    }
+
+    const attendance = await getEmployeeAttendance({ odooEmployeeId, startDate, endDate });
+    res.json({
+      success: true,
+      data: attendance,
+      employee: { id: employee._id, name: employee.employeeName, odooEmployeeId },
+      linkedByName
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /api/employee-portal/payslips - List all PAID pay runs for current employee
 router.get('/payslips', async (req, res, next) => {

@@ -75,6 +75,10 @@ const EmployeePortalPage = () => {
             Sign Out
           </button>
         </div>
+        <div className="max-w-6xl mx-auto px-4 pb-3 flex gap-2 text-sm">
+          <button className="rounded-lg bg-white px-3 py-2 font-semibold text-slate-900">Payslips</button>
+          <button onClick={() => navigate('/employee/timesheet')} className="rounded-lg px-3 py-2 font-semibold text-slate-200 hover:bg-slate-800 hover:text-white">Timesheet</button>
+        </div>
       </header>
 
       {/* Main Content Container */}

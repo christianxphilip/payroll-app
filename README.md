@@ -91,7 +91,19 @@ A comprehensive web-based payroll and timesheet management system built with the
    JWT_SECRET=your-secret-key
    AUTH_PASSWORD=admin123
    NODE_ENV=development
+
+   # Odoo attendance (recommended for Odoo 19+)
+   ODOO_BASE_URL=https://espressionist-attendance.odoo.com
+   ODOO_API_MODE=json2
+   ODOO_API_KEY=your-odoo-api-key
+   ODOO_DATABASE=your-odoo-database-name
    ```
+
+   For older Odoo versions, omit `ODOO_API_KEY` and provide
+   `ODOO_USERNAME` and `ODOO_PASSWORD` together with `ODOO_DATABASE`.
+   Preview employee name matches with `npm run migrate:odoo-employees` from
+   the backend directory, then persist them with
+   `npm run migrate:odoo-employees -- --apply`.
 
 4. **Start MongoDB** (if not running)
 
@@ -368,4 +380,3 @@ For issues or questions, please check:
 
 **Version**: 1.0.0  
 **Last Updated**: 2024
-
