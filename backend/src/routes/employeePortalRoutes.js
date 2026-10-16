@@ -4,6 +4,7 @@ import PayRunEmployee from '../models/PayRunEmployee.js';
 import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
 import PayrollAdjustment from '../models/PayrollAdjustment.js';
+import AttendanceApproval from '../models/AttendanceApproval.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
@@ -50,8 +51,27 @@ async function resolveEmployee(req) {
 // GET /api/employee-portal/attendance - Read the logged-in employee's Odoo attendance
 router.get('/attendance', async (req, res, next) => {
   try {
-    if (req.user.role !== 'employee') throw new AppError('Employee access only', 403);
-    const { employee } = await resolveEmployee(req);
+    let employee = null;
+    if (req.user.role === 'employee') {
+      const resolved = await resolveEmployee(req);
+      employee = resolved.employee;
+    } else if (req.user.role === 'admin') {
+      if (req.query.employeeId) {
+        employee = await Employee.findById(req.query.employeeId);
+      } else {
+        try {
+          const resolved = await resolveEmployee(req);
+          employee = resolved.employee;
+        } catch {
+          // If admin has no employee profile, pick first active employee with odooEmployeeId or any
+          employee = await Employee.findOne({ status: { $ne: 'RESIGNED' } }).sort({ employeeName: 1 });
+        }
+      }
+      if (!employee) throw new AppError('No employee profile found', 404);
+    } else {
+      throw new AppError('Unauthorized access', 403);
+    }
+
     const startDate = String(req.query.startDate || '');
     const endDate = String(req.query.endDate || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) {
@@ -83,16 +103,268 @@ router.get('/attendance', async (req, res, next) => {
     }
 
     const attendance = await getEmployeeAttendance({ odooEmployeeId, startDate, endDate });
+
+    // Fetch approval records for these attendance logs
+    const odooIds = attendance.map(a => a.id);
+    const approvals = await AttendanceApproval.find({
+      employeeId: employee._id,
+      odooAttendanceId: { $in: odooIds }
+    });
+    const approvalMap = new Map();
+    approvals.forEach(app => {
+      approvalMap.set(app.odooAttendanceId, app);
+    });
+
+    // Check count of pending approvals the logged-in user can review
+    let pendingReviewsCount = 0;
+    if (req.user.role === 'admin') {
+      pendingReviewsCount = await AttendanceApproval.countDocuments({
+        status: { $in: ['For L1 Approval', 'For L2 Approval'] }
+      });
+    } else if (req.user.employeeId) {
+      const l1Emps = await Employee.find({ l1ApproverId: req.user.employeeId }).select('_id');
+      const l2Emps = await Employee.find({ l2ApproverId: req.user.employeeId }).select('_id');
+      const l1Ids = l1Emps.map(e => e._id);
+      const l2Ids = l2Emps.map(e => e._id);
+      pendingReviewsCount = await AttendanceApproval.countDocuments({
+        $or: [
+          { employeeId: { $in: l1Ids }, status: 'For L1 Approval' },
+          { employeeId: { $in: l2Ids }, status: 'For L2 Approval' }
+        ]
+      });
+    }
+
+    // Map each attendance record to guaranteed status: 'Valid' | 'Invalid' | 'For L1 Approval' | 'For L2 Approval'
+    const enrichedAttendance = attendance.map(record => {
+      const approval = approvalMap.get(record.id);
+      let status = 'Valid';
+      if (approval) {
+        status = approval.status;
+      } else if (record.isInvalid || !record.checkOut) {
+        status = 'Invalid';
+      }
+
+      return {
+        ...record,
+        status,
+        approvalDetails: approval || null
+      };
+    });
+
     res.json({
       success: true,
-      data: attendance,
-      employee: { id: employee._id, name: employee.employeeName, odooEmployeeId },
+      data: enrichedAttendance,
+      employee: {
+        id: employee._id,
+        name: employee.employeeName,
+        odooEmployeeId,
+        l1ApproverType: employee.l1ApproverType,
+        l1ApproverId: employee.l1ApproverId,
+        l1ApproverName: employee.l1ApproverName,
+        l2ApproverType: employee.l2ApproverType,
+        l2ApproverId: employee.l2ApproverId,
+        l2ApproverName: employee.l2ApproverName
+      },
+      pendingReviewsCount,
       linkedByName,
       limits: {
         earliestDate: earliest.toISOString().slice(0, 10),
         latestDate: today.toISOString().slice(0, 10),
         maximumDays: 7
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/employee-portal/attendance/request-approval - Submit invalid punch for approval
+router.post('/attendance/request-approval', async (req, res, next) => {
+  try {
+    const { employee } = await resolveEmployee(req);
+    const { odooAttendanceId, date, checkIn, checkOut, correctedCheckIn, correctedCheckOut, reason } = req.body;
+
+    if (!odooAttendanceId) {
+      throw new AppError('Odoo attendance ID is required', 400);
+    }
+
+    let approval = await AttendanceApproval.findOne({
+      employeeId: employee._id,
+      odooAttendanceId: Number(odooAttendanceId)
+    });
+
+    if (!approval) {
+      approval = new AttendanceApproval({
+        odooAttendanceId: Number(odooAttendanceId),
+        employeeId: employee._id,
+        employeeName: employee.employeeName
+      });
+    }
+
+    approval.date = date || (checkIn ? new Date(checkIn).toISOString().slice(0, 10) : '');
+    approval.checkIn = checkIn ? new Date(checkIn) : approval.checkIn;
+    approval.checkOut = checkOut ? new Date(checkOut) : approval.checkOut;
+    if (correctedCheckIn) approval.correctedCheckIn = new Date(correctedCheckIn);
+    if (correctedCheckOut) approval.correctedCheckOut = new Date(correctedCheckOut);
+    approval.reason = reason || 'Attendance correction requested';
+    approval.status = 'For L1 Approval';
+    approval.rejectionReason = '';
+
+    approval.history.push({
+      action: 'SUBMITTED',
+      byRole: req.user.role || 'employee',
+      byId: employee._id,
+      byName: employee.employeeName,
+      date: new Date(),
+      notes: reason || 'Submitted for L1 Approval'
+    });
+
+    await approval.save();
+
+    res.json({
+      success: true,
+      data: approval,
+      message: 'Attendance submitted for L1 approval'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/employee-portal/attendance/pending-approvals - Approver lists items needing review
+router.get('/attendance/pending-approvals', async (req, res, next) => {
+  try {
+    let query = {};
+    if (req.user.role === 'admin') {
+      query = { status: { $in: ['For L1 Approval', 'For L2 Approval'] } };
+    } else {
+      let currentEmp = null;
+      try {
+        const resolved = await resolveEmployee(req);
+        currentEmp = resolved.employee;
+      } catch {
+        return res.json({ success: true, data: [] });
+      }
+
+      const l1Emps = await Employee.find({ l1ApproverId: currentEmp._id }).select('_id');
+      const l2Emps = await Employee.find({ l2ApproverId: currentEmp._id }).select('_id');
+      const l1Ids = l1Emps.map(e => e._id);
+      const l2Ids = l2Emps.map(e => e._id);
+
+      query = {
+        $or: [
+          { employeeId: { $in: l1Ids }, status: 'For L1 Approval' },
+          { employeeId: { $in: l2Ids }, status: 'For L2 Approval' }
+        ]
+      };
+    }
+
+    const pending = await AttendanceApproval.find(query)
+      .populate('employeeId', 'employeeName position l1ApproverName l2ApproverName l2ApproverType')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: pending
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/employee-portal/attendance/action - Approve or Reject an attendance request
+router.post('/attendance/action', async (req, res, next) => {
+  try {
+    const { approvalId, action, notes } = req.body;
+    if (!['APPROVE', 'REJECT'].includes(action)) {
+      throw new AppError('Action must be APPROVE or REJECT', 400);
+    }
+
+    const approval = await AttendanceApproval.findById(approvalId);
+    if (!approval) throw new AppError('Approval record not found', 404);
+
+    const targetEmployee = await Employee.findById(approval.employeeId);
+    if (!targetEmployee) throw new AppError('Target employee not found', 404);
+
+    const isAdmin = req.user.role === 'admin';
+    const currentEmpId = req.user.employeeId ? String(req.user.employeeId) : null;
+    const isL1 = (currentEmpId && targetEmployee.l1ApproverId && String(targetEmployee.l1ApproverId) === currentEmpId) ||
+                 (targetEmployee.l1ApproverType === 'ADMIN' && isAdmin);
+    const isL2 = (currentEmpId && targetEmployee.l2ApproverId && String(targetEmployee.l2ApproverId) === currentEmpId) ||
+                 (targetEmployee.l2ApproverType === 'ADMIN' && isAdmin);
+
+    if (approval.status === 'For L1 Approval' && !isL1 && !isAdmin) {
+      throw new AppError('You are not authorized to perform L1 approval for this employee', 403);
+    }
+    if (approval.status === 'For L2 Approval' && !isL2 && !isAdmin) {
+      throw new AppError('You are not authorized to perform L2 approval for this employee', 403);
+    }
+
+    const actorName = req.user.employeeName || req.user.username || (isAdmin ? 'Admin' : 'Approver');
+
+    if (action === 'APPROVE') {
+      if (approval.status === 'For L1 Approval') {
+        const hasL2 = targetEmployee.l2ApproverType === 'ADMIN' ||
+                      (targetEmployee.l2ApproverType === 'EMPLOYEE' && targetEmployee.l2ApproverId);
+        if (hasL2) {
+          approval.status = 'For L2 Approval';
+          approval.l1ApprovedAt = new Date();
+          approval.l1ApprovedBy = actorName;
+          approval.history.push({
+            action: 'L1_APPROVED',
+            byRole: req.user.role,
+            byId: req.user.employeeId || null,
+            byName: actorName,
+            date: new Date(),
+            notes: notes || 'Approved by L1 Approver'
+          });
+        } else {
+          approval.status = 'Valid';
+          approval.l1ApprovedAt = new Date();
+          approval.l1ApprovedBy = actorName;
+          approval.history.push({
+            action: 'L1_APPROVED',
+            byRole: req.user.role,
+            byId: req.user.employeeId || null,
+            byName: actorName,
+            date: new Date(),
+            notes: notes || 'Final approval (No L2 required)'
+          });
+        }
+      } else if (approval.status === 'For L2 Approval') {
+        approval.status = 'Valid';
+        approval.l2ApprovedAt = new Date();
+        approval.l2ApprovedBy = actorName;
+        approval.history.push({
+          action: 'L2_APPROVED',
+          byRole: req.user.role,
+          byId: req.user.employeeId || null,
+          byName: actorName,
+          date: new Date(),
+          notes: notes || 'Final approval by L2 Approver'
+        });
+      }
+    } else if (action === 'REJECT') {
+      approval.status = 'Invalid';
+      approval.rejectedAt = new Date();
+      approval.rejectedBy = actorName;
+      approval.rejectionReason = notes || 'Rejected by approver';
+      approval.history.push({
+        action: 'REJECTED',
+        byRole: req.user.role,
+        byId: req.user.employeeId || null,
+        byName: actorName,
+        date: new Date(),
+        notes: notes || 'Rejected'
+      });
+    }
+
+    await approval.save();
+
+    res.json({
+      success: true,
+      data: approval,
+      message: `Attendance ${action === 'APPROVE' ? 'approved' : 'rejected'} successfully`
     });
   } catch (error) {
     next(error);

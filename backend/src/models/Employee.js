@@ -82,6 +82,36 @@ const employeeSchema = new mongoose.Schema({
   odooEmployeeId: {
     type: Number,
     min: 1
+  },
+  l1ApproverType: {
+    type: String,
+    enum: ['EMPLOYEE', 'ADMIN', null],
+    default: null
+  },
+  l1ApproverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    default: null
+  },
+  l1ApproverName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  l2ApproverType: {
+    type: String,
+    enum: ['NONE', 'ADMIN', 'EMPLOYEE', null],
+    default: 'NONE'
+  },
+  l2ApproverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    default: null
+  },
+  l2ApproverName: {
+    type: String,
+    trim: true,
+    default: ''
   }
 }, {
   timestamps: true

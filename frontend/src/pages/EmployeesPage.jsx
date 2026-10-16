@@ -39,7 +39,13 @@ const EmployeesPage = () => {
     wageRate: '',
     eligibleForThirteenthMonth: true,
     username: '',
-    password: ''
+    password: '',
+    l1ApproverType: '',
+    l1ApproverId: '',
+    l1ApproverName: '',
+    l2ApproverType: 'NONE',
+    l2ApproverId: '',
+    l2ApproverName: ''
   });
   const [showModalPassword, setShowModalPassword] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -113,7 +119,13 @@ const EmployeesPage = () => {
       wageRate: '',
       eligibleForThirteenthMonth: true,
       username: '',
-      password: ''
+      password: '',
+      l1ApproverType: '',
+      l1ApproverId: '',
+      l1ApproverName: '',
+      l2ApproverType: 'NONE',
+      l2ApproverId: '',
+      l2ApproverName: ''
     });
     setIsModalOpen(true);
   };
@@ -135,7 +147,13 @@ const EmployeesPage = () => {
       wageRate: employee.wageRate != null ? String(employee.wageRate) : '',
       eligibleForThirteenthMonth: employee.eligibleForThirteenthMonth !== false,
       username: employee.username || '',
-      password: employee.portalPassword || ''
+      password: employee.portalPassword || '',
+      l1ApproverType: employee.l1ApproverType || '',
+      l1ApproverId: employee.l1ApproverId || '',
+      l1ApproverName: employee.l1ApproverName || '',
+      l2ApproverType: employee.l2ApproverType || 'NONE',
+      l2ApproverId: employee.l2ApproverId || '',
+      l2ApproverName: employee.l2ApproverName || ''
     });
     setIsModalOpen(true);
   };
@@ -354,6 +372,11 @@ const EmployeesPage = () => {
                       <span className="font-medium text-gray-500">Wage:</span> {employee.wageType || 'HOURLY'} @ ₱{employee.wageRate ?? 0}
                     </div>
                   )}
+                  {employee.l1ApproverName && (
+                    <div className="col-span-2 text-indigo-700 font-medium">
+                      <span className="text-gray-500">Approvers:</span> L1 ({employee.l1ApproverName}){employee.l2ApproverType !== 'NONE' && employee.l2ApproverName ? ` → L2 (${employee.l2ApproverName})` : ''}
+                    </div>
+                  )}
                   {employee.updatedAt && (
                     <div className="col-span-2 text-gray-400">
                       Updated: {new Date(employee.updatedAt).toLocaleDateString()}
@@ -454,6 +477,11 @@ const EmployeesPage = () => {
                       {user?.role === 'admin' && (
                         <div className="text-xs text-gray-600">
                           Wage: {employee.wageType || 'HOURLY'} @ {employee.wageRate ?? 0}
+                        </div>
+                      )}
+                      {employee.l1ApproverName && (
+                        <div className="text-[11px] text-indigo-700 font-medium mt-1">
+                          Approvers: L1 ({employee.l1ApproverName}){employee.l2ApproverType !== 'NONE' && employee.l2ApproverName ? ` → L2 (${employee.l2ApproverName})` : ''}
                         </div>
                       )}
                     </td>
@@ -634,6 +662,95 @@ const EmployeesPage = () => {
               </div>
             </div>
           </div>
+
+          {user?.role === 'admin' && (
+            <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+                  Timesheet Approvers
+                </h4>
+                <span className="text-[11px] text-gray-500">
+                  L1 required for approval; L2 is optional
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    L1 Approver
+                  </label>
+                  <select
+                    value={formData.l1ApproverType === 'ADMIN' ? 'ADMIN' : (formData.l1ApproverId || '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) {
+                        setFormData({ ...formData, l1ApproverType: null, l1ApproverId: '', l1ApproverName: '' });
+                      } else if (val === 'ADMIN') {
+                        setFormData({ ...formData, l1ApproverType: 'ADMIN', l1ApproverId: '', l1ApproverName: 'Admin' });
+                      } else {
+                        const targetEmp = employees.find(emp => emp._id === val);
+                        setFormData({
+                          ...formData,
+                          l1ApproverType: 'EMPLOYEE',
+                          l1ApproverId: val,
+                          l1ApproverName: targetEmp?.employeeName || ''
+                        });
+                      }
+                    }}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="">-- No L1 Approver --</option>
+                    <option value="ADMIN">Admin</option>
+                    <optgroup label="Employees">
+                      {employees
+                        .filter(emp => emp._id !== editingEmployee?._id && emp.status !== 'RESIGNED')
+                        .map(emp => (
+                          <option key={emp._id} value={emp._id}>
+                            {emp.employeeName} {emp.position ? `(${emp.position})` : ''}
+                          </option>
+                        ))}
+                    </optgroup>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    L2 Approver <span className="text-gray-400 font-normal">(Optional)</span>
+                  </label>
+                  <select
+                    value={formData.l2ApproverType === 'ADMIN' ? 'ADMIN' : (formData.l2ApproverId || 'NONE')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'NONE' || !val) {
+                        setFormData({ ...formData, l2ApproverType: 'NONE', l2ApproverId: '', l2ApproverName: '' });
+                      } else if (val === 'ADMIN') {
+                        setFormData({ ...formData, l2ApproverType: 'ADMIN', l2ApproverId: '', l2ApproverName: 'Admin' });
+                      } else {
+                        const targetEmp = employees.find(emp => emp._id === val);
+                        setFormData({
+                          ...formData,
+                          l2ApproverType: 'EMPLOYEE',
+                          l2ApproverId: val,
+                          l2ApproverName: targetEmp?.employeeName || ''
+                        });
+                      }
+                    }}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="NONE">None (No L2 Approval required)</option>
+                    <option value="ADMIN">Admin (Me as Admin)</option>
+                    <optgroup label="Employees">
+                      {employees
+                        .filter(emp => emp._id !== editingEmployee?._id && emp._id !== formData.l1ApproverId && emp.status !== 'RESIGNED')
+                        .map(emp => (
+                          <option key={emp._id} value={emp._id}>
+                            {emp.employeeName} {emp.position ? `(${emp.position})` : ''}
+                          </option>
+                        ))}
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Birthday</label>

@@ -258,7 +258,10 @@ export const shiftAllocationAPI = {
 export const employeePortalAPI = {
   getPayslips: () => api.get('/employee-portal/payslips'),
   getPayslipDetail: (payRunId) => api.get(`/employee-portal/payslips/${payRunId}`),
-  getAttendance: (startDate, endDate) => api.get('/employee-portal/attendance', { params: { startDate, endDate } }),
+  getAttendance: (startDate, endDate, employeeId) => api.get('/employee-portal/attendance', { params: { startDate, endDate, employeeId } }),
+  requestApproval: (data) => api.post('/employee-portal/attendance/request-approval', data),
+  getPendingApprovals: () => api.get('/employee-portal/attendance/pending-approvals'),
+  takeApprovalAction: (data) => api.post('/employee-portal/attendance/action', data),
 };
 
 export default api;

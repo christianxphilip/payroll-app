@@ -103,7 +103,13 @@ router.post('/', async (req, res, next) => {
       wageRate,
       eligibleForThirteenthMonth,
       username,
-      password
+      password,
+      l1ApproverType,
+      l1ApproverId,
+      l1ApproverName,
+      l2ApproverType,
+      l2ApproverId,
+      l2ApproverName
     } = req.body;
 
     if (req.user.role === 'manager' && !isEmployeeInManagerScope(position, req.user.managerScope)) {
@@ -138,7 +144,13 @@ router.post('/', async (req, res, next) => {
       eligibleForThirteenthMonth,
       username: username ? username.trim().toLowerCase() : undefined,
       password: hashedPassword,
-      portalPassword
+      portalPassword,
+      l1ApproverType: l1ApproverType || null,
+      l1ApproverId: l1ApproverId || null,
+      l1ApproverName: l1ApproverName || '',
+      l2ApproverType: l2ApproverType || 'NONE',
+      l2ApproverId: l2ApproverId || null,
+      l2ApproverName: l2ApproverName || ''
     };
     
     const employee = await Employee.create(employeePayload);
@@ -179,6 +191,9 @@ router.put('/:name', async (req, res, next) => {
       delete updateData.eligibleForThirteenthMonth;
     }
     
+    if (updateData.l1ApproverId === '') updateData.l1ApproverId = null;
+    if (updateData.l2ApproverId === '') updateData.l2ApproverId = null;
+
     if (updateData.employeeName && !updateData.employeeName.trim()) {
       throw new AppError('Employee name is required', 400);
     }
