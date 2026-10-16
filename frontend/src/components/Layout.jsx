@@ -14,6 +14,7 @@ const Layout = () => {
     { path: '/schedules', label: 'Schedules' },
     ...(user?.role === 'admin' ? [{ path: '/assignments', label: 'Assignment' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/timesheet-entries', label: 'Timesheet' }] : []),
+    ...(user?.role === 'admin' ? [{ path: '/approvals', label: 'Approvals' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/payroll', label: 'Payroll' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/reports', label: 'Reports' }] : []),
     ...(user?.role === 'admin' ? [{ path: '/settings', label: 'Settings' }] : []),

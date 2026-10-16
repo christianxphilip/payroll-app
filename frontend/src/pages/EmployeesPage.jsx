@@ -40,6 +40,7 @@ const EmployeesPage = () => {
     eligibleForThirteenthMonth: true,
     username: '',
     password: '',
+    odooEmployeeId: '',
     l1ApproverType: '',
     l1ApproverId: '',
     l1ApproverName: '',
@@ -120,6 +121,7 @@ const EmployeesPage = () => {
       eligibleForThirteenthMonth: true,
       username: '',
       password: '',
+      odooEmployeeId: '',
       l1ApproverType: '',
       l1ApproverId: '',
       l1ApproverName: '',
@@ -148,6 +150,7 @@ const EmployeesPage = () => {
       eligibleForThirteenthMonth: employee.eligibleForThirteenthMonth !== false,
       username: employee.username || '',
       password: employee.portalPassword || '',
+      odooEmployeeId: employee.odooEmployeeId != null ? String(employee.odooEmployeeId) : '',
       l1ApproverType: employee.l1ApproverType || '',
       l1ApproverId: employee.l1ApproverId || '',
       l1ApproverName: employee.l1ApproverName || '',
@@ -177,7 +180,10 @@ const EmployeesPage = () => {
       // Convert wageRate to a number just before sending to backend
       const payload = {
         ...formData,
-        wageRate: wageRateNum
+        wageRate: wageRateNum,
+        odooEmployeeId: formData.odooEmployeeId !== '' && formData.odooEmployeeId != null
+          ? Number(formData.odooEmployeeId)
+          : null
       };
 
       if (editingEmployee) {
@@ -349,6 +355,11 @@ const EmployeesPage = () => {
                     <h3 className="font-semibold text-lg text-gray-900">{employee.employeeName}</h3>
                     {employee.position && <p className="text-sm text-gray-600">{employee.position}</p>}
                     {employee.email && <p className="text-xs text-gray-500">{employee.email}</p>}
+                    {employee.odooEmployeeId && (
+                      <span className="inline-flex items-center gap-1 mt-1 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">
+                        Odoo #{employee.odooEmployeeId}
+                      </span>
+                    )}
                   </div>
                   <span
                     className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
@@ -450,6 +461,19 @@ const EmployeesPage = () => {
                       )}
                       {employee.email && (
                         <div className="text-xs text-gray-500">{employee.email}</div>
+                      )}
+                      {employee.odooEmployeeId ? (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">
+                            Odoo #{employee.odooEmployeeId}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 rounded bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400 border border-dashed border-gray-200">
+                            No Odoo ID
+                          </span>
+                        </div>
                       )}
                       {employee.updatedAt && (
                         <div className="text-xs text-gray-400 mt-1">
@@ -583,14 +607,14 @@ const EmployeesPage = () => {
               required
             />
           </div>
-          <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Position</label>
               <input
                 type="text"
                 value={formData.position}
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
               />
             </div>
             <div>
@@ -599,7 +623,21 @@ const EmployeesPage = () => {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center justify-between">
+                <span>Odoo Employee ID</span>
+                <span className="text-[10px] text-gray-400 font-normal">Attendance</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                placeholder="e.g. 15"
+                value={formData.odooEmployeeId}
+                onChange={(e) => setFormData({ ...formData, odooEmployeeId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
               />
             </div>
           </div>

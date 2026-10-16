@@ -109,7 +109,8 @@ router.post('/', async (req, res, next) => {
       l1ApproverName,
       l2ApproverType,
       l2ApproverId,
-      l2ApproverName
+      l2ApproverName,
+      odooEmployeeId
     } = req.body;
 
     if (req.user.role === 'manager' && !isEmployeeInManagerScope(position, req.user.managerScope)) {
@@ -126,6 +127,13 @@ router.post('/', async (req, res, next) => {
       const raw = password.trim();
       hashedPassword = await bcrypt.hash(raw, 10);
       portalPassword = raw;
+    }
+
+    const parsedOdooId = (odooEmployeeId !== undefined && odooEmployeeId !== '' && odooEmployeeId !== null)
+      ? Number(odooEmployeeId)
+      : undefined;
+    if (parsedOdooId !== undefined && (isNaN(parsedOdooId) || parsedOdooId < 1)) {
+      throw new AppError('Odoo Employee ID must be a positive number', 400);
     }
     
     const employeePayload = {
@@ -145,6 +153,7 @@ router.post('/', async (req, res, next) => {
       username: username ? username.trim().toLowerCase() : undefined,
       password: hashedPassword,
       portalPassword,
+      odooEmployeeId: parsedOdooId,
       l1ApproverType: l1ApproverType || null,
       l1ApproverId: l1ApproverId || null,
       l1ApproverName: l1ApproverName || '',
@@ -164,6 +173,8 @@ router.post('/', async (req, res, next) => {
     if (error.code === 11000) {
       if (error.keyPattern?.username) {
         next(new AppError('Username is already taken', 400));
+      } else if (error.keyPattern?.odooEmployeeId) {
+        next(new AppError('Odoo Employee ID is already linked to another employee', 400));
       } else {
         next(new AppError('Employee name already exists', 400));
       }
@@ -193,6 +204,15 @@ router.put('/:name', async (req, res, next) => {
     
     if (updateData.l1ApproverId === '') updateData.l1ApproverId = null;
     if (updateData.l2ApproverId === '') updateData.l2ApproverId = null;
+    if (updateData.odooEmployeeId === '' || updateData.odooEmployeeId === null) {
+      updateData.odooEmployeeId = null;
+    } else if (updateData.odooEmployeeId !== undefined) {
+      const parsed = Number(updateData.odooEmployeeId);
+      if (isNaN(parsed) || parsed < 1) {
+        throw new AppError('Odoo Employee ID must be a positive number', 400);
+      }
+      updateData.odooEmployeeId = parsed;
+    }
 
     if (updateData.employeeName && !updateData.employeeName.trim()) {
       throw new AppError('Employee name is required', 400);
@@ -246,11 +266,13 @@ router.put('/:name', async (req, res, next) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      // Handle unique index conflicts (name or email)
+      // Handle unique index conflicts (name, email, or odooEmployeeId)
       if (error.keyPattern?.employeeName) {
         next(new AppError('Employee name already exists', 400));
       } else if (error.keyPattern?.email) {
         next(new AppError('Email already exists', 400));
+      } else if (error.keyPattern?.odooEmployeeId) {
+        next(new AppError('Odoo Employee ID is already linked to another employee', 400));
       } else {
         next(error);
       }

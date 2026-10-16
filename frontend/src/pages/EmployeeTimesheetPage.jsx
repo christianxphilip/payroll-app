@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { employeePortalAPI } from '../services/api';
 import Modal from '../components/Modal';
@@ -22,8 +22,9 @@ const toDateTimeLocalValue = (dateObj) => {
 
 const EmployeeTimesheetPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('timesheet'); // 'timesheet' | 'approvals'
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') === 'approvals' ? 'approvals' : 'timesheet');
   const [page, setPage] = useState(0);
   const [range, setRange] = useState({ startDate: '', endDate: '' });
   const [limits, setLimits] = useState(null);
@@ -34,6 +35,7 @@ const EmployeeTimesheetPage = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // Approvals state
+  const [isApprover, setIsApprover] = useState(false);
   const [pendingReviewsCount, setPendingReviewsCount] = useState(0);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [loadingApprovals, setLoadingApprovals] = useState(false);
@@ -83,6 +85,7 @@ const EmployeeTimesheetPage = () => {
       setRecords(response.data || []);
       setEmployee(response.employee || null);
       setLimits(response.limits || null);
+      setIsApprover(Boolean(response.isApprover || response.employee?.isApprover));
       setPendingReviewsCount(response.pendingReviewsCount || 0);
     } catch (err) {
       setRecords([]);
@@ -110,6 +113,15 @@ const EmployeeTimesheetPage = () => {
     setRange(requestedRange);
     loadAttendance(requestedRange);
   }, [page]);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'approvals' && activeTab !== 'approvals') {
+      setActiveTab('approvals');
+    } else if (!tabParam && activeTab === 'approvals') {
+      setActiveTab('timesheet');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (activeTab === 'approvals') {
@@ -259,9 +271,39 @@ const EmployeeTimesheetPage = () => {
           >
             Payslips
           </button>
-          <button className="rounded-lg bg-white px-3 py-2 font-semibold text-slate-900 shadow-sm">
+          <button
+            onClick={() => {
+              setActiveTab('timesheet');
+              setSearchParams({});
+            }}
+            className={`rounded-lg px-3 py-2 font-semibold transition-colors ${
+              activeTab === 'timesheet'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-200 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
             Timesheet
           </button>
+          {(isApprover || user?.role === 'admin' || pendingReviewsCount > 0) && (
+            <button
+              onClick={() => {
+                setActiveTab('approvals');
+                setSearchParams({ tab: 'approvals' });
+              }}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors ${
+                activeTab === 'approvals'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-200 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span>Approvals</span>
+              {pendingReviewsCount > 0 && (
+                <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {pendingReviewsCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </header>
 
@@ -290,11 +332,14 @@ const EmployeeTimesheetPage = () => {
             </p>
           </div>
 
-          {(pendingReviewsCount > 0 || user?.role === 'admin') && (
+          {(isApprover || pendingReviewsCount > 0 || user?.role === 'admin') && (
             <div className="inline-flex rounded-xl bg-gray-200 p-1">
               <button
                 type="button"
-                onClick={() => setActiveTab('timesheet')}
+                onClick={() => {
+                  setActiveTab('timesheet');
+                  setSearchParams({});
+                }}
                 className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === 'timesheet' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
                 }`}
@@ -303,7 +348,10 @@ const EmployeeTimesheetPage = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('approvals')}
+                onClick={() => {
+                  setActiveTab('approvals');
+                  setSearchParams({ tab: 'approvals' });
+                }}
                 className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === 'approvals' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
                 }`}

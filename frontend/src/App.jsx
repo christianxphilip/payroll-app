@@ -23,6 +23,7 @@ import PayrollPage from './pages/PayrollPage';
 import ThirteenthMonthRunsPage from './pages/ThirteenthMonthRunsPage';
 import ThirteenthMonthDetailPage from './pages/ThirteenthMonthDetailPage';
 import ThirteenthMonthPayslipPage from './pages/ThirteenthMonthPayslipPage';
+import ApprovalsPage from './pages/ApprovalsPage';
 import { useAuth } from './context/AuthContext';
 
 const HomeRedirect = () => {
@@ -73,6 +74,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/employee/approvals"
+            element={
+              <ProtectedRoute allowedRoles={['employee']}>
+                <Navigate to="/employee/timesheet?tab=approvals" replace />
+              </ProtectedRoute>
+            }
+          />
           
           <Route path="/" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout /></ProtectedRoute>}>
             <Route index element={<HomeRedirect />} />
@@ -82,6 +91,7 @@ function App() {
             <Route path="assignments" element={<ProtectedRoute allowedRoles={['admin']}><AssignmentsPage /></ProtectedRoute>} />
             <Route path="schedules" element={<SchedulesPage />} />
             <Route path="timesheet-entries" element={<ProtectedRoute allowedRoles={['admin']}><TimesheetEntriesPage /></ProtectedRoute>} />
+            <Route path="approvals" element={<ProtectedRoute allowedRoles={['admin']}><ApprovalsPage /></ProtectedRoute>} />
             <Route path="timesheets/:timesheetId" element={<ProtectedRoute allowedRoles={['admin']}><TimesheetsPage /></ProtectedRoute>} />
             <Route path="reports" element={<ProtectedRoute allowedRoles={['admin']}><ReportsPage /></ProtectedRoute>} />
             <Route path="payroll" element={<ProtectedRoute allowedRoles={['admin']}><PayrollPage /></ProtectedRoute>}>

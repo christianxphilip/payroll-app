@@ -259,9 +259,12 @@ export const employeePortalAPI = {
   getPayslips: () => api.get('/employee-portal/payslips'),
   getPayslipDetail: (payRunId) => api.get(`/employee-portal/payslips/${payRunId}`),
   getAttendance: (startDate, endDate, employeeId) => api.get('/employee-portal/attendance', { params: { startDate, endDate, employeeId } }),
+  getApproverStatus: () => api.get('/employee-portal/approver-status'),
   requestApproval: (data) => api.post('/employee-portal/attendance/request-approval', data),
   getPendingApprovals: () => api.get('/employee-portal/attendance/pending-approvals'),
+  getAllApprovals: (params = {}) => api.get('/employee-portal/attendance/all-approvals', { params }),
   takeApprovalAction: (data) => api.post('/employee-portal/attendance/action', data),
+  overrideApproval: (data) => api.post('/employee-portal/attendance/override', data),
 };
 
 export default api;

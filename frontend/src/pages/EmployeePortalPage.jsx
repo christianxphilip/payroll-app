@@ -10,10 +10,24 @@ const EmployeePortalPage = () => {
   const [employeeName, setEmployeeName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [approverInfo, setApproverInfo] = useState({ isApprover: false, pendingCount: 0 });
 
   useEffect(() => {
     fetchPayslips();
+    checkApproverStatus();
   }, []);
+
+  const checkApproverStatus = async () => {
+    try {
+      const res = await employeePortalAPI.getApproverStatus();
+      setApproverInfo({
+        isApprover: Boolean(res.isApprover),
+        pendingCount: res.pendingCount || 0
+      });
+    } catch {
+      // ignore
+    }
+  };
 
   const fetchPayslips = async () => {
     try {
@@ -76,8 +90,21 @@ const EmployeePortalPage = () => {
           </button>
         </div>
         <div className="max-w-6xl mx-auto px-4 pb-3 flex gap-2 text-sm">
-          <button className="rounded-lg bg-white px-3 py-2 font-semibold text-slate-900">Payslips</button>
-          <button onClick={() => navigate('/employee/timesheet')} className="rounded-lg px-3 py-2 font-semibold text-slate-200 hover:bg-slate-800 hover:text-white">Timesheet</button>
+          <button className="rounded-lg bg-white px-3 py-2 font-semibold text-slate-900 shadow-sm">Payslips</button>
+          <button onClick={() => navigate('/employee/timesheet')} className="rounded-lg px-3 py-2 font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors">Timesheet</button>
+          {(approverInfo.isApprover || user?.role === 'admin' || approverInfo.pendingCount > 0) && (
+            <button
+              onClick={() => navigate('/employee/timesheet?tab=approvals')}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <span>Approvals</span>
+              {approverInfo.pendingCount > 0 && (
+                <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {approverInfo.pendingCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </header>
 

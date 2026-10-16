@@ -151,6 +151,15 @@ router.get('/attendance', async (req, res, next) => {
       };
     });
 
+    let isApprover = false;
+    if (req.user.role === 'admin') {
+      isApprover = true;
+    } else if (employee) {
+      isApprover = Boolean(await Employee.exists({
+        $or: [{ l1ApproverId: employee._id }, { l2ApproverId: employee._id }]
+      }));
+    }
+
     res.json({
       success: true,
       data: enrichedAttendance,
@@ -158,6 +167,7 @@ router.get('/attendance', async (req, res, next) => {
         id: employee._id,
         name: employee.employeeName,
         odooEmployeeId,
+        isApprover,
         l1ApproverType: employee.l1ApproverType,
         l1ApproverId: employee.l1ApproverId,
         l1ApproverName: employee.l1ApproverName,
@@ -165,6 +175,7 @@ router.get('/attendance', async (req, res, next) => {
         l2ApproverId: employee.l2ApproverId,
         l2ApproverName: employee.l2ApproverName
       },
+      isApprover,
       pendingReviewsCount,
       linkedByName,
       limits: {
@@ -172,6 +183,53 @@ router.get('/attendance', async (req, res, next) => {
         latestDate: today.toISOString().slice(0, 10),
         maximumDays: 7
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/employee-portal/approver-status - Quick check if user is an approver and has pending items
+router.get('/approver-status', async (req, res, next) => {
+  try {
+    let isApprover = false;
+    let pendingCount = 0;
+
+    if (req.user.role === 'admin') {
+      isApprover = true;
+      pendingCount = await AttendanceApproval.countDocuments({
+        status: { $in: ['For L1 Approval', 'For L2 Approval'] }
+      });
+    } else {
+      let currentEmp = null;
+      try {
+        const resolved = await resolveEmployee(req);
+        currentEmp = resolved.employee;
+      } catch {
+        return res.json({ success: true, isApprover: false, pendingCount: 0 });
+      }
+
+      const l1Emps = await Employee.find({ l1ApproverId: currentEmp._id }).select('_id');
+      const l2Emps = await Employee.find({ l2ApproverId: currentEmp._id }).select('_id');
+      const l1Ids = l1Emps.map(e => e._id);
+      const l2Ids = l2Emps.map(e => e._id);
+
+      isApprover = l1Ids.length > 0 || l2Ids.length > 0;
+
+      if (isApprover) {
+        pendingCount = await AttendanceApproval.countDocuments({
+          $or: [
+            { employeeId: { $in: l1Ids }, status: 'For L1 Approval' },
+            { employeeId: { $in: l2Ids }, status: 'For L2 Approval' }
+          ]
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      isApprover,
+      pendingCount
     });
   } catch (error) {
     next(error);
@@ -365,6 +423,124 @@ router.post('/attendance/action', async (req, res, next) => {
       success: true,
       data: approval,
       message: `Attendance ${action === 'APPROVE' ? 'approved' : 'rejected'} successfully`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/employee-portal/attendance/all-approvals - List approvals with filters
+router.get('/attendance/all-approvals', async (req, res, next) => {
+  try {
+    const { status, search, employeeId } = req.query;
+    let query = {};
+
+    if (req.user.role === 'admin') {
+      if (status && status !== 'ALL') {
+        query.status = status;
+      }
+      if (employeeId) {
+        query.employeeId = employeeId;
+      }
+      if (search) {
+        query.employeeName = { $regex: search, $options: 'i' };
+      }
+    } else {
+      let currentEmp = null;
+      try {
+        const resolved = await resolveEmployee(req);
+        currentEmp = resolved.employee;
+      } catch {
+        return res.json({ success: true, data: [] });
+      }
+
+      const l1Emps = await Employee.find({ l1ApproverId: currentEmp._id }).select('_id');
+      const l2Emps = await Employee.find({ l2ApproverId: currentEmp._id }).select('_id');
+      const l1Ids = l1Emps.map(e => e._id);
+      const l2Ids = l2Emps.map(e => e._id);
+
+      const assignedEmpIds = [...new Set([...l1Ids.map(String), ...l2Ids.map(String)])];
+
+      query = {
+        employeeId: { $in: assignedEmpIds }
+      };
+
+      if (status && status !== 'ALL') {
+        query.status = status;
+      }
+      if (search) {
+        query.employeeName = { $regex: search, $options: 'i' };
+      }
+    }
+
+    const approvals = await AttendanceApproval.find(query)
+      .populate('employeeId', 'employeeName position l1ApproverName l2ApproverName l2ApproverType')
+      .sort({ updatedAt: -1, createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: approvals
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/employee-portal/attendance/override - Admin overrides any approval directly
+router.post('/attendance/override', async (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') {
+      throw new AppError('Only administrators can override attendance approvals', 403);
+    }
+
+    const { approvalId, action, notes } = req.body;
+    if (!['FORCE_APPROVE', 'FORCE_REJECT'].includes(action)) {
+      throw new AppError('Action must be FORCE_APPROVE or FORCE_REJECT', 400);
+    }
+
+    const approval = await AttendanceApproval.findById(approvalId);
+    if (!approval) throw new AppError('Approval record not found', 404);
+
+    const adminName = req.user.username || 'Admin';
+
+    if (action === 'FORCE_APPROVE') {
+      approval.status = 'Valid';
+      approval.l1ApprovedAt = approval.l1ApprovedAt || new Date();
+      approval.l1ApprovedBy = approval.l1ApprovedBy || adminName;
+      approval.l2ApprovedAt = new Date();
+      approval.l2ApprovedBy = `${adminName} (Admin Override)`;
+      approval.rejectionReason = '';
+
+      approval.history.push({
+        action: 'L2_APPROVED',
+        byRole: 'admin',
+        byId: req.user.employeeId || null,
+        byName: `${adminName} (Admin Override)`,
+        date: new Date(),
+        notes: `[ADMIN OVERRIDE - FORCE APPROVE] ${notes || 'Manually approved by Administrator'}`
+      });
+    } else if (action === 'FORCE_REJECT') {
+      approval.status = 'Invalid';
+      approval.rejectedAt = new Date();
+      approval.rejectedBy = `${adminName} (Admin Override)`;
+      approval.rejectionReason = `[ADMIN OVERRIDE] ${notes || 'Rejected by Administrator'}`;
+
+      approval.history.push({
+        action: 'REJECTED',
+        byRole: 'admin',
+        byId: req.user.employeeId || null,
+        byName: `${adminName} (Admin Override)`,
+        date: new Date(),
+        notes: `[ADMIN OVERRIDE - FORCE REJECT] ${notes || 'Manually rejected by Administrator'}`
+      });
+    }
+
+    await approval.save();
+
+    res.json({
+      success: true,
+      data: approval,
+      message: `Approval overridden to ${approval.status} by administrator`
     });
   } catch (error) {
     next(error);
