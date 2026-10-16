@@ -1601,7 +1601,7 @@ const SchedulesCalendarPage = () => {
                                     onClick={() => setIsExportICalModalOpen(true)}
                                     className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-1.5"
                                 >
-                                    📅 Export to Google Calendar (.ics)
+                                    📅 Sync to Google Calendar
                                 </button>
                                 <button onClick={exportScheduleImage} className="px-4 py-2 bg-sky-600 text-white hover:bg-sky-700 rounded-lg text-sm font-medium">
                                     🖼 Export Image

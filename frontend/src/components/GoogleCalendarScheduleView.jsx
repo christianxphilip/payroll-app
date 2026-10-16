@@ -309,7 +309,7 @@ const GoogleCalendarScheduleView = ({
               onClick={onOpenExportICal}
               className="w-full px-2.5 py-2 bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 rounded-md font-medium whitespace-nowrap"
             >
-              📅 Export .ics
+              📅 Sync to Google Calendar
             </button>
           )}
           {onExportImage && (
