@@ -319,52 +319,16 @@ const EmployeeTimesheetPage = () => {
           </div>
         )}
 
-        {/* View Switcher: My Attendance vs Pending Approvals */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-              {activeTab === 'timesheet' ? 'My Timesheet' : 'Attendance Approvals'}
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              {activeTab === 'timesheet'
-                ? 'Attendance logs synchronized from Odoo and approval workflow.'
-                : 'Review and approve timesheet corrections requested by employees.'}
-            </p>
-          </div>
-
-          {(isApprover || pendingReviewsCount > 0 || user?.role === 'admin') && (
-            <div className="inline-flex rounded-xl bg-gray-200 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('timesheet');
-                  setSearchParams({});
-                }}
-                className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                  activeTab === 'timesheet' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                My Timesheet
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('approvals');
-                  setSearchParams({ tab: 'approvals' });
-                }}
-                className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                  activeTab === 'approvals' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <span>Pending Approvals</span>
-                {pendingReviewsCount > 0 && (
-                  <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                    {pendingReviewsCount}
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
+        {/* Page title – adapts to active tab */}
+        <div className="mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+            {activeTab === 'timesheet' ? 'My Timesheet' : 'Attendance Approvals'}
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            {activeTab === 'timesheet'
+              ? 'Attendance logs synchronized from Odoo and approval workflow.'
+              : 'Review and approve timesheet corrections requested by employees.'}
+          </p>
         </div>
 
         {/* TAB 1: MY TIMESHEET */}

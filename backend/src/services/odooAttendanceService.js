@@ -100,3 +100,26 @@ export const getEmployeeAttendance = async ({ odooEmployeeId, startDate, endDate
     isInvalid: Number(record.color || 0) === 1
   }));
 };
+
+/**
+ * Update an hr.attendance record in Odoo with corrected check_in / check_out values.
+ * Called when an approval request reaches "Valid" status.
+ *
+ * @param {number} odooAttendanceId - The hr.attendance record ID in Odoo
+ * @param {object} fields            - { checkIn?: ISOString, checkOut?: ISOString }
+ */
+export const updateOdooAttendance = async (odooAttendanceId, { checkIn, checkOut }) => {
+  assertConfigured();
+  const vals = {};
+  // Odoo stores datetime as naive UTC strings: "YYYY-MM-DD HH:MM:SS"
+  if (checkIn)  vals.check_in  = new Date(checkIn).toISOString().slice(0, 19).replace('T', ' ');
+  if (checkOut) vals.check_out = new Date(checkOut).toISOString().slice(0, 19).replace('T', ' ');
+  if (Object.keys(vals).length === 0) return; // nothing to update
+
+  if (configuredMode() === 'json2') {
+    await json2Call('hr.attendance', 'write', { ids: [Number(odooAttendanceId)], vals });
+  } else {
+    await legacyCall('hr.attendance', 'write', [[Number(odooAttendanceId)], vals]);
+  }
+};
+

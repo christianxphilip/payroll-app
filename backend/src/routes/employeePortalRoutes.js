@@ -8,7 +8,7 @@ import AttendanceApproval from '../models/AttendanceApproval.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
-import { findOdooEmployeeByName, getEmployeeAttendance } from '../services/odooAttendanceService.js';
+import { findOdooEmployeeByName, getEmployeeAttendance, updateOdooAttendance } from '../services/odooAttendanceService.js';
 
 const router = express.Router();
 
@@ -419,6 +419,23 @@ router.post('/attendance/action', async (req, res, next) => {
 
     await approval.save();
 
+    // --- Sync corrected times back to Odoo when the record is finally approved ---
+    if (approval.status === 'Valid' && approval.odooAttendanceId) {
+      const hasCorrectedIn  = approval.correctedCheckIn  && approval.correctedCheckIn  !== approval.checkIn;
+      const hasCorrectedOut = approval.correctedCheckOut && approval.correctedCheckOut !== approval.checkOut;
+      if (hasCorrectedIn || hasCorrectedOut) {
+        try {
+          await updateOdooAttendance(approval.odooAttendanceId, {
+            checkIn:  hasCorrectedIn  ? approval.correctedCheckIn  : undefined,
+            checkOut: hasCorrectedOut ? approval.correctedCheckOut : undefined
+          });
+        } catch (odooErr) {
+          // Log but don't fail – the approval is already saved in our DB
+          console.error('[Odoo sync] Failed to write corrected attendance:', odooErr.message);
+        }
+      }
+    }
+
     res.json({
       success: true,
       data: approval,
@@ -536,6 +553,22 @@ router.post('/attendance/override', async (req, res, next) => {
     }
 
     await approval.save();
+
+    // --- Sync corrected times back to Odoo when admin force-approves ---
+    if (approval.status === 'Valid' && approval.odooAttendanceId) {
+      const hasCorrectedIn  = approval.correctedCheckIn  && approval.correctedCheckIn  !== approval.checkIn;
+      const hasCorrectedOut = approval.correctedCheckOut && approval.correctedCheckOut !== approval.checkOut;
+      if (hasCorrectedIn || hasCorrectedOut) {
+        try {
+          await updateOdooAttendance(approval.odooAttendanceId, {
+            checkIn:  hasCorrectedIn  ? approval.correctedCheckIn  : undefined,
+            checkOut: hasCorrectedOut ? approval.correctedCheckOut : undefined
+          });
+        } catch (odooErr) {
+          console.error('[Odoo sync] Failed to write corrected attendance (override):', odooErr.message);
+        }
+      }
+    }
 
     res.json({
       success: true,
