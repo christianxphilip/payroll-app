@@ -349,8 +349,11 @@ const GoogleCalendarScheduleView = ({
 
           const daySchedules = filterSchedulesForDate(date);
           const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-          const showTargetGuide = !selectedEmployeeFilter && !selectedAssignmentFilter && !searchTerm;
-          const departments = targetDepartment ? [targetDepartment] : ['bar', 'kitchen'];
+          const showTargetGuide = !selectedEmployeeFilter && !searchTerm;
+          const roleDepartment = ['bar', 'kitchen'].includes(selectedAssignmentFilter.toLowerCase())
+            ? selectedAssignmentFilter.toLowerCase()
+            : '';
+          const departments = targetDepartment ? [targetDepartment] : roleDepartment ? [roleDepartment] : ['bar', 'kitchen'];
           const targetGroups = (showTargetGuide ? departments : []).flatMap((department) =>
             ['opening', 'mid', 'closing'].map((category) => {
               const allocations = shiftAllocations.filter((allocation) => allocation.department === department
