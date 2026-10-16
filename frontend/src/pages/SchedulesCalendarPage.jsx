@@ -123,7 +123,9 @@ const SchedulesCalendarPage = () => {
         const employee = defaultEmployeeName
             ? (employees.find(e => e.employeeName === defaultEmployeeName) || employees[0] || { employeeName: defaultEmployeeName })
             : (employees[0] || { employeeName: '' });
-        setSelectedCell({ employee, date, existing: null, allSchedules: [] });
+        const presetName = String(presetShift?.name || '').toLowerCase();
+        const shiftCategory = ['opening', 'mid', 'closing'].find(category => presetName.includes(category)) || '';
+        setSelectedCell({ employee, date, existing: null, allSchedules: [], shiftCategory });
         setFormData({
             employeeName: employee.employeeName || '',
             scheduledStartTime: presetShift?.startTime || '',
@@ -2184,15 +2186,23 @@ const SchedulesCalendarPage = () => {
                             {shifts.filter(s => {
                                 if (!selectedCell?.date) return false;
                                 const day = selectedCell.date.toLocaleDateString('en-US', { weekday: 'long' });
-                                return s.daysOfWeek.includes(day) || s.daysOfWeek.length === 0;
+                                const matchesDay = s.daysOfWeek.includes(day) || s.daysOfWeek.length === 0;
+                                const matchesCategory = !selectedCell.shiftCategory
+                                    || String(s.name || '').toLowerCase().includes(selectedCell.shiftCategory);
+                                return matchesDay && matchesCategory;
                             }).length === 0 ? (
-                                <p className="text-xs text-gray-500 italic">No shifts configured for this day.</p>
+                                <p className="text-xs text-gray-500 italic">
+                                    No {selectedCell?.shiftCategory ? `${selectedCell.shiftCategory} ` : ''}shifts configured for this day.
+                                </p>
                             ) : (
                                 <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2">
                                     {shifts.filter(s => {
                                         if (!selectedCell?.date) return false;
                                         const day = selectedCell.date.toLocaleDateString('en-US', { weekday: 'long' });
-                                        return s.daysOfWeek.includes(day);
+                                        const matchesDay = s.daysOfWeek.includes(day) || s.daysOfWeek.length === 0;
+                                        const matchesCategory = !selectedCell.shiftCategory
+                                            || String(s.name || '').toLowerCase().includes(selectedCell.shiftCategory);
+                                        return matchesDay && matchesCategory;
                                     }).map(s => (
                                         <div
                                             key={s._id}
