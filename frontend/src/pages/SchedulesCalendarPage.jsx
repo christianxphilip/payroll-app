@@ -1495,10 +1495,10 @@ const SchedulesCalendarPage = () => {
                     onDateRangeChange={handleDateRangeChange}
                     user={user}
                     onOpenExportICal={() => setIsExportICalModalOpen(true)}
-                    onOpenShiftTargets={() => {
+                    onOpenShiftTargets={user?.role === 'admin' ? () => {
                         if (user?.role === 'admin' && adminTeamFilter) setShiftTargetDepartment(adminTeamFilter);
                         setIsShiftTargetsModalOpen(true);
-                    }}
+                    } : undefined}
                     onComputeSalary={handleComputeEstimatedSalary}
                     loadingEstimatedSalary={loadingEstimatedSalary}
                     viewMode={calendarViewMode}

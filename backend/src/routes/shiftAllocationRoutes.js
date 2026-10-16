@@ -1,6 +1,6 @@
 import express from 'express';
 import ShiftAllocation from '../models/ShiftAllocation.js';
-import { authenticate } from '../middleware/authMiddleware.js';
+import { authenticate, authorize } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -32,7 +32,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /api/shift-allocations - Upsert allocations
-router.post('/', async (req, res, next) => {
+router.post('/', authorize(['admin']), async (req, res, next) => {
     try {
         const { allocations } = req.body; // Expect array of { dayOfWeek, shiftId, requiredCount }
 
@@ -44,7 +44,7 @@ router.post('/', async (req, res, next) => {
         for (const alloc of allocations) {
             const { dayOfWeek, shiftId, requiredCount } = alloc;
             const requestedDepartment = String(alloc.department || '').toLowerCase();
-            const department = req.user.role === 'manager' ? req.user.managerScope : requestedDepartment;
+            const department = requestedDepartment;
             if (!['bar', 'kitchen'].includes(department)) {
                 return res.status(400).json({ error: 'Department must be bar or kitchen' });
             }
