@@ -532,24 +532,25 @@ const SchedulesCalendarPage = () => {
     };
 
     const handleSaveShiftAllocations = async () => {
+        setScheduleAction(user?.role === 'admin' ? 'Saving Bar and Kitchen targets…' : `Saving ${user?.managerScope || ''} targets…`);
         try {
             const allocationsToSave = [];
-            const department = user?.role === 'manager' ? user.managerScope : shiftTargetDepartment;
+            const departments = user?.role === 'manager' ? [user.managerScope] : ['bar', 'kitchen'];
 
             // Iterate through all shifts and days
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-            shifts.forEach(shift => {
-                days.forEach(day => {
-                    const key = `${department}_${day}_${shift._id}`;
-                    if (editingAllocations[key] !== undefined) {
+            departments.forEach(department => {
+                shifts.forEach(shift => {
+                    days.forEach(day => {
+                        const key = `${department}_${day}_${shift._id}`;
                         allocationsToSave.push({
                             dayOfWeek: day,
                             shiftId: shift._id,
                             department,
                             requiredCount: parseInt(editingAllocations[key]) || 0
                         });
-                    }
+                    });
                 });
             });
 
@@ -559,6 +560,8 @@ const SchedulesCalendarPage = () => {
             fetchShiftAllocations();
         } catch (error) {
             showMessage('error', 'Failed to save shift targets');
+        } finally {
+            setScheduleAction('');
         }
     };
 
@@ -773,6 +776,7 @@ const SchedulesCalendarPage = () => {
         }
 
         try {
+            setScheduleAction('Deleting schedule…');
             // Delete all schedules for this employee/date
             for (const schedule of existingSchedules) {
                 await scheduleAPI.delete(schedule._id);
@@ -781,6 +785,8 @@ const SchedulesCalendarPage = () => {
             fetchSchedules();
         } catch (error) {
             showMessage('error', 'Failed to delete schedule(s)');
+        } finally {
+            setScheduleAction('');
         }
 
         setContextMenu(null);
@@ -875,6 +881,7 @@ const SchedulesCalendarPage = () => {
         // Save schedule data for undo
         const scheduleToDelete = JSON.parse(JSON.stringify(selectedCell.existing));
 
+        setScheduleAction('Deleting schedule…');
         try {
             await scheduleAPI.delete(selectedCell.existing._id);
 
@@ -898,6 +905,8 @@ const SchedulesCalendarPage = () => {
             fetchSchedules();
         } catch (error) {
             showMessage('error', 'Failed to delete schedule');
+        } finally {
+            setScheduleAction('');
         }
     };
 
@@ -964,6 +973,7 @@ const SchedulesCalendarPage = () => {
 
     const handleOperatingHoursSave = async () => {
         if (editingHours) {
+            setScheduleAction('Saving operating hours…');
             try {
                 const date = new Date(editingHours.date);
                 const hoursValue = editingHours.value.trim();
@@ -1023,6 +1033,8 @@ const SchedulesCalendarPage = () => {
             } catch (error) {
                 console.error('Failed to save operating hours:', error);
                 showMessage('error', 'Failed to save operating hours');
+            } finally {
+                setScheduleAction('');
             }
         }
     };
@@ -1462,7 +1474,11 @@ const SchedulesCalendarPage = () => {
                     assignmentTypes={assignmentTypes}
                     operatingHours={operatingHours}
                     holidays={holidays}
-                    shiftAllocations={shiftAllocations.filter(allocation => allocation.department === (user?.role === 'manager' ? user.managerScope : adminTeamFilter))}
+                    shiftAllocations={shiftAllocations.filter(allocation => {
+                        const activeDepartment = user?.role === 'manager' ? user.managerScope : adminTeamFilter;
+                        return !activeDepartment || allocation.department === activeDepartment;
+                    })}
+                    targetDepartment={user?.role === 'manager' ? user.managerScope : adminTeamFilter}
                     getAssignmentColor={getAssignmentColor}
                     getScheduleVisual={getScheduleVisual}
                     canEditSchedule={(schedule) => {

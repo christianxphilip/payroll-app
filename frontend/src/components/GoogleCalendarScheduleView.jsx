@@ -8,6 +8,7 @@ const GoogleCalendarScheduleView = ({
   operatingHours,
   holidays,
   shiftAllocations = [],
+  targetDepartment = '',
   getAssignmentColor,
   getScheduleVisual,
   canEditSchedule,
@@ -349,17 +350,26 @@ const GoogleCalendarScheduleView = ({
           const daySchedules = filterSchedulesForDate(date);
           const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
           const showTargetGuide = !selectedEmployeeFilter && !selectedAssignmentFilter && !searchTerm;
-          const targetGroups = (showTargetGuide ? ['opening', 'mid', 'closing'] : []).map((category) => {
-            const allocations = shiftAllocations.filter((allocation) => allocation.dayOfWeek === dayName
-              && Number(allocation.requiredCount) > 0
-              && getShiftCategory(allocation.shiftId?.name) === category);
-            return {
-              category,
-              allocations,
-              required: allocations.reduce((total, allocation) => total + Number(allocation.requiredCount || 0), 0),
-              schedules: daySchedules.filter((schedule) => getShiftCategory(getScheduleVisual?.(schedule)?.shiftName) === category)
-            };
-          }).filter((group) => group.required > 0);
+          const departments = targetDepartment ? [targetDepartment] : ['bar', 'kitchen'];
+          const targetGroups = (showTargetGuide ? departments : []).flatMap((department) =>
+            ['opening', 'mid', 'closing'].map((category) => {
+              const allocations = shiftAllocations.filter((allocation) => allocation.department === department
+                && allocation.dayOfWeek === dayName
+                && Number(allocation.requiredCount) > 0
+                && getShiftCategory(allocation.shiftId?.name) === category);
+              return {
+                department,
+                category,
+                allocations,
+                required: allocations.reduce((total, allocation) => total + Number(allocation.requiredCount || 0), 0),
+                schedules: daySchedules.filter((schedule) => {
+                  const scheduleDepartment = String(schedule.assignmentType || '').toLowerCase();
+                  return scheduleDepartment === department
+                    && getShiftCategory(getScheduleVisual?.(schedule)?.shiftName) === category;
+                })
+              };
+            }).filter((group) => group.required > 0)
+          );
           const categorizedSchedules = new Set(targetGroups.flatMap((group) => group.schedules.map((schedule) => schedule._id)));
           const otherSchedules = daySchedules.filter((schedule) => !categorizedSchedules.has(schedule._id));
           const holiday = holidays[dateStr];
@@ -428,9 +438,15 @@ const GoogleCalendarScheduleView = ({
                       {targetGroups.map((group, groupIndex) => {
                         const presetShift = group.allocations[0]?.shiftId;
                         const missingCount = Math.max(0, group.required - group.schedules.length);
+                        const startsDepartment = groupIndex === 0 || targetGroups[groupIndex - 1].department !== group.department;
                         return (
-                          <React.Fragment key={group.category}>
-                            {groupIndex > 0 && (
+                          <React.Fragment key={`${group.department}-${group.category}`}>
+                            {startsDepartment && !targetDepartment && (
+                              <div className={`mt-2 rounded-md px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider ${group.department === 'bar' ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white'}`}>
+                                {group.department} targets
+                              </div>
+                            )}
+                            {!startsDepartment && (
                               <div className="flex items-center gap-2 py-1" aria-label="Add optional shift between targets">
                                 <div className="h-px flex-1 bg-gray-200" />
                                 <button type="button" onClick={() => onAddSchedule(date)} className="h-6 w-6 rounded-full border border-dashed border-gray-300 bg-white text-sm font-bold text-gray-500 hover:border-blue-400 hover:text-blue-600">+</button>
