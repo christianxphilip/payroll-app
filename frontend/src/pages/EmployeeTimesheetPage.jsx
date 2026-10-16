@@ -15,22 +15,35 @@ const odooDate = (value) => value ? new Date(value.includes('T') ? value : `${va
 const EmployeeTimesheetPage = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const today = new Date();
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const [startDate, setStartDate] = useState(localDate(monthStart));
-  const [endDate, setEndDate] = useState(localDate(today));
+  const [page, setPage] = useState(0);
+  const [range, setRange] = useState({ startDate: '', endDate: '' });
+  const [limits, setLimits] = useState(null);
   const [records, setRecords] = useState([]);
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadAttendance = async () => {
+  const getPageRange = (pageNumber, earliestDate) => {
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+    end.setDate(end.getDate() - (pageNumber * 7));
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    if (earliestDate) {
+      const earliest = new Date(`${earliestDate}T00:00:00`);
+      if (start < earliest) start.setTime(earliest.getTime());
+    }
+    return { startDate: localDate(start), endDate: localDate(end) };
+  };
+
+  const loadAttendance = async (requestedRange) => {
     try {
       setLoading(true);
       setError('');
-      const response = await employeePortalAPI.getAttendance(startDate, endDate);
+      const response = await employeePortalAPI.getAttendance(requestedRange.startDate, requestedRange.endDate);
       setRecords(response.data || []);
       setEmployee(response.employee || null);
+      setLimits(response.limits || null);
     } catch (err) {
       setRecords([]);
       setError(err.response?.data?.error || 'Failed to load attendance from Odoo.');
@@ -39,7 +52,11 @@ const EmployeeTimesheetPage = () => {
     }
   };
 
-  useEffect(() => { loadAttendance(); }, []);
+  useEffect(() => {
+    const requestedRange = getPageRange(page, limits?.earliestDate);
+    setRange(requestedRange);
+    loadAttendance(requestedRange);
+  }, [page]);
 
   const formatDateTime = (value) => {
     const date = odooDate(value);
@@ -70,11 +87,31 @@ const EmployeeTimesheetPage = () => {
           <p className="mt-1 text-sm text-gray-500">Attendance records synchronized from Odoo.</p>
         </div>
 
-        <form onSubmit={(event) => { event.preventDefault(); loadAttendance(); }} className="mb-5 grid grid-cols-2 gap-3 rounded-xl border bg-white p-4 sm:flex sm:items-end">
-          <label className="text-xs font-semibold text-gray-600">Start Date<input type="date" value={startDate} onChange={event => setStartDate(event.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-gray-300 px-2 text-sm" /></label>
-          <label className="text-xs font-semibold text-gray-600">End Date<input type="date" value={endDate} onChange={event => setEndDate(event.target.value)} className="mt-1 block h-10 w-full rounded-lg border border-gray-300 px-2 text-sm" /></label>
-          <button disabled={loading} className="col-span-2 h-10 rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{loading ? 'Loading…' : 'View Attendance'}</button>
-        </form>
+        <div className="mb-5 flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Seven-day attendance window</div>
+            <div className="mt-1 text-sm font-bold text-gray-900">{range.startDate} – {range.endDate}</div>
+            <div className="mt-1 text-xs text-gray-500">Only attendance from the latest month is available.</div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={loading || Boolean(limits?.earliestDate && range.startDate <= limits.earliestDate)}
+              onClick={() => setPage(current => current + 1)}
+              className="h-10 rounded-lg border border-gray-300 px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+            >
+              ← Previous 7 Days
+            </button>
+            <button
+              type="button"
+              disabled={loading || page === 0}
+              onClick={() => setPage(current => Math.max(0, current - 1))}
+              className="h-10 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
+            >
+              Newer 7 Days →
+            </button>
+          </div>
+        </div>
 
         {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
 

@@ -57,6 +57,19 @@ router.get('/attendance', async (req, res, next) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) {
       throw new AppError('A valid start and end date are required', 400);
     }
+    const manilaToday = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
+    const today = new Date(`${manilaToday}T00:00:00Z`);
+    const earliest = new Date(today);
+    earliest.setUTCMonth(earliest.getUTCMonth() - 1);
+    const requestedStart = new Date(`${startDate}T00:00:00Z`);
+    const requestedEnd = new Date(`${endDate}T00:00:00Z`);
+    const rangeDays = Math.floor((requestedEnd - requestedStart) / 86400000) + 1;
+    if (requestedStart < earliest || requestedEnd > today) {
+      throw new AppError('Attendance is limited to the latest one month', 400);
+    }
+    if (rangeDays > 7) throw new AppError('Attendance can be viewed seven days at a time', 400);
 
     let odooEmployeeId = employee.odooEmployeeId;
     let linkedByName = false;
@@ -74,7 +87,12 @@ router.get('/attendance', async (req, res, next) => {
       success: true,
       data: attendance,
       employee: { id: employee._id, name: employee.employeeName, odooEmployeeId },
-      linkedByName
+      linkedByName,
+      limits: {
+        earliestDate: earliest.toISOString().slice(0, 10),
+        latestDate: today.toISOString().slice(0, 10),
+        maximumDays: 7
+      }
     });
   } catch (error) {
     next(error);

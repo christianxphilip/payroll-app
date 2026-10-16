@@ -73,7 +73,8 @@ export const findOdooEmployeeByName = async (employeeName) => {
 };
 
 const odooDateTime = (date, endOfRange = false) => {
-  const value = new Date(`${date}T00:00:00Z`);
+  // Odoo stores naive UTC datetimes; attendance days are interpreted in Manila time.
+  const value = new Date(`${date}T00:00:00+08:00`);
   if (endOfRange) value.setUTCDate(value.getUTCDate() + 1);
   return value.toISOString().slice(0, 19).replace('T', ' ');
 };
