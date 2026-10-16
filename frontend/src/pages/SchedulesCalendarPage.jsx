@@ -111,22 +111,24 @@ const SchedulesCalendarPage = () => {
             scheduledStartTime: schedule.scheduledStartTime || '',
             scheduledEndTime: schedule.scheduledEndTime || '',
             scheduledDuration: schedule.scheduledDuration || '',
+            shiftName: schedule.shiftName || getScheduleShift(schedule)?.name || '',
             assignmentType: validAssignmentType,
             notes: schedule.notes || ''
         });
         setIsModalOpen(true);
     };
 
-    const handleAddScheduleFromAgenda = (date, defaultEmployeeName = '') => {
+    const handleAddScheduleFromAgenda = (date, defaultEmployeeName = '', presetShift = null) => {
         const employee = defaultEmployeeName
             ? (employees.find(e => e.employeeName === defaultEmployeeName) || employees[0] || { employeeName: defaultEmployeeName })
             : (employees[0] || { employeeName: '' });
         setSelectedCell({ employee, date, existing: null, allSchedules: [] });
         setFormData({
             employeeName: employee.employeeName || '',
-            scheduledStartTime: '',
-            scheduledEndTime: '',
-            scheduledDuration: '',
+            scheduledStartTime: presetShift?.startTime || '',
+            scheduledEndTime: presetShift?.endTime || '',
+            scheduledDuration: presetShift ? calculateDuration(presetShift.startTime, presetShift.endTime) : '',
+            shiftName: presetShift?.name || '',
             assignmentType: assignmentTypes.length > 0 ? assignmentTypes[0].value : '',
             notes: ''
         });
@@ -199,6 +201,7 @@ const SchedulesCalendarPage = () => {
         scheduledStartTime: '',
         scheduledEndTime: '',
         scheduledDuration: '',
+        shiftName: '',
         assignmentType: '',
         notes: ''
     });
@@ -665,6 +668,7 @@ const SchedulesCalendarPage = () => {
                 scheduledStartTime: existing.scheduledStartTime || '',
                 scheduledEndTime: existing.scheduledEndTime || '',
                 scheduledDuration: existing.scheduledDuration || '',
+                shiftName: existing.shiftName || getScheduleShift(existing)?.name || '',
                 assignmentType: validAssignmentType,
                 notes: existing.notes || ''
             });
@@ -674,6 +678,7 @@ const SchedulesCalendarPage = () => {
                 scheduledStartTime: '',
                 scheduledEndTime: '',
                 scheduledDuration: '',
+                shiftName: '',
                 assignmentType: assignmentTypes.length > 0 ? assignmentTypes[0].value : '',
                 notes: ''
             });
@@ -723,6 +728,7 @@ const SchedulesCalendarPage = () => {
                 scheduledStartTime: '',
                 scheduledEndTime: '',
                 scheduledDuration: '',
+                shiftName: '',
                 assignmentType: assignmentTypes.length > 0 ? assignmentTypes[0].value : '',
                 notes: ''
             });
@@ -796,7 +802,8 @@ const SchedulesCalendarPage = () => {
                 scheduledDuration: duration,
                 isOff: !formData.scheduledStartTime, // OFF if no time
                 notes: formData.notes,
-                assignmentType: formData.assignmentType
+                assignmentType: formData.assignmentType,
+                shiftName: formData.shiftName || getShiftForTimes(formData.scheduledStartTime, formData.scheduledEndTime)?.name || ''
             };
 
             // Save old schedule data for undo if updating
@@ -1069,8 +1076,13 @@ const SchedulesCalendarPage = () => {
             && normalize(shift.endTime) === normalize(schedule.scheduledEndTime);
     });
 
+    const getShiftForTimes = (startTime, endTime) => getScheduleShift({
+        scheduledStartTime: startTime,
+        scheduledEndTime: endTime
+    });
+
     const getScheduleVisual = (schedule) => {
-        const shiftName = getScheduleShift(schedule)?.name || '';
+        const shiftName = schedule.shiftName || getScheduleShift(schedule)?.name || '';
         const name = shiftName.toLowerCase();
         const backgroundColor = name.includes('opening') ? '#dbeafe'
             : name.includes('mid') ? '#dcfce7'
@@ -1443,6 +1455,7 @@ const SchedulesCalendarPage = () => {
                     assignmentTypes={assignmentTypes}
                     operatingHours={operatingHours}
                     holidays={holidays}
+                    shiftAllocations={shiftAllocations}
                     getAssignmentColor={getAssignmentColor}
                     getScheduleVisual={getScheduleVisual}
                     canEditSchedule={(schedule) => {
@@ -1884,7 +1897,14 @@ const SchedulesCalendarPage = () => {
                                                             <div className="space-y-1">
                                                                 {cellSchedules.map((schedule, idx) => (
                                                                     schedule.isOff ? (
-                                                                        <div key={idx} className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-sm font-semibold">
+                                                                        <div
+                                                                            key={idx}
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                handleEditScheduleFromAgenda(schedule);
+                                                                            }}
+                                                                            className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-sm font-semibold"
+                                                                        >
                                                                             OFF
                                                                         </div>
                                                                     ) : (
@@ -1896,6 +1916,10 @@ const SchedulesCalendarPage = () => {
                                                                             className="px-2 py-1 rounded text-sm font-semibold"
                                                                             style={{ backgroundColor: visual.backgroundColor, color: visual.textColor, borderLeft: `5px solid ${visual.assignmentColor}` }}
                                                                             draggable
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                handleEditScheduleFromAgenda(schedule);
+                                                                            }}
                                                                             onDragStart={(e) => handleDragStart(e, schedule, employee, date)}
                                                                             onDragEnd={handleDragEnd}
                                                                         >
@@ -2171,7 +2195,8 @@ const SchedulesCalendarPage = () => {
                                                     ...formData,
                                                     scheduledStartTime: s.startTime,
                                                     scheduledEndTime: s.endTime,
-                                                    scheduledDuration: newDuration > 0 ? (newDuration % 1 === 0 ? newDuration.toString() : newDuration.toFixed(2)) : formData.scheduledDuration
+                                                    scheduledDuration: newDuration > 0 ? (newDuration % 1 === 0 ? newDuration.toString() : newDuration.toFixed(2)) : formData.scheduledDuration,
+                                                    shiftName: s.name
                                                 });
                                             }}
                                         >
@@ -2226,6 +2251,7 @@ const SchedulesCalendarPage = () => {
                                     setFormData({
                                         ...formData,
                                         scheduledStartTime: newStartTime,
+                                        shiftName: getShiftForTimes(newStartTime, formData.scheduledEndTime)?.name || '',
                                         scheduledDuration: newDuration > 0 ? (newDuration % 1 === 0 ? newDuration.toString() : newDuration.toFixed(2)) : formData.scheduledDuration
                                     });
                                 }}
@@ -2246,6 +2272,7 @@ const SchedulesCalendarPage = () => {
                                     setFormData({
                                         ...formData,
                                         scheduledEndTime: newEndTime,
+                                        shiftName: getShiftForTimes(formData.scheduledStartTime, newEndTime)?.name || '',
                                         scheduledDuration: newDuration > 0 ? (newDuration % 1 === 0 ? newDuration.toString() : newDuration.toFixed(2)) : formData.scheduledDuration
                                     });
                                 }}

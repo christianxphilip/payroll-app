@@ -7,6 +7,7 @@ const GoogleCalendarScheduleView = ({
   assignmentTypes,
   operatingHours,
   holidays,
+  shiftAllocations = [],
   getAssignmentColor,
   getScheduleVisual,
   canEditSchedule,
@@ -107,6 +108,52 @@ const GoogleCalendarScheduleView = ({
   const getAssignmentLabel = (typeCode) => {
     const found = assignmentTypes.find((a) => a.value === typeCode);
     return found ? found.label.toUpperCase() : (typeCode || 'GENERAL').toUpperCase();
+  };
+
+  const getShiftCategory = (name = '') => {
+    const normalized = name.toLowerCase();
+    if (normalized.includes('opening')) return 'opening';
+    if (normalized.includes('mid')) return 'mid';
+    if (normalized.includes('closing')) return 'closing';
+    return 'other';
+  };
+
+  const targetStyles = {
+    opening: { backgroundColor: '#eff6ff', borderColor: '#93c5fd', color: '#1e40af' },
+    mid: { backgroundColor: '#f0fdf4', borderColor: '#86efac', color: '#166534' },
+    closing: { backgroundColor: '#faf5ff', borderColor: '#d8b4fe', color: '#6b21a8' }
+  };
+
+  const renderScheduleCard = (schedule, key) => {
+    const color = getAssignmentColor(schedule.assignmentType);
+    const visual = getScheduleVisual ? getScheduleVisual(schedule) : { backgroundColor: '#ffffff', textColor: '#111827', assignmentColor: color, shiftName: '' };
+    const editable = canEditSchedule ? canEditSchedule(schedule) : true;
+
+    return (
+      <div
+        key={key}
+        onClick={() => editable && onEditSchedule(schedule)}
+        className={`group flex items-start sm:items-center gap-3 p-2.5 rounded-lg border transition-all ${editable ? 'hover:shadow-sm cursor-pointer' : 'cursor-not-allowed opacity-75'}`}
+        style={{ backgroundColor: editable ? visual.backgroundColor : '#e5e7eb', borderColor: visual.assignmentColor, borderLeftWidth: '5px', color: visual.textColor }}
+      >
+        <div className="mt-1 sm:mt-0 w-4 flex items-center justify-center shrink-0">
+          {schedule.isOff ? <div className="w-3 h-3 rounded-full border-2 border-gray-400 bg-white" /> : <div className="w-3 h-3 rounded-full shadow-xs shrink-0" style={{ backgroundColor: color }} />}
+        </div>
+        <div className="w-24 sm:w-28 text-xs sm:text-sm font-semibold text-gray-700 shrink-0">
+          {schedule.isOff ? 'OFF' : formatTimeRange(schedule.scheduledStartTime, schedule.scheduledEndTime)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+            Shift: <span className="font-semibold">{schedule.employeeName}</span>{' '}
+            <span className="text-xs font-normal text-gray-600">({getAssignmentLabel(schedule.assignmentType)})</span>
+            {schedule.notes && <span className="text-xs font-normal text-gray-500 italic ml-1.5">({schedule.notes})</span>}
+          </div>
+          <div className="text-[11px] text-gray-400 font-medium tracking-wide">{[visual.shiftName, 'ESPRO Coffee'].filter(Boolean).join(' • ')}</div>
+          {schedule.createdBy && <div className="mt-0.5 text-[9px] leading-none text-gray-400">Added by {schedule.createdBy}</div>}
+        </div>
+        <div className="text-gray-500 text-xs shrink-0">{editable ? '✏️ Edit' : `🔒 ${schedule.assignmentType}`}</div>
+      </div>
+    );
   };
 
   return (
@@ -300,6 +347,21 @@ const GoogleCalendarScheduleView = ({
           const weekdayStr = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 
           const daySchedules = filterSchedulesForDate(date);
+          const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+          const showTargetGuide = !selectedEmployeeFilter && !selectedAssignmentFilter && !searchTerm;
+          const targetGroups = (showTargetGuide ? ['opening', 'mid', 'closing'] : []).map((category) => {
+            const allocations = shiftAllocations.filter((allocation) => allocation.dayOfWeek === dayName
+              && Number(allocation.requiredCount) > 0
+              && getShiftCategory(allocation.shiftId?.name) === category);
+            return {
+              category,
+              allocations,
+              required: allocations.reduce((total, allocation) => total + Number(allocation.requiredCount || 0), 0),
+              schedules: daySchedules.filter((schedule) => getShiftCategory(getScheduleVisual?.(schedule)?.shiftName) === category)
+            };
+          }).filter((group) => group.required > 0);
+          const categorizedSchedules = new Set(targetGroups.flatMap((group) => group.schedules.map((schedule) => schedule._id)));
+          const otherSchedules = daySchedules.filter((schedule) => !categorizedSchedules.has(schedule._id));
           const holiday = holidays[dateStr];
           const operatingHourStr = operatingHours[dateStr];
 
@@ -361,7 +423,38 @@ const GoogleCalendarScheduleView = ({
 
                 {/* Right Timeline & Shifts Area */}
                 <div className="flex-1 w-full space-y-1">
-                  {daySchedules.length === 0 ? (
+                  {targetGroups.length > 0 ? (
+                    <>
+                      {targetGroups.map((group, groupIndex) => {
+                        const presetShift = group.allocations[0]?.shiftId;
+                        const missingCount = Math.max(0, group.required - group.schedules.length);
+                        return (
+                          <React.Fragment key={group.category}>
+                            {groupIndex > 0 && (
+                              <div className="flex items-center gap-2 py-1" aria-label="Add optional shift between targets">
+                                <div className="h-px flex-1 bg-gray-200" />
+                                <button type="button" onClick={() => onAddSchedule(date)} className="h-6 w-6 rounded-full border border-dashed border-gray-300 bg-white text-sm font-bold text-gray-500 hover:border-blue-400 hover:text-blue-600">+</button>
+                                <div className="h-px flex-1 bg-gray-200" />
+                              </div>
+                            )}
+                            {group.schedules.map((schedule, index) => renderScheduleCard(schedule, schedule._id || `${group.category}-${index}`))}
+                            {Array.from({ length: missingCount }, (_, index) => (
+                              <button
+                                type="button"
+                                key={`${group.category}-target-${index}`}
+                                onClick={() => onAddSchedule(date, '', presetShift)}
+                                className="w-full rounded-lg border border-dashed px-3 py-2 text-left text-xs sm:text-sm font-semibold transition hover:brightness-95"
+                                style={targetStyles[group.category]}
+                              >
+                                + Add {group.category.charAt(0).toUpperCase() + group.category.slice(1)}
+                              </button>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
+                      {otherSchedules.map((schedule, index) => renderScheduleCard(schedule, schedule._id || `other-${index}`))}
+                    </>
+                  ) : daySchedules.length === 0 ? (
                     <div className="py-2 text-xs sm:text-sm text-gray-400 italic flex items-center justify-between">
                       <span>No shifts scheduled</span>
                       <button
@@ -372,73 +465,7 @@ const GoogleCalendarScheduleView = ({
                       </button>
                     </div>
                   ) : (
-                    daySchedules.map((schedule, schedIdx) => {
-                      const color = getAssignmentColor(schedule.assignmentType);
-                      const visual = getScheduleVisual ? getScheduleVisual(schedule) : { backgroundColor: '#ffffff', textColor: '#111827', assignmentColor: color, shiftName: '' };
-                      const editable = canEditSchedule ? canEditSchedule(schedule) : true;
-
-                      return (
-                        <React.Fragment key={schedule._id || schedIdx}>
-                          {/* Event Card / Timeline Item */}
-                          <div
-                            onClick={() => editable && onEditSchedule(schedule)}
-                            className={`group flex items-start sm:items-center gap-3 p-2.5 rounded-lg border transition-all ${editable ? 'hover:shadow-sm cursor-pointer' : 'cursor-not-allowed opacity-75'}`}
-                            style={{ backgroundColor: editable ? visual.backgroundColor : '#e5e7eb', borderColor: visual.assignmentColor, borderLeftWidth: '5px', color: visual.textColor }}
-                          >
-                            {/* Dot Indicator */}
-                            <div className="mt-1 sm:mt-0 w-4 flex items-center justify-center shrink-0">
-                              {schedule.isOff ? (
-                                <div className="w-3 h-3 rounded-full border-2 border-gray-400 bg-white" />
-                              ) : (
-                                <div
-                                  className="w-3 h-3 rounded-full shadow-xs shrink-0"
-                                  style={{ backgroundColor: color }}
-                                />
-                              )}
-                            </div>
-
-                            {/* Time String (e.g. 5pm – 2am) */}
-                            <div className="w-24 sm:w-28 text-xs sm:text-sm font-semibold text-gray-700 shrink-0">
-                              {schedule.isOff
-                                ? 'OFF'
-                                : formatTimeRange(
-                                    schedule.scheduledStartTime,
-                                    schedule.scheduledEndTime
-                                  )}
-                            </div>
-
-                            {/* Shift Title & Subtitle */}
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs sm:text-sm font-bold text-gray-900 truncate">
-                                Shift:{' '}
-                                <span className="font-semibold">{schedule.employeeName}</span>{' '}
-                                <span className="text-xs font-normal text-gray-600">
-                                  ({getAssignmentLabel(schedule.assignmentType)})
-                                </span>
-                                {schedule.notes && (
-                                  <span className="text-xs font-normal text-gray-500 italic ml-1.5">
-                                    ({schedule.notes})
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] text-gray-400 font-medium tracking-wide">
-                                {[visual.shiftName, 'ESPRO Coffee'].filter(Boolean).join(' • ')}
-                              </div>
-                              {schedule.createdBy && (
-                                <div className="mt-0.5 text-[9px] leading-none text-gray-400">
-                                  Added by {schedule.createdBy}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Edit Pencil Icon */}
-                            <div className="text-gray-500 text-xs shrink-0">
-                              {editable ? '✏️ Edit' : `🔒 ${schedule.assignmentType}`}
-                            </div>
-                          </div>
-                        </React.Fragment>
-                      );
-                    })
+                    daySchedules.map((schedule, schedIdx) => renderScheduleCard(schedule, schedule._id || schedIdx))
                   )}
 
                   {/* Red Current Time Line Indicator for Today */}
