@@ -27,7 +27,6 @@ const EmployeeTimesheetPage = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') === 'approvals' ? 'approvals' : 'timesheet');
   const [page, setPage] = useState(0);
   const [range, setRange] = useState({ startDate: '', endDate: '' });
-  const [limits, setLimits] = useState(null);
   const [records, setRecords] = useState([]);
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,17 +63,20 @@ const EmployeeTimesheetPage = () => {
     setTimeout(() => setMessage({ type: '', text: '' }), 4000);
   };
 
-  const getPageRange = (pageNumber, earliestDate) => {
-    const end = new Date();
-    end.setHours(0, 0, 0, 0);
-    end.setDate(end.getDate() - (pageNumber * 7));
-    const start = new Date(end);
-    start.setDate(start.getDate() - 6);
-    if (earliestDate) {
-      const earliest = new Date(`${earliestDate}T00:00:00`);
-      if (start < earliest) start.setTime(earliest.getTime());
-    }
-    return { startDate: localDate(start), endDate: localDate(end) };
+  const cutoffFor = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    return date.getDate() <= 15
+      ? { startDate: localDate(new Date(year, month, 1)), endDate: localDate(new Date(year, month, 15)) }
+      : { startDate: localDate(new Date(year, month, 16)), endDate: localDate(new Date(year, month + 1, 0)) };
+  };
+
+  const getPageRange = (pageNumber) => {
+    const currentCutoff = cutoffFor(new Date());
+    if (pageNumber === 0) return currentCutoff;
+    const previousDay = new Date(`${currentCutoff.startDate}T00:00:00`);
+    previousDay.setDate(previousDay.getDate() - 1);
+    return cutoffFor(previousDay);
   };
 
   const loadAttendance = async (requestedRange) => {
@@ -84,7 +86,6 @@ const EmployeeTimesheetPage = () => {
       const response = await employeePortalAPI.getAttendance(requestedRange.startDate, requestedRange.endDate);
       setRecords(response.data || []);
       setEmployee(response.employee || null);
-      setLimits(response.limits || null);
       setIsApprover(Boolean(response.isApprover || response.employee?.isApprover));
       setPendingReviewsCount(response.pendingReviewsCount || 0);
     } catch (err) {
@@ -109,7 +110,7 @@ const EmployeeTimesheetPage = () => {
   };
 
   useEffect(() => {
-    const requestedRange = getPageRange(page, limits?.earliestDate);
+    const requestedRange = getPageRange(page);
     setRange(requestedRange);
     loadAttendance(requestedRange);
   }, [page]);
@@ -357,23 +358,23 @@ const EmployeeTimesheetPage = () => {
             <div className="mb-5 flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Seven-day attendance window
+                  Payroll cutoff
                 </div>
                 <div className="mt-1 text-sm font-bold text-gray-900">
                   {range.startDate} – {range.endDate}
                 </div>
                 <div className="mt-1 text-xs text-gray-500">
-                  Only attendance from the latest month is available.
+                  Showing the current or immediately previous payroll cutoff.
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  disabled={loading || Boolean(limits?.earliestDate && range.startDate <= limits.earliestDate)}
-                  onClick={() => setPage(current => current + 1)}
+                  disabled={loading || page >= 1}
+                  onClick={() => setPage(1)}
                   className="h-10 rounded-lg border border-gray-300 px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                 >
-                  ← Previous 7 Days
+                  ← Previous Cutoff
                 </button>
                 <button
                   type="button"
@@ -381,7 +382,7 @@ const EmployeeTimesheetPage = () => {
                   onClick={() => setPage(current => Math.max(0, current - 1))}
                   className="h-10 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
                 >
-                  Newer 7 Days →
+                  Current Cutoff →
                 </button>
               </div>
             </div>

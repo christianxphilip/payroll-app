@@ -81,15 +81,26 @@ router.get('/attendance', async (req, res, next) => {
       timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
     }).format(new Date());
     const today = new Date(`${manilaToday}T00:00:00Z`);
-    const earliest = new Date(today);
-    earliest.setUTCMonth(earliest.getUTCMonth() - 1);
-    const requestedStart = new Date(`${startDate}T00:00:00Z`);
-    const requestedEnd = new Date(`${endDate}T00:00:00Z`);
-    const rangeDays = Math.floor((requestedEnd - requestedStart) / 86400000) + 1;
-    if (requestedStart < earliest || requestedEnd > today) {
-      throw new AppError('Attendance is limited to the latest one month', 400);
+    const formatDate = date => date.toISOString().slice(0, 10);
+    const cutoffFor = date => {
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth();
+      const day = date.getUTCDate();
+      return day <= 15
+        ? { startDate: formatDate(new Date(Date.UTC(year, month, 1))), endDate: formatDate(new Date(Date.UTC(year, month, 15))) }
+        : { startDate: formatDate(new Date(Date.UTC(year, month, 16))), endDate: formatDate(new Date(Date.UTC(year, month + 1, 0))) };
+    };
+    const currentCutoff = cutoffFor(today);
+    const currentStart = new Date(`${currentCutoff.startDate}T00:00:00Z`);
+    const previousReference = new Date(currentStart);
+    previousReference.setUTCDate(previousReference.getUTCDate() - 1);
+    const previousCutoff = cutoffFor(previousReference);
+    const isAllowedCutoff = [currentCutoff, previousCutoff].some(cutoff =>
+      cutoff.startDate === startDate && cutoff.endDate === endDate
+    );
+    if (!isAllowedCutoff) {
+      throw new AppError('Attendance is limited to the current and previous payroll cutoffs', 400);
     }
-    if (rangeDays > 7) throw new AppError('Attendance can be viewed seven days at a time', 400);
 
     let odooEmployeeId = employee.odooEmployeeId;
     let linkedByName = false;
@@ -179,9 +190,8 @@ router.get('/attendance', async (req, res, next) => {
       pendingReviewsCount,
       linkedByName,
       limits: {
-        earliestDate: earliest.toISOString().slice(0, 10),
-        latestDate: today.toISOString().slice(0, 10),
-        maximumDays: 7
+        currentCutoff,
+        previousCutoff
       }
     });
   } catch (error) {
