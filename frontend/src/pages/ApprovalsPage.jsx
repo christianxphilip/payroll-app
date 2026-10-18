@@ -11,12 +11,50 @@ const formatDateTime = (value) => {
     : '—';
 };
 
+const localDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const cutoffFor = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  return date.getDate() <= 15
+    ? { startDate: localDate(new Date(year, month, 1)), endDate: localDate(new Date(year, month, 15)) }
+    : { startDate: localDate(new Date(year, month, 16)), endDate: localDate(new Date(year, month + 1, 0)) };
+};
+
+const cutoffOptions = () => {
+  const options = [];
+  let cutoff = cutoffFor(new Date());
+  for (let index = 0; index < 18; index += 1) {
+    options.push(cutoff);
+    const previousDay = new Date(`${cutoff.startDate}T00:00:00`);
+    previousDay.setDate(previousDay.getDate() - 1);
+    cutoff = cutoffFor(previousDay);
+  }
+  return options;
+};
+
+const cutoffLabel = ({ startDate, endDate }) => {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${startLabel} – ${endLabel}`;
+};
+
 const ApprovalsPage = () => {
   const [approvals, setApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'For L1 Approval' | 'For L2 Approval' | 'Valid' | 'Invalid'
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [requestLock, setRequestLock] = useState({ lockedThrough: null, updatedAt: null, updatedBy: '' });
+  const [selectedLockThrough, setSelectedLockThrough] = useState(cutoffOptions()[0].endDate);
+  const [savingRequestLock, setSavingRequestLock] = useState(false);
 
   // Standard Decision Modal
   const [decisionModal, setDecisionModal] = useState({
@@ -63,9 +101,39 @@ const ApprovalsPage = () => {
     }
   };
 
+  const fetchRequestLock = async () => {
+    try {
+      const res = await employeePortalAPI.getAttendanceRequestLock();
+      const lock = res.data || { lockedThrough: null, updatedAt: null, updatedBy: '' };
+      setRequestLock(lock);
+      if (lock.lockedThrough) setSelectedLockThrough(lock.lockedThrough);
+    } catch (err) {
+      showToast('error', err.response?.data?.error || 'Failed to load request deadline');
+    }
+  };
+
+  const updateRequestLock = async (lockedThrough) => {
+    try {
+      setSavingRequestLock(true);
+      const res = await employeePortalAPI.updateAttendanceRequestLock(lockedThrough);
+      setRequestLock(res.data || { lockedThrough: null, updatedAt: null, updatedBy: '' });
+      showToast('success', lockedThrough
+        ? `Correction requests locked through ${lockedThrough}`
+        : 'Attendance correction requests reopened');
+    } catch (err) {
+      showToast('error', err.response?.data?.error || 'Failed to update request deadline');
+    } finally {
+      setSavingRequestLock(false);
+    }
+  };
+
   useEffect(() => {
     fetchApprovals();
   }, [statusFilter]);
+
+  useEffect(() => {
+    fetchRequestLock();
+  }, []);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -187,6 +255,55 @@ const ApprovalsPage = () => {
           Refresh
         </button>
       </div>
+
+      {/* Attendance correction request deadline */}
+      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-gray-900">Attendance Correction Request Deadline</h2>
+            <p className="mt-1 max-w-2xl text-xs text-gray-500">
+              Locking a cutoff prevents employees from creating new correction requests for that cutoff and every earlier date. Existing requests remain available for approval.
+            </p>
+            <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+              requestLock.lockedThrough ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+            }`}>
+              {requestLock.lockedThrough
+                ? `Locked through ${requestLock.lockedThrough}`
+                : 'Requests currently open'}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select
+              value={selectedLockThrough}
+              onChange={(event) => setSelectedLockThrough(event.target.value)}
+              disabled={savingRequestLock}
+              className="min-w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+            >
+              {cutoffOptions().map((cutoff) => (
+                <option key={cutoff.endDate} value={cutoff.endDate}>
+                  {cutoffLabel(cutoff)} and earlier
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={savingRequestLock}
+              onClick={() => updateRequestLock(selectedLockThrough)}
+              className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              {savingRequestLock ? 'Saving…' : 'Lock Selected Cutoff'}
+            </button>
+            <button
+              type="button"
+              disabled={savingRequestLock || !requestLock.lockedThrough}
+              onClick={() => updateRequestLock(null)}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Unlock All Requests
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* KPI Cards */}
       <div className="mb-6 grid grid-cols-2 sm:grid-cols-5 gap-3">

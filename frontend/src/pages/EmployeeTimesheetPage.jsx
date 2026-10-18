@@ -32,6 +32,7 @@ const EmployeeTimesheetPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [requestLock, setRequestLock] = useState({ lockedThrough: null, updatedAt: null, updatedBy: '' });
 
   // Approvals state
   const [isApprover, setIsApprover] = useState(() => {
@@ -91,6 +92,7 @@ const EmployeeTimesheetPage = () => {
       const response = await employeePortalAPI.getAttendance(requestedRange.startDate, requestedRange.endDate);
       setRecords(response.data || []);
       setEmployee(response.employee || null);
+      setRequestLock(response.requestLock || { lockedThrough: null, updatedAt: null, updatedBy: '' });
       const approver = Boolean(response.isApprover || response.employee?.isApprover);
       setIsApprover(approver);
       sessionStorage.setItem('employee-is-approver', String(approver));
@@ -379,6 +381,15 @@ const EmployeeTimesheetPage = () => {
               </div>
             )}
 
+            {requestLock.lockedThrough && (
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <div className="font-semibold">Attendance correction deadline is closed</div>
+                <div className="mt-0.5 text-xs text-amber-800">
+                  New correction requests for attendance dated {requestLock.lockedThrough} or earlier are locked. Existing requests can still be reviewed.
+                </div>
+              </div>
+            )}
+
             {/* Attendance Window Controls */}
             <div className="mb-5 flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
               <div>
@@ -507,7 +518,7 @@ const EmployeeTimesheetPage = () => {
                         {/* Action */}
                         <div>
                           <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-gray-400 lg:hidden">Action</span>
-                          {isInvalid && (
+                          {isInvalid && !record.requestLocked && (
                             <button
                               type="button"
                               onClick={() => openRequestModal(record)}
@@ -515,6 +526,11 @@ const EmployeeTimesheetPage = () => {
                             >
                               Request Approval
                             </button>
+                          )}
+                          {isInvalid && record.requestLocked && (
+                            <span className="inline-flex min-h-9 items-center rounded-lg border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-500">
+                              Requests Closed
+                            </span>
                           )}
                           {isPending && (
                             <span className="text-xs italic text-gray-500">

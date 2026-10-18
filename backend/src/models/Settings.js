@@ -36,6 +36,22 @@ const settingsSchema = new mongoose.Schema({
     type: Number,
     default: 1.69,
     min: 0
+  },
+  // Employees cannot submit new attendance correction requests whose work
+  // date is on or before this date. Stored as YYYY-MM-DD to avoid timezone drift.
+  attendanceRequestLockedThrough: {
+    type: String,
+    default: null,
+    match: /^\d{4}-\d{2}-\d{2}$/
+  },
+  attendanceRequestLockUpdatedAt: {
+    type: Date,
+    default: null
+  },
+  attendanceRequestLockUpdatedBy: {
+    type: String,
+    trim: true,
+    default: ''
   }
 }, {
   timestamps: true
@@ -52,4 +68,3 @@ settingsSchema.statics.getSettings = async function() {
 };
 
 export default mongoose.model('Settings', settingsSchema, 'payroll_app_settings');
-

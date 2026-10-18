@@ -5,6 +5,7 @@ import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
 import PayrollAdjustment from '../models/PayrollAdjustment.js';
 import AttendanceApproval from '../models/AttendanceApproval.js';
+import Settings from '../models/Settings.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
@@ -16,6 +17,21 @@ const router = express.Router();
 router.use(authenticate);
 
 const escapeRegex = (s) => (s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const attendanceDate = (value) => {
+  if (!value) return '';
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] || '';
+};
+
+const getAttendanceRequestLock = async () => {
+  const settings = await Settings.getSettings();
+  return {
+    lockedThrough: settings.attendanceRequestLockedThrough || null,
+    updatedAt: settings.attendanceRequestLockUpdatedAt || null,
+    updatedBy: settings.attendanceRequestLockUpdatedBy || ''
+  };
+};
 
 // Helper to resolve current logged-in employee name/id
 async function resolveEmployee(req) {
@@ -115,7 +131,10 @@ router.get('/attendance', async (req, res, next) => {
       linkedByName = true;
     }
 
-    const attendance = await getEmployeeAttendance({ odooEmployeeId, startDate, endDate });
+    const [attendance, requestLock] = await Promise.all([
+      getEmployeeAttendance({ odooEmployeeId, startDate, endDate }),
+      getAttendanceRequestLock()
+    ]);
 
     // Fetch approval records for these attendance logs
     const odooIds = attendance.map(a => a.id);
@@ -160,6 +179,11 @@ router.get('/attendance', async (req, res, next) => {
       return {
         ...record,
         status,
+        requestLocked: Boolean(
+          requestLock.lockedThrough &&
+          attendanceDate(record.checkIn) &&
+          attendanceDate(record.checkIn) <= requestLock.lockedThrough
+        ),
         approvalDetails: approval || null
       };
     });
@@ -190,10 +214,50 @@ router.get('/attendance', async (req, res, next) => {
       },
       isApprover,
       pendingReviewsCount,
+      requestLock,
       linkedByName,
       limits: {
         allowedCutoffs
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/employee-portal/attendance/request-lock - Current correction deadline
+router.get('/attendance/request-lock', async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await getAttendanceRequestLock() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/employee-portal/attendance/request-lock - Admin locks a cutoff and all prior dates
+router.put('/attendance/request-lock', async (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') {
+      throw new AppError('Only administrators can change the attendance request deadline', 403);
+    }
+
+    const { lockedThrough } = req.body;
+    if (lockedThrough !== null && lockedThrough !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(lockedThrough)) {
+      throw new AppError('Locked-through date must use YYYY-MM-DD format', 400);
+    }
+
+    const settings = await Settings.getSettings();
+    settings.attendanceRequestLockedThrough = lockedThrough || null;
+    settings.attendanceRequestLockUpdatedAt = new Date();
+    settings.attendanceRequestLockUpdatedBy = req.user.username || 'Admin';
+    await settings.save();
+
+    res.json({
+      success: true,
+      data: await getAttendanceRequestLock(),
+      message: lockedThrough
+        ? `Attendance correction requests are locked through ${lockedThrough}`
+        : 'Attendance correction requests are unlocked'
     });
   } catch (error) {
     next(error);
@@ -255,6 +319,18 @@ router.post('/attendance/request-approval', async (req, res, next) => {
 
     if (!odooAttendanceId) {
       throw new AppError('Odoo attendance ID is required', 400);
+    }
+
+    const requestDate = attendanceDate(checkIn) || attendanceDate(date);
+    if (!requestDate) {
+      throw new AppError('Attendance date is required', 400);
+    }
+    const requestLock = await getAttendanceRequestLock();
+    if (requestLock.lockedThrough && requestDate <= requestLock.lockedThrough) {
+      throw new AppError(
+        `Attendance correction requests are already closed through ${requestLock.lockedThrough}`,
+        403
+      );
     }
 
     let approval = await AttendanceApproval.findOne({
