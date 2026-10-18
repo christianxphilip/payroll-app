@@ -61,6 +61,32 @@ const settingsSchema = new mongoose.Schema({
   attendanceRequestLockScheduledAt: {
     type: Date,
     default: null
+  },
+  attendanceRequestAutoLockEnabled: {
+    type: Boolean,
+    default: false
+  },
+  attendanceRequestFirstCutoffGraceDays: {
+    type: Number,
+    default: 3,
+    min: 0,
+    max: 30
+  },
+  attendanceRequestFirstCutoffLockTime: {
+    type: String,
+    default: '23:59',
+    match: /^([01]\d|2[0-3]):[0-5]\d$/
+  },
+  attendanceRequestMonthEndGraceDays: {
+    type: Number,
+    default: 3,
+    min: 0,
+    max: 30
+  },
+  attendanceRequestMonthEndLockTime: {
+    type: String,
+    default: '23:59',
+    match: /^([01]\d|2[0-3]):[0-5]\d$/
   }
 }, {
   timestamps: true

@@ -32,7 +32,7 @@ const EmployeeTimesheetPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [requestLock, setRequestLock] = useState({ lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, updatedAt: null, updatedBy: '' });
+  const [requestLock, setRequestLock] = useState({ lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, automatic: null, updatedAt: null, updatedBy: '' });
 
   // Approvals state
   const [isApprover, setIsApprover] = useState(() => {
@@ -399,6 +399,18 @@ const EmployeeTimesheetPage = () => {
                     dateStyle: 'medium',
                     timeStyle: 'short',
                     timeZone: 'Asia/Manila'
+                  })} (Manila time).
+                </div>
+              </div>
+            )}
+
+            {!requestLock.lockedThrough && !requestLock.scheduledAt && requestLock.automatic?.enabled && requestLock.automatic?.nextLock && (
+              <div className="mb-5 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+                <div className="font-semibold">Upcoming attendance correction deadline</div>
+                <div className="mt-0.5 text-xs text-indigo-800">
+                  Requests for {requestLock.automatic.nextLock.cutoffEnd} and earlier will close automatically on{' '}
+                  {new Date(requestLock.automatic.nextLock.scheduledAt).toLocaleString('en-PH', {
+                    dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Manila'
                   })} (Manila time).
                 </div>
               </div>

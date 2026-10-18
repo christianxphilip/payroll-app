@@ -60,10 +60,18 @@ const ApprovalsPage = () => {
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'For L1 Approval' | 'For L2 Approval' | 'Valid' | 'Invalid'
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [requestLock, setRequestLock] = useState({ lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, updatedAt: null, updatedBy: '' });
+  const [requestLock, setRequestLock] = useState({ lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, automatic: null, updatedAt: null, updatedBy: '' });
+  const [autoLock, setAutoLock] = useState({
+    enabled: false,
+    firstCutoffGraceDays: 3,
+    firstCutoffLockTime: '23:59',
+    monthEndGraceDays: 3,
+    monthEndLockTime: '23:59'
+  });
   const [selectedLockThrough, setSelectedLockThrough] = useState(cutoffOptions()[0].endDate);
   const [scheduledAt, setScheduledAt] = useState(defaultScheduleTime);
   const [savingRequestLock, setSavingRequestLock] = useState(false);
+  const [savingAutoLock, setSavingAutoLock] = useState(false);
 
   // Standard Decision Modal
   const [decisionModal, setDecisionModal] = useState({
@@ -115,9 +123,34 @@ const ApprovalsPage = () => {
       const res = await employeePortalAPI.getAttendanceRequestLock();
       const lock = res.data || { lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, updatedAt: null, updatedBy: '' };
       setRequestLock(lock);
+      if (lock.automatic) {
+        setAutoLock({
+          enabled: Boolean(lock.automatic.enabled),
+          firstCutoffGraceDays: Number(lock.automatic.firstCutoffGraceDays ?? 3),
+          firstCutoffLockTime: lock.automatic.firstCutoffLockTime || '23:59',
+          monthEndGraceDays: Number(lock.automatic.monthEndGraceDays ?? 3),
+          monthEndLockTime: lock.automatic.monthEndLockTime || '23:59'
+        });
+      }
       if (lock.lockedThrough) setSelectedLockThrough(lock.lockedThrough);
     } catch (err) {
       showToast('error', err.response?.data?.error || 'Failed to load request deadline');
+    }
+  };
+
+  const updateAutomaticLock = async () => {
+    try {
+      setSavingAutoLock(true);
+      const res = await employeePortalAPI.updateAttendanceRequestLockAutomation(autoLock);
+      const lock = res.data || requestLock;
+      setRequestLock(lock);
+      showToast('success', autoLock.enabled
+        ? 'Editable automatic cutoff recurrences saved'
+        : 'Automatic cutoff locking disabled');
+    } catch (err) {
+      showToast('error', err.response?.data?.error || 'Failed to update automatic locking');
+    } finally {
+      setSavingAutoLock(false);
     }
   };
 
@@ -127,11 +160,12 @@ const ApprovalsPage = () => {
       const scheduleIso = scheduleValue ? new Date(scheduleValue).toISOString() : null;
       const res = await employeePortalAPI.updateAttendanceRequestLock(lockedThrough, scheduleIso);
       setRequestLock(res.data || { lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, updatedAt: null, updatedBy: '' });
+      if (!lockedThrough) setAutoLock(current => ({ ...current, enabled: false }));
       showToast('success', scheduleValue
         ? `Correction request lock scheduled for ${new Date(scheduleValue).toLocaleString('en-PH')}`
         : lockedThrough
           ? `Correction requests locked through ${lockedThrough}`
-          : 'Attendance correction requests reopened and scheduled lock cancelled');
+          : 'Attendance correction requests reopened; automatic and scheduled locks disabled');
     } catch (err) {
       showToast('error', err.response?.data?.error || 'Failed to update request deadline');
     } finally {
@@ -270,6 +304,97 @@ const ApprovalsPage = () => {
 
       {/* Attendance correction request deadline */}
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-indigo-950">Recurring Automatic Lock</h2>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  autoLock.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'
+                }`}>
+                  {autoLock.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <p className="mt-1 max-w-xl text-xs text-indigo-800">
+                Configure each payroll cutoff independently. The defaults close the 1–15 cutoff on the 18th and month-end on the 3rd of the next month.
+              </p>
+              {requestLock.automatic?.nextLock && autoLock.enabled && (
+                <p className="mt-2 text-xs font-semibold text-indigo-700">
+                  Next: lock through {requestLock.automatic.nextLock.cutoffEnd} on{' '}
+                  {new Date(requestLock.automatic.nextLock.scheduledAt).toLocaleString('en-PH', {
+                    dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Manila'
+                  })} (Manila time)
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="col-span-2 text-[11px] font-bold uppercase tracking-wide text-indigo-800">1–15 cutoff</div>
+              <label className="text-xs font-semibold text-gray-600">
+                Days after cutoff
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={autoLock.firstCutoffGraceDays}
+                  onChange={(event) => setAutoLock(current => ({ ...current, firstCutoffGraceDays: Number(event.target.value) }))}
+                  disabled={savingAutoLock}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800 sm:w-32"
+                />
+              </label>
+              <label className="text-xs font-semibold text-gray-600">
+                Manila lock time
+                <input
+                  type="time"
+                  value={autoLock.firstCutoffLockTime}
+                  onChange={(event) => setAutoLock(current => ({ ...current, firstCutoffLockTime: event.target.value }))}
+                  disabled={savingAutoLock}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800 sm:w-32"
+                />
+              </label>
+              <div className="col-span-2 mt-1 text-[11px] font-bold uppercase tracking-wide text-indigo-800">16–month-end cutoff</div>
+              <label className="text-xs font-semibold text-gray-600">
+                Days after cutoff
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={autoLock.monthEndGraceDays}
+                  onChange={(event) => setAutoLock(current => ({ ...current, monthEndGraceDays: Number(event.target.value) }))}
+                  disabled={savingAutoLock}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800"
+                />
+              </label>
+              <label className="text-xs font-semibold text-gray-600">
+                Manila lock time
+                <input
+                  type="time"
+                  value={autoLock.monthEndLockTime}
+                  onChange={(event) => setAutoLock(current => ({ ...current, monthEndLockTime: event.target.value }))}
+                  disabled={savingAutoLock}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800"
+                />
+              </label>
+              <label className="col-span-2 flex min-h-10 items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 text-xs font-semibold text-indigo-900">
+                <input
+                  type="checkbox"
+                  checked={autoLock.enabled}
+                  onChange={(event) => setAutoLock(current => ({ ...current, enabled: event.target.checked }))}
+                  disabled={savingAutoLock}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                />
+                Enable automatic lock
+              </label>
+              <button
+                type="button"
+                onClick={updateAutomaticLock}
+                disabled={savingAutoLock}
+                className="col-span-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {savingAutoLock ? 'Saving…' : 'Save Automatic Rule'}
+              </button>
+            </div>
+          </div>
+        </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-sm font-bold text-gray-900">Attendance Correction Request Deadline</h2>
@@ -343,7 +468,7 @@ const ApprovalsPage = () => {
               onClick={() => updateRequestLock(null)}
               className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:col-span-2 lg:col-span-4 lg:justify-self-end"
             >
-              Unlock and Cancel Schedule
+              Unlock All and Disable Automation
             </button>
           </div>
         </div>

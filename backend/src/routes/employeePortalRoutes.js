@@ -24,6 +24,43 @@ const attendanceDate = (value) => {
   return match?.[1] || '';
 };
 
+const dateString = (date) => date.toISOString().slice(0, 10);
+
+const automaticLockState = ({
+  firstCutoffGraceDays,
+  firstCutoffLockTime,
+  monthEndGraceDays,
+  monthEndLockTime
+}, now = new Date()) => {
+  const deadlines = [];
+
+  // Generate enough surrounding cutoffs to find both the most recently due
+  // lock and the next one. Manila has no daylight-saving time (+08:00).
+  for (let monthOffset = -3; monthOffset <= 2; monthOffset += 1) {
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + monthOffset, 1));
+    const year = monthStart.getUTCFullYear();
+    const month = monthStart.getUTCMonth();
+    const monthText = String(month + 1).padStart(2, '0');
+    const monthEnd = new Date(Date.UTC(year, month + 1, 0));
+
+    const cutoffs = [
+      { cutoffEnd: `${year}-${monthText}-15`, graceDays: firstCutoffGraceDays, lockTime: firstCutoffLockTime },
+      { cutoffEnd: dateString(monthEnd), graceDays: monthEndGraceDays, lockTime: monthEndLockTime }
+    ];
+    for (const { cutoffEnd, graceDays, lockTime } of cutoffs) {
+      const [hour, minute] = lockTime.split(':').map(Number);
+      const deadline = new Date(`${cutoffEnd}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+08:00`);
+      deadline.setUTCDate(deadline.getUTCDate() + graceDays);
+      deadlines.push({ cutoffEnd, deadline });
+    }
+  }
+
+  deadlines.sort((left, right) => left.deadline - right.deadline);
+  const due = deadlines.filter(item => item.deadline <= now).at(-1) || null;
+  const next = deadlines.find(item => item.deadline > now) || null;
+  return { due, next };
+};
+
 const getAttendanceRequestLock = async () => {
   const settings = await Settings.getSettings();
 
@@ -42,10 +79,41 @@ const getAttendanceRequestLock = async () => {
     await settings.save();
   }
 
+  let nextAutomaticLock = null;
+  if (settings.attendanceRequestAutoLockEnabled) {
+    const automatic = automaticLockState({
+      firstCutoffGraceDays: settings.attendanceRequestFirstCutoffGraceDays,
+      firstCutoffLockTime: settings.attendanceRequestFirstCutoffLockTime,
+      monthEndGraceDays: settings.attendanceRequestMonthEndGraceDays,
+      monthEndLockTime: settings.attendanceRequestMonthEndLockTime
+    });
+    nextAutomaticLock = automatic.next
+      ? { cutoffEnd: automatic.next.cutoffEnd, scheduledAt: automatic.next.deadline }
+      : null;
+
+    if (
+      automatic.due &&
+      (!settings.attendanceRequestLockedThrough || automatic.due.cutoffEnd > settings.attendanceRequestLockedThrough)
+    ) {
+      settings.attendanceRequestLockedThrough = automatic.due.cutoffEnd;
+      settings.attendanceRequestLockUpdatedAt = new Date();
+      settings.attendanceRequestLockUpdatedBy = 'Automatic cutoff rule';
+      await settings.save();
+    }
+  }
+
   return {
     lockedThrough: settings.attendanceRequestLockedThrough || null,
     scheduledLockedThrough: settings.attendanceRequestScheduledLockedThrough || null,
     scheduledAt: settings.attendanceRequestLockScheduledAt || null,
+    automatic: {
+      enabled: Boolean(settings.attendanceRequestAutoLockEnabled),
+      firstCutoffGraceDays: settings.attendanceRequestFirstCutoffGraceDays,
+      firstCutoffLockTime: settings.attendanceRequestFirstCutoffLockTime,
+      monthEndGraceDays: settings.attendanceRequestMonthEndGraceDays,
+      monthEndLockTime: settings.attendanceRequestMonthEndLockTime,
+      nextLock: nextAutomaticLock
+    },
     updatedAt: settings.attendanceRequestLockUpdatedAt || null,
     updatedBy: settings.attendanceRequestLockUpdatedBy || ''
   };
@@ -243,6 +311,47 @@ router.get('/attendance', async (req, res, next) => {
   }
 });
 
+// PUT /api/employee-portal/attendance/request-lock/automation - Configure recurring cutoff locks
+router.put('/attendance/request-lock/automation', async (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') {
+      throw new AppError('Only administrators can change the automatic attendance lock rule', 403);
+    }
+
+    const enabled = Boolean(req.body.enabled);
+    const firstCutoffGraceDays = Number(req.body.firstCutoffGraceDays);
+    const firstCutoffLockTime = String(req.body.firstCutoffLockTime || '');
+    const monthEndGraceDays = Number(req.body.monthEndGraceDays);
+    const monthEndLockTime = String(req.body.monthEndLockTime || '');
+    if (![firstCutoffGraceDays, monthEndGraceDays].every(days => Number.isInteger(days) && days >= 0 && days <= 30)) {
+      throw new AppError('Each grace period must be a whole number from 0 to 30 days', 400);
+    }
+    if (![firstCutoffLockTime, monthEndLockTime].every(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(time))) {
+      throw new AppError('Each lock time must use HH:mm format', 400);
+    }
+
+    const settings = await Settings.getSettings();
+    settings.attendanceRequestAutoLockEnabled = enabled;
+    settings.attendanceRequestFirstCutoffGraceDays = firstCutoffGraceDays;
+    settings.attendanceRequestFirstCutoffLockTime = firstCutoffLockTime;
+    settings.attendanceRequestMonthEndGraceDays = monthEndGraceDays;
+    settings.attendanceRequestMonthEndLockTime = monthEndLockTime;
+    settings.attendanceRequestLockUpdatedAt = new Date();
+    settings.attendanceRequestLockUpdatedBy = req.user.username || 'Admin';
+    await settings.save();
+
+    res.json({
+      success: true,
+      data: await getAttendanceRequestLock(),
+      message: enabled
+        ? 'Editable automatic cutoff locking enabled'
+        : 'Automatic cutoff locking disabled'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/employee-portal/attendance/request-lock - Current correction deadline
 router.get('/attendance/request-lock', async (req, res, next) => {
   try {
@@ -283,6 +392,7 @@ router.put('/attendance/request-lock', async (req, res, next) => {
       settings.attendanceRequestLockedThrough = lockedThrough || null;
       settings.attendanceRequestScheduledLockedThrough = null;
       settings.attendanceRequestLockScheduledAt = null;
+      if (!lockedThrough) settings.attendanceRequestAutoLockEnabled = false;
     }
     settings.attendanceRequestLockUpdatedAt = new Date();
     settings.attendanceRequestLockUpdatedBy = req.user.username || 'Admin';
@@ -295,7 +405,7 @@ router.put('/attendance/request-lock', async (req, res, next) => {
         ? `Attendance correction request lock scheduled for ${scheduledDate.toISOString()}`
         : lockedThrough
           ? `Attendance correction requests are locked through ${lockedThrough}`
-          : 'Attendance correction requests are unlocked and scheduled locks are cancelled'
+          : 'Attendance correction requests are unlocked and all automatic or scheduled locks are disabled'
     });
   } catch (error) {
     next(error);

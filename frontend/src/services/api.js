@@ -261,6 +261,7 @@ export const employeePortalAPI = {
   getAttendance: (startDate, endDate, employeeId) => api.get('/employee-portal/attendance', { params: { startDate, endDate, employeeId } }),
   getAttendanceRequestLock: () => api.get('/employee-portal/attendance/request-lock'),
   updateAttendanceRequestLock: (lockedThrough, scheduledAt) => api.put('/employee-portal/attendance/request-lock', { lockedThrough, scheduledAt }),
+  updateAttendanceRequestLockAutomation: (automatic) => api.put('/employee-portal/attendance/request-lock/automation', automatic),
   getApproverStatus: () => api.get('/employee-portal/approver-status'),
   requestApproval: (data) => api.post('/employee-portal/attendance/request-approval', data),
   getPendingApprovals: () => api.get('/employee-portal/attendance/pending-approvals'),
