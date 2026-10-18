@@ -34,7 +34,10 @@ const EmployeeTimesheetPage = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // Approvals state
-  const [isApprover, setIsApprover] = useState(false);
+  const [isApprover, setIsApprover] = useState(() => {
+    const cached = sessionStorage.getItem('employee-is-approver');
+    return cached === null ? null : cached === 'true';
+  });
   const [pendingReviewsCount, setPendingReviewsCount] = useState(0);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [loadingApprovals, setLoadingApprovals] = useState(false);
@@ -88,13 +91,29 @@ const EmployeeTimesheetPage = () => {
       const response = await employeePortalAPI.getAttendance(requestedRange.startDate, requestedRange.endDate);
       setRecords(response.data || []);
       setEmployee(response.employee || null);
-      setIsApprover(Boolean(response.isApprover || response.employee?.isApprover));
+      const approver = Boolean(response.isApprover || response.employee?.isApprover);
+      setIsApprover(approver);
+      sessionStorage.setItem('employee-is-approver', String(approver));
       setPendingReviewsCount(response.pendingReviewsCount || 0);
     } catch (err) {
       setRecords([]);
       setError(err.response?.data?.error || 'Failed to load attendance.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadApproverStatus = async () => {
+    try {
+      const response = await employeePortalAPI.getApproverStatus();
+      const approver = Boolean(response.isApprover);
+      setIsApprover(approver);
+      setPendingReviewsCount(response.pendingCount || 0);
+      sessionStorage.setItem('employee-is-approver', String(approver));
+    } catch (err) {
+      console.error('Failed to load approver status:', err);
+      // Keep a previously known status. If this is the first check, the
+      // tentative tab remains visible and can retry through the approvals API.
     }
   };
 
@@ -110,6 +129,10 @@ const EmployeeTimesheetPage = () => {
       setLoadingApprovals(false);
     }
   };
+
+  useEffect(() => {
+    loadApproverStatus();
+  }, []);
 
   useEffect(() => {
     const requestedRange = getPageRange(page);
@@ -287,7 +310,7 @@ const EmployeeTimesheetPage = () => {
           >
             Timesheet
           </button>
-          {(isApprover || user?.role === 'admin' || pendingReviewsCount > 0) && (
+          {(isApprover !== false || user?.role === 'admin' || pendingReviewsCount > 0 || activeTab === 'approvals') && (
             <button
               onClick={() => {
                 setActiveTab('approvals');
