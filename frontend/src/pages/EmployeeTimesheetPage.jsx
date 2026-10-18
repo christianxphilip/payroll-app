@@ -428,11 +428,10 @@ const EmployeeTimesheetPage = () => {
               </div>
             ) : !error && (
               <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
-                <div className="hidden grid-cols-[1.5fr_1.5fr_1.2fr_auto] gap-4 border-b bg-gray-50 px-5 py-3 text-xs font-bold uppercase text-gray-500 sm:grid">
+                <div className="hidden grid-cols-[minmax(210px,1fr)_minmax(210px,1fr)_minmax(260px,.85fr)] gap-6 border-b bg-gray-50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-gray-500 lg:grid">
                   <span>Time In</span>
                   <span>Time Out</span>
-                  <span>Status</span>
-                  <span className="text-right">Action</span>
+                  <span>Status &amp; Action</span>
                 </div>
                 <div className="divide-y divide-gray-100">
                   {records.map((record) => {
@@ -442,13 +441,13 @@ const EmployeeTimesheetPage = () => {
                     return (
                       <div
                         key={record.id}
-                        className={`grid gap-2 px-5 py-4 text-sm sm:grid-cols-[1.5fr_1.5fr_1.2fr_auto] sm:items-center ${
+                        className={`grid gap-3 px-4 py-4 text-sm transition-colors sm:px-5 lg:grid-cols-[minmax(210px,1fr)_minmax(210px,1fr)_minmax(260px,.85fr)] lg:items-center lg:gap-6 ${
                           isInvalid ? 'border-l-4 border-red-500 bg-red-50/40' : ''
-                        } ${isPending ? 'border-l-4 border-amber-400 bg-amber-50/30' : ''}`}
+                        } ${isPending ? 'border-l-4 border-amber-400 bg-amber-50/30' : 'hover:bg-gray-50/60'}`}
                       >
                         {/* Time In */}
                         <div>
-                          <span className="mr-2 text-[10px] font-bold uppercase text-gray-400 sm:hidden">In:</span>
+                          <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400 lg:hidden">Time In</span>
                           <span className="font-medium text-gray-900">{formatDateTime(record.checkIn)}</span>
                           {record.approvalDetails?.correctedCheckIn && (
                             <div className="text-[11px] text-indigo-600">
@@ -459,7 +458,7 @@ const EmployeeTimesheetPage = () => {
 
                         {/* Time Out */}
                         <div>
-                          <span className="mr-2 text-[10px] font-bold uppercase text-gray-400 sm:hidden">Out:</span>
+                          <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-400 lg:hidden">Time Out</span>
                           <span className={record.checkOut ? 'font-medium text-gray-900' : 'font-semibold text-red-600'}>
                             {formatDateTime(record.checkOut)}
                           </span>
@@ -470,32 +469,30 @@ const EmployeeTimesheetPage = () => {
                           )}
                         </div>
 
-                        {/* Status: Valid | Invalid | For L1 Approval | For L2 Approval */}
+                        {/* Status and contextual action */}
                         <div>
-                          <span className="mr-2 text-[10px] font-bold uppercase text-gray-400 sm:hidden">Status:</span>
-                          {renderStatusBadge(record.status)}
+                          <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-gray-400 lg:hidden">Status &amp; Action</span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {renderStatusBadge(record.status)}
+                            {isInvalid && (
+                              <button
+                                type="button"
+                                onClick={() => openRequestModal(record)}
+                                className="min-h-9 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+                              >
+                                Request Approval
+                              </button>
+                            )}
+                            {isPending && (
+                              <span className="text-xs italic text-gray-500">
+                                Awaiting {record.status === 'For L1 Approval' ? (employee?.l1ApproverName || 'L1') : (employee?.l2ApproverName || 'L2')}
+                              </span>
+                            )}
+                          </div>
                           {record.approvalDetails?.rejectionReason && (
-                            <div className="text-[11px] text-red-600 mt-1">
+                            <div className="mt-1 text-[11px] text-red-600">
                               Reason: {record.approvalDetails.rejectionReason}
                             </div>
-                          )}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex sm:justify-end items-center gap-2 pt-1 sm:pt-0">
-                          {isInvalid && (
-                            <button
-                              type="button"
-                              onClick={() => openRequestModal(record)}
-                              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
-                            >
-                              Request Approval
-                            </button>
-                          )}
-                          {isPending && (
-                            <span className="text-xs text-gray-500 italic">
-                              Awaiting {record.status === 'For L1 Approval' ? (employee?.l1ApproverName || 'L1') : (employee?.l2ApproverName || 'L2')}
-                            </span>
                           )}
                         </div>
                       </div>
