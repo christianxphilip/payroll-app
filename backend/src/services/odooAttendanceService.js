@@ -1,3 +1,9 @@
+import {
+  cacheAttendance,
+  getCachedAttendance,
+  invalidateEmployeeAttendanceCache
+} from './attendanceCacheService.js';
+
 const baseUrl = () => (process.env.ODOO_BASE_URL || 'https://espressionist-attendance.odoo.com').replace(/\/$/, '');
 
 const configuredMode = () => process.env.ODOO_API_MODE
@@ -80,6 +86,10 @@ const odooDateTime = (date, endOfRange = false) => {
 };
 
 export const getEmployeeAttendance = async ({ odooEmployeeId, startDate, endDate }) => {
+  const cacheParams = { odooEmployeeId, startDate, endDate };
+  const cached = await getCachedAttendance(cacheParams);
+  if (cached) return cached;
+
   const fieldMap = await getFields('hr.attendance');
   const fields = ['id', 'employee_id', 'check_in', 'check_out', 'worked_hours'];
   if (fieldMap.color) fields.push('color');
@@ -89,7 +99,7 @@ export const getEmployeeAttendance = async ({ odooEmployeeId, startDate, endDate
     ['check_in', '<', odooDateTime(endDate, true)]
   ], fields, { order: 'check_in desc', limit: 500 });
 
-  return records.map(record => ({
+  const attendance = records.map(record => ({
     id: record.id,
     employeeId: Array.isArray(record.employee_id) ? record.employee_id[0] : record.employee_id,
     employeeName: Array.isArray(record.employee_id) ? record.employee_id[1] : '',
@@ -99,6 +109,9 @@ export const getEmployeeAttendance = async ({ odooEmployeeId, startDate, endDate
     color: Number(record.color || 0),
     isInvalid: Number(record.color || 0) === 1
   }));
+
+  await cacheAttendance(cacheParams, attendance);
+  return attendance;
 };
 
 /**
@@ -108,7 +121,7 @@ export const getEmployeeAttendance = async ({ odooEmployeeId, startDate, endDate
  * @param {number} odooAttendanceId - The hr.attendance record ID in Odoo
  * @param {object} fields            - { checkIn?: ISOString, checkOut?: ISOString }
  */
-export const updateOdooAttendance = async (odooAttendanceId, { checkIn, checkOut }) => {
+export const updateOdooAttendance = async (odooAttendanceId, { checkIn, checkOut, odooEmployeeId }) => {
   assertConfigured();
   const vals = {};
   // Odoo stores datetime as naive UTC strings: "YYYY-MM-DD HH:MM:SS"
@@ -121,5 +134,6 @@ export const updateOdooAttendance = async (odooAttendanceId, { checkIn, checkOut
   } else {
     await legacyCall('hr.attendance', 'write', [[Number(odooAttendanceId)], vals]);
   }
-};
 
+  await invalidateEmployeeAttendanceCache(odooEmployeeId);
+};

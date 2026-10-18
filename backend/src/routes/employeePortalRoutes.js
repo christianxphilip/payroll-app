@@ -438,7 +438,8 @@ router.post('/attendance/action', async (req, res, next) => {
         try {
           await updateOdooAttendance(approval.odooAttendanceId, {
             checkIn:  hasCorrectedIn  ? approval.correctedCheckIn  : undefined,
-            checkOut: hasCorrectedOut ? approval.correctedCheckOut : undefined
+            checkOut: hasCorrectedOut ? approval.correctedCheckOut : undefined,
+            odooEmployeeId: targetEmployee.odooEmployeeId
           });
         } catch (odooErr) {
           // Log but don't fail – the approval is already saved in our DB
@@ -528,6 +529,8 @@ router.post('/attendance/override', async (req, res, next) => {
 
     const approval = await AttendanceApproval.findById(approvalId);
     if (!approval) throw new AppError('Approval record not found', 404);
+    const targetEmployee = await Employee.findById(approval.employeeId);
+    if (!targetEmployee) throw new AppError('Target employee not found', 404);
 
     const adminName = req.user.username || 'Admin';
 
@@ -573,7 +576,8 @@ router.post('/attendance/override', async (req, res, next) => {
         try {
           await updateOdooAttendance(approval.odooAttendanceId, {
             checkIn:  hasCorrectedIn  ? approval.correctedCheckIn  : undefined,
-            checkOut: hasCorrectedOut ? approval.correctedCheckOut : undefined
+            checkOut: hasCorrectedOut ? approval.correctedCheckOut : undefined,
+            odooEmployeeId: targetEmployee.odooEmployeeId
           });
         } catch (odooErr) {
           console.error('[Odoo sync] Failed to write corrected attendance (override):', odooErr.message);
