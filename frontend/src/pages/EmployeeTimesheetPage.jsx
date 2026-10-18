@@ -72,11 +72,13 @@ const EmployeeTimesheetPage = () => {
   };
 
   const getPageRange = (pageNumber) => {
-    const currentCutoff = cutoffFor(new Date());
-    if (pageNumber === 0) return currentCutoff;
-    const previousDay = new Date(`${currentCutoff.startDate}T00:00:00`);
-    previousDay.setDate(previousDay.getDate() - 1);
-    return cutoffFor(previousDay);
+    let cutoff = cutoffFor(new Date());
+    for (let index = 0; index < pageNumber; index += 1) {
+      const previousDay = new Date(`${cutoff.startDate}T00:00:00`);
+      previousDay.setDate(previousDay.getDate() - 1);
+      cutoff = cutoffFor(previousDay);
+    }
+    return cutoff;
   };
 
   const loadAttendance = async (requestedRange) => {
@@ -364,14 +366,14 @@ const EmployeeTimesheetPage = () => {
                   {range.startDate} – {range.endDate}
                 </div>
                 <div className="mt-1 text-xs text-gray-500">
-                  Showing the current or immediately previous payroll cutoff.
+                  Showing the current or either of the two previous payroll cutoffs.
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  disabled={loading || page >= 1}
-                  onClick={() => setPage(1)}
+                  disabled={loading || page >= 2}
+                  onClick={() => setPage(current => Math.min(2, current + 1))}
                   className="h-10 rounded-lg border border-gray-300 px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                 >
                   ← Previous Cutoff

@@ -91,15 +91,17 @@ router.get('/attendance', async (req, res, next) => {
         : { startDate: formatDate(new Date(Date.UTC(year, month, 16))), endDate: formatDate(new Date(Date.UTC(year, month + 1, 0))) };
     };
     const currentCutoff = cutoffFor(today);
-    const currentStart = new Date(`${currentCutoff.startDate}T00:00:00Z`);
-    const previousReference = new Date(currentStart);
-    previousReference.setUTCDate(previousReference.getUTCDate() - 1);
-    const previousCutoff = cutoffFor(previousReference);
-    const isAllowedCutoff = [currentCutoff, previousCutoff].some(cutoff =>
+    const allowedCutoffs = [currentCutoff];
+    for (let index = 0; index < 2; index += 1) {
+      const priorReference = new Date(`${allowedCutoffs[allowedCutoffs.length - 1].startDate}T00:00:00Z`);
+      priorReference.setUTCDate(priorReference.getUTCDate() - 1);
+      allowedCutoffs.push(cutoffFor(priorReference));
+    }
+    const isAllowedCutoff = allowedCutoffs.some(cutoff =>
       cutoff.startDate === startDate && cutoff.endDate === endDate
     );
     if (!isAllowedCutoff) {
-      throw new AppError('Attendance is limited to the current and previous payroll cutoffs', 400);
+      throw new AppError('Attendance is limited to the current and two previous payroll cutoffs', 400);
     }
 
     let odooEmployeeId = employee.odooEmployeeId;
@@ -190,8 +192,7 @@ router.get('/attendance', async (req, res, next) => {
       pendingReviewsCount,
       linkedByName,
       limits: {
-        currentCutoff,
-        previousCutoff
+        allowedCutoffs
       }
     });
   } catch (error) {
