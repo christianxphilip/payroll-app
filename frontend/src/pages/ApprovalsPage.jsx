@@ -46,14 +46,23 @@ const cutoffLabel = ({ startDate, endDate }) => {
   return `${startLabel} – ${endLabel}`;
 };
 
+const defaultScheduleTime = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  date.setHours(12, 0, 0, 0);
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 const ApprovalsPage = () => {
   const [approvals, setApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'For L1 Approval' | 'For L2 Approval' | 'Valid' | 'Invalid'
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [requestLock, setRequestLock] = useState({ lockedThrough: null, updatedAt: null, updatedBy: '' });
+  const [requestLock, setRequestLock] = useState({ lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, updatedAt: null, updatedBy: '' });
   const [selectedLockThrough, setSelectedLockThrough] = useState(cutoffOptions()[0].endDate);
+  const [scheduledAt, setScheduledAt] = useState(defaultScheduleTime);
   const [savingRequestLock, setSavingRequestLock] = useState(false);
 
   // Standard Decision Modal
@@ -104,7 +113,7 @@ const ApprovalsPage = () => {
   const fetchRequestLock = async () => {
     try {
       const res = await employeePortalAPI.getAttendanceRequestLock();
-      const lock = res.data || { lockedThrough: null, updatedAt: null, updatedBy: '' };
+      const lock = res.data || { lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, updatedAt: null, updatedBy: '' };
       setRequestLock(lock);
       if (lock.lockedThrough) setSelectedLockThrough(lock.lockedThrough);
     } catch (err) {
@@ -112,14 +121,17 @@ const ApprovalsPage = () => {
     }
   };
 
-  const updateRequestLock = async (lockedThrough) => {
+  const updateRequestLock = async (lockedThrough, scheduleValue = null) => {
     try {
       setSavingRequestLock(true);
-      const res = await employeePortalAPI.updateAttendanceRequestLock(lockedThrough);
-      setRequestLock(res.data || { lockedThrough: null, updatedAt: null, updatedBy: '' });
-      showToast('success', lockedThrough
-        ? `Correction requests locked through ${lockedThrough}`
-        : 'Attendance correction requests reopened');
+      const scheduleIso = scheduleValue ? new Date(scheduleValue).toISOString() : null;
+      const res = await employeePortalAPI.updateAttendanceRequestLock(lockedThrough, scheduleIso);
+      setRequestLock(res.data || { lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, updatedAt: null, updatedBy: '' });
+      showToast('success', scheduleValue
+        ? `Correction request lock scheduled for ${new Date(scheduleValue).toLocaleString('en-PH')}`
+        : lockedThrough
+          ? `Correction requests locked through ${lockedThrough}`
+          : 'Attendance correction requests reopened and scheduled lock cancelled');
     } catch (err) {
       showToast('error', err.response?.data?.error || 'Failed to update request deadline');
     } finally {
@@ -271,8 +283,20 @@ const ApprovalsPage = () => {
                 ? `Locked through ${requestLock.lockedThrough}`
                 : 'Requests currently open'}
             </div>
+            {requestLock.scheduledAt && requestLock.scheduledLockedThrough && (
+              <div className="mt-2 text-xs font-medium text-indigo-700">
+                Scheduled: lock through {requestLock.scheduledLockedThrough} on{' '}
+                {new Date(requestLock.scheduledAt).toLocaleString('en-PH', {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                  timeZone: 'Asia/Manila'
+                })} (Manila time)
+              </div>
+            )}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1fr)_minmax(210px,1fr)_auto_auto] lg:items-end">
+            <label className="text-xs font-semibold text-gray-600">
+              Cutoff to lock
             <select
               value={selectedLockThrough}
               onChange={(event) => setSelectedLockThrough(event.target.value)}
@@ -285,21 +309,41 @@ const ApprovalsPage = () => {
                 </option>
               ))}
             </select>
+            </label>
+            <label className="text-xs font-semibold text-gray-600">
+              Lock date and time
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                min={new Date().toISOString().slice(0, 16)}
+                onChange={(event) => setScheduledAt(event.target.value)}
+                disabled={savingRequestLock}
+                className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-800 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+              />
+            </label>
             <button
               type="button"
               disabled={savingRequestLock}
               onClick={() => updateRequestLock(selectedLockThrough)}
               className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
             >
-              {savingRequestLock ? 'Saving…' : 'Lock Selected Cutoff'}
+              {savingRequestLock ? 'Saving…' : 'Lock Now'}
             </button>
             <button
               type="button"
-              disabled={savingRequestLock || !requestLock.lockedThrough}
-              onClick={() => updateRequestLock(null)}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              disabled={savingRequestLock || !scheduledAt}
+              onClick={() => updateRequestLock(selectedLockThrough, scheduledAt)}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
             >
-              Unlock All Requests
+              Schedule Lock
+            </button>
+            <button
+              type="button"
+              disabled={savingRequestLock || (!requestLock.lockedThrough && !requestLock.scheduledAt)}
+              onClick={() => updateRequestLock(null)}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:col-span-2 lg:col-span-4 lg:justify-self-end"
+            >
+              Unlock and Cancel Schedule
             </button>
           </div>
         </div>

@@ -52,6 +52,15 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: ''
+  },
+  attendanceRequestScheduledLockedThrough: {
+    type: String,
+    default: null,
+    match: /^\d{4}-\d{2}-\d{2}$/
+  },
+  attendanceRequestLockScheduledAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

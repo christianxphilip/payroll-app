@@ -26,8 +26,26 @@ const attendanceDate = (value) => {
 
 const getAttendanceRequestLock = async () => {
   const settings = await Settings.getSettings();
+
+  // Resolve a due schedule while handling any attendance request. This does
+  // not depend on a continuously running process, so it remains reliable when
+  // a free Render service wakes from sleep.
+  if (
+    settings.attendanceRequestLockScheduledAt &&
+    settings.attendanceRequestScheduledLockedThrough &&
+    settings.attendanceRequestLockScheduledAt.getTime() <= Date.now()
+  ) {
+    settings.attendanceRequestLockedThrough = settings.attendanceRequestScheduledLockedThrough;
+    settings.attendanceRequestScheduledLockedThrough = null;
+    settings.attendanceRequestLockScheduledAt = null;
+    settings.attendanceRequestLockUpdatedAt = new Date();
+    await settings.save();
+  }
+
   return {
     lockedThrough: settings.attendanceRequestLockedThrough || null,
+    scheduledLockedThrough: settings.attendanceRequestScheduledLockedThrough || null,
+    scheduledAt: settings.attendanceRequestLockScheduledAt || null,
     updatedAt: settings.attendanceRequestLockUpdatedAt || null,
     updatedBy: settings.attendanceRequestLockUpdatedBy || ''
   };
@@ -241,13 +259,31 @@ router.put('/attendance/request-lock', async (req, res, next) => {
       throw new AppError('Only administrators can change the attendance request deadline', 403);
     }
 
-    const { lockedThrough } = req.body;
+    const { lockedThrough, scheduledAt } = req.body;
     if (lockedThrough !== null && lockedThrough !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(lockedThrough)) {
       throw new AppError('Locked-through date must use YYYY-MM-DD format', 400);
     }
 
+    const scheduledDate = scheduledAt ? new Date(scheduledAt) : null;
+    if (scheduledAt && Number.isNaN(scheduledDate.getTime())) {
+      throw new AppError('Scheduled lock time is invalid', 400);
+    }
+    if (scheduledDate && scheduledDate.getTime() <= Date.now()) {
+      throw new AppError('Scheduled lock time must be in the future', 400);
+    }
+    if (scheduledDate && !lockedThrough) {
+      throw new AppError('Select a cutoff before scheduling the lock', 400);
+    }
+
     const settings = await Settings.getSettings();
-    settings.attendanceRequestLockedThrough = lockedThrough || null;
+    if (scheduledDate) {
+      settings.attendanceRequestScheduledLockedThrough = lockedThrough;
+      settings.attendanceRequestLockScheduledAt = scheduledDate;
+    } else {
+      settings.attendanceRequestLockedThrough = lockedThrough || null;
+      settings.attendanceRequestScheduledLockedThrough = null;
+      settings.attendanceRequestLockScheduledAt = null;
+    }
     settings.attendanceRequestLockUpdatedAt = new Date();
     settings.attendanceRequestLockUpdatedBy = req.user.username || 'Admin';
     await settings.save();
@@ -255,9 +291,11 @@ router.put('/attendance/request-lock', async (req, res, next) => {
     res.json({
       success: true,
       data: await getAttendanceRequestLock(),
-      message: lockedThrough
-        ? `Attendance correction requests are locked through ${lockedThrough}`
-        : 'Attendance correction requests are unlocked'
+      message: scheduledDate
+        ? `Attendance correction request lock scheduled for ${scheduledDate.toISOString()}`
+        : lockedThrough
+          ? `Attendance correction requests are locked through ${lockedThrough}`
+          : 'Attendance correction requests are unlocked and scheduled locks are cancelled'
     });
   } catch (error) {
     next(error);

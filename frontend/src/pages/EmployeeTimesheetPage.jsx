@@ -32,7 +32,7 @@ const EmployeeTimesheetPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [requestLock, setRequestLock] = useState({ lockedThrough: null, updatedAt: null, updatedBy: '' });
+  const [requestLock, setRequestLock] = useState({ lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, updatedAt: null, updatedBy: '' });
 
   // Approvals state
   const [isApprover, setIsApprover] = useState(() => {
@@ -92,7 +92,7 @@ const EmployeeTimesheetPage = () => {
       const response = await employeePortalAPI.getAttendance(requestedRange.startDate, requestedRange.endDate);
       setRecords(response.data || []);
       setEmployee(response.employee || null);
-      setRequestLock(response.requestLock || { lockedThrough: null, updatedAt: null, updatedBy: '' });
+      setRequestLock(response.requestLock || { lockedThrough: null, scheduledLockedThrough: null, scheduledAt: null, updatedAt: null, updatedBy: '' });
       const approver = Boolean(response.isApprover || response.employee?.isApprover);
       setIsApprover(approver);
       sessionStorage.setItem('employee-is-approver', String(approver));
@@ -386,6 +386,20 @@ const EmployeeTimesheetPage = () => {
                 <div className="font-semibold">Attendance correction deadline is closed</div>
                 <div className="mt-0.5 text-xs text-amber-800">
                   New correction requests for attendance dated {requestLock.lockedThrough} or earlier are locked. Existing requests can still be reviewed.
+                </div>
+              </div>
+            )}
+
+            {!requestLock.lockedThrough && requestLock.scheduledAt && requestLock.scheduledLockedThrough && (
+              <div className="mb-5 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+                <div className="font-semibold">Upcoming attendance correction deadline</div>
+                <div className="mt-0.5 text-xs text-indigo-800">
+                  Requests for {requestLock.scheduledLockedThrough} and earlier will close on{' '}
+                  {new Date(requestLock.scheduledAt).toLocaleString('en-PH', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                    timeZone: 'Asia/Manila'
+                  })} (Manila time).
                 </div>
               </div>
             )}
