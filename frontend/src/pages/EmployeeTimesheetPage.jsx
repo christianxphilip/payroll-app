@@ -428,10 +428,11 @@ const EmployeeTimesheetPage = () => {
               </div>
             ) : !error && (
               <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
-                <div className="hidden grid-cols-[minmax(210px,1fr)_minmax(210px,1fr)_minmax(260px,.85fr)] gap-6 border-b bg-gray-50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-gray-500 lg:grid">
+                <div className="hidden grid-cols-[minmax(190px,1fr)_minmax(190px,1fr)_150px_180px] gap-5 border-b bg-gray-50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-gray-500 lg:grid">
                   <span>Time In</span>
                   <span>Time Out</span>
-                  <span>Status &amp; Action</span>
+                  <span>Status</span>
+                  <span>Action</span>
                 </div>
                 <div className="divide-y divide-gray-100">
                   {records.map((record) => {
@@ -441,7 +442,7 @@ const EmployeeTimesheetPage = () => {
                     return (
                       <div
                         key={record.id}
-                        className={`grid gap-3 px-4 py-4 text-sm transition-colors sm:px-5 lg:grid-cols-[minmax(210px,1fr)_minmax(210px,1fr)_minmax(260px,.85fr)] lg:items-center lg:gap-6 ${
+                        className={`grid gap-3 px-4 py-4 text-sm transition-colors sm:px-5 lg:grid-cols-[minmax(190px,1fr)_minmax(190px,1fr)_150px_180px] lg:items-center lg:gap-5 ${
                           isInvalid ? 'border-l-4 border-red-500 bg-red-50/40' : ''
                         } ${isPending ? 'border-l-4 border-amber-400 bg-amber-50/30' : 'hover:bg-gray-50/60'}`}
                       >
@@ -469,31 +470,35 @@ const EmployeeTimesheetPage = () => {
                           )}
                         </div>
 
-                        {/* Status and contextual action */}
+                        {/* Status */}
                         <div>
-                          <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-gray-400 lg:hidden">Status &amp; Action</span>
-                          <div className="flex flex-wrap items-center gap-2">
-                            {renderStatusBadge(record.status)}
-                            {isInvalid && (
-                              <button
-                                type="button"
-                                onClick={() => openRequestModal(record)}
-                                className="min-h-9 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
-                              >
-                                Request Approval
-                              </button>
-                            )}
-                            {isPending && (
-                              <span className="text-xs italic text-gray-500">
-                                Awaiting {record.status === 'For L1 Approval' ? (employee?.l1ApproverName || 'L1') : (employee?.l2ApproverName || 'L2')}
-                              </span>
-                            )}
-                          </div>
+                          <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-gray-400 lg:hidden">Status</span>
+                          {renderStatusBadge(record.status)}
                           {record.approvalDetails?.rejectionReason && (
                             <div className="mt-1 text-[11px] text-red-600">
                               Reason: {record.approvalDetails.rejectionReason}
                             </div>
                           )}
+                        </div>
+
+                        {/* Action */}
+                        <div>
+                          <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-gray-400 lg:hidden">Action</span>
+                          {isInvalid && (
+                            <button
+                              type="button"
+                              onClick={() => openRequestModal(record)}
+                              className="min-h-9 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+                            >
+                              Request Approval
+                            </button>
+                          )}
+                          {isPending && (
+                            <span className="text-xs italic text-gray-500">
+                              Awaiting {record.status === 'For L1 Approval' ? (employee?.l1ApproverName || 'L1') : (employee?.l2ApproverName || 'L2')}
+                            </span>
+                          )}
+                          {!isInvalid && !isPending && <span className="text-gray-300">—</span>}
                         </div>
                       </div>
                     );
