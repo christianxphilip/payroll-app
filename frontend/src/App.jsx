@@ -53,7 +53,7 @@ function App() {
           <Route
             path="/employee/payslips"
             element={
-              <ProtectedRoute allowedRoles={['employee']}>
+              <ProtectedRoute allowedRoles={['employee', 'manager']}>
                 <EmployeePortalPage />
               </ProtectedRoute>
             }
@@ -61,7 +61,7 @@ function App() {
           <Route
             path="/employee/payslips/:payRunId"
             element={
-              <ProtectedRoute allowedRoles={['employee']}>
+              <ProtectedRoute allowedRoles={['employee', 'manager']}>
                 <EmployeePayslipViewPage />
               </ProtectedRoute>
             }
@@ -69,7 +69,7 @@ function App() {
           <Route
             path="/employee/timesheet"
             element={
-              <ProtectedRoute allowedRoles={['employee']}>
+              <ProtectedRoute allowedRoles={['employee', 'manager']}>
                 <EmployeeTimesheetPage />
               </ProtectedRoute>
             }
@@ -77,7 +77,7 @@ function App() {
           <Route
             path="/employee/approvals"
             element={
-              <ProtectedRoute allowedRoles={['employee']}>
+              <ProtectedRoute allowedRoles={['employee', 'manager']}>
                 <Navigate to="/employee/timesheet?tab=approvals" replace />
               </ProtectedRoute>
             }

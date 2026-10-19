@@ -27,6 +27,7 @@ const EmployeesPage = () => {
   const [formData, setFormData] = useState({
     employeeName: '',
     position: '',
+    scheduleLeadRole: 'NONE',
     email: '',
     birthday: '',
     address: '',
@@ -108,6 +109,7 @@ const EmployeesPage = () => {
     setFormData({
       employeeName: '',
       position: '',
+      scheduleLeadRole: 'NONE',
       email: '',
       birthday: '',
       address: '',
@@ -137,6 +139,7 @@ const EmployeesPage = () => {
     setFormData({
       employeeName: employee.employeeName || '',
       position: employee.position || '',
+      scheduleLeadRole: employee.scheduleLeadRole || 'NONE',
       email: employee.email || '',
       birthday: employee.birthday ? employee.birthday.split('T')[0] : '',
       address: employee.address || '',
@@ -354,6 +357,11 @@ const EmployeesPage = () => {
                   <div>
                     <h3 className="font-semibold text-lg text-gray-900">{employee.employeeName}</h3>
                     {employee.position && <p className="text-sm text-gray-600">{employee.position}</p>}
+                    {employee.scheduleLeadRole && employee.scheduleLeadRole !== 'NONE' && (
+                      <span className="mt-1 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-800">
+                        {employee.scheduleLeadRole === 'BAR' ? 'Bar Lead' : 'Kitchen Lead'}
+                      </span>
+                    )}
                     {employee.email && <p className="text-xs text-gray-500">{employee.email}</p>}
                     {employee.odooEmployeeId && (
                       <span className="inline-flex items-center gap-1 mt-1 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">
@@ -458,6 +466,13 @@ const EmployeesPage = () => {
                       <div className="font-medium text-gray-900">{employee.employeeName}</div>
                       {employee.position && (
                         <div className="text-sm text-gray-700">{employee.position}</div>
+                      )}
+                      {employee.scheduleLeadRole && employee.scheduleLeadRole !== 'NONE' && (
+                        <div className="mt-1">
+                          <span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-800">
+                            {employee.scheduleLeadRole === 'BAR' ? 'Bar Lead' : 'Kitchen Lead'}
+                          </span>
+                        </div>
                       )}
                       {employee.email && (
                         <div className="text-xs text-gray-500">{employee.email}</div>
@@ -641,6 +656,23 @@ const EmployeesPage = () => {
               />
             </div>
           </div>
+          {user?.role === 'admin' && (
+            <div className="mb-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
+              <label className="mb-1 block text-sm font-semibold text-orange-900">Scheduling Lead</label>
+              <select
+                value={formData.scheduleLeadRole}
+                onChange={(e) => setFormData({ ...formData, scheduleLeadRole: e.target.value })}
+                className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm"
+              >
+                <option value="NONE">Not a scheduling lead</option>
+                <option value="BAR">Bar Lead</option>
+                <option value="KITCHEN">Kitchen Lead</option>
+              </select>
+              <p className="mt-1.5 text-xs text-orange-700">
+                Leads use their employee portal username and password to manage schedules for their assigned department.
+              </p>
+            </div>
+          )}
           <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
             <h4 className="text-xs font-semibold text-indigo-800 uppercase tracking-wider mb-2">Employee Portal Login Credentials</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

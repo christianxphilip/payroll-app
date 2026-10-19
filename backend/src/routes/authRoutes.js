@@ -18,10 +18,6 @@ router.post('/login', async (req, res, next) => {
     }
     
     const adminPassword = process.env.ADMIN_PASSWORD || process.env.AUTH_PASSWORD || 'admin123';
-    const managerPassword = process.env.MANAGER_PASSWORD || 'manager123';
-    const kitchenManagerPassword = process.env.KITCHEN_MANAGER_PASSWORD || managerPassword;
-    const barManagerPassword = process.env.BAR_MANAGER_PASSWORD || managerPassword;
-    
     let resolvedRole = null;
     let resolvedUsername = null;
     let employeeId = null;
@@ -33,16 +29,6 @@ router.post('/login', async (req, res, next) => {
     if (cleanUsername === 'admin' && password === adminPassword) {
       resolvedRole = 'admin';
       resolvedUsername = 'admin';
-    } else if (['kitchen manager', 'kitchen-manager', 'kitchen_manager', 'kitchenmanager'].includes(cleanUsername) && password === kitchenManagerPassword) {
-      resolvedRole = 'manager';
-      resolvedUsername = 'kitchen-manager';
-      managerScope = 'kitchen';
-    } else if (['bar manager', 'bar-manager', 'bar_manager', 'barmanager'].includes(cleanUsername) && password === barManagerPassword) {
-      resolvedRole = 'manager';
-      resolvedUsername = 'bar-manager';
-      managerScope = 'bar';
-    } else if (cleanUsername === 'manager' && password === managerPassword) {
-      throw new AppError('Use the kitchen manager or bar manager username', 401);
     } else if (!cleanUsername && password === adminPassword) {
       resolvedRole = 'admin';
       resolvedUsername = 'admin';
@@ -52,10 +38,16 @@ router.post('/login', async (req, res, next) => {
       if (emp && emp.password) {
         const isMatch = await bcrypt.compare(password, emp.password);
         if (isMatch) {
-          resolvedRole = 'employee';
+          const leadScope = emp.scheduleLeadRole === 'BAR'
+            ? 'bar'
+            : emp.scheduleLeadRole === 'KITCHEN'
+              ? 'kitchen'
+              : null;
+          resolvedRole = leadScope ? 'manager' : 'employee';
           resolvedUsername = emp.username;
           employeeId = emp._id;
           employeeName = emp.employeeName;
+          managerScope = leadScope;
         }
       }
     }

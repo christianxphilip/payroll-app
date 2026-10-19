@@ -94,6 +94,9 @@ const EmployeePortalPage = () => {
           </button>
         </div>
         <div className="max-w-6xl mx-auto px-4 pb-3 flex gap-2 text-sm">
+          {user?.role === 'manager' && (
+            <button onClick={() => navigate('/schedules')} className="rounded-lg px-3 py-2 font-semibold text-orange-300 hover:bg-slate-800 hover:text-orange-200 transition-colors">Schedules</button>
+          )}
           <button className="rounded-lg bg-white px-3 py-2 font-semibold text-slate-900 shadow-sm">Payslips</button>
           <button onClick={() => navigate('/employee/timesheet')} className="rounded-lg px-3 py-2 font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors">Timesheet</button>
           {(approverInfo.isApprover !== false || user?.role === 'admin' || approverInfo.pendingCount > 0) && (

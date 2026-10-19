@@ -23,7 +23,8 @@ const Layout = () => {
       items: [
         { path: '/employees', label: 'Employees' },
         ...(isAdmin ? [{ path: '/assignments', label: 'Assignments' }] : []),
-        { path: '/schedules', label: 'Schedules' }
+        { path: '/schedules', label: 'Schedules' },
+        ...(!isAdmin && user?.employeeId ? [{ path: '/employee/payslips', label: 'My Payslips' }] : [])
       ]
     },
     {
@@ -32,7 +33,7 @@ const Layout = () => {
         ...(isAdmin ? [
           { path: '/timesheet-entries', label: 'Timesheet' },
           { path: '/approvals', label: 'Approvals' }
-        ] : []),
+        ] : user?.employeeId ? [{ path: '/employee/timesheet', label: 'My Timesheet' }] : []),
         { path: '/holidays', label: 'Holidays' }
       ]
     },

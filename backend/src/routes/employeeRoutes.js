@@ -99,6 +99,7 @@ router.post('/', async (req, res, next) => {
       lastWorkingDate,
       status,
       employmentType,
+      scheduleLeadRole,
       wageType,
       wageRate,
       eligibleForThirteenthMonth,
@@ -147,6 +148,7 @@ router.post('/', async (req, res, next) => {
       lastWorkingDate,
       status,
       employmentType,
+      scheduleLeadRole: req.user.role === 'admin' ? (scheduleLeadRole || 'NONE') : 'NONE',
       wageType,
       wageRate,
       eligibleForThirteenthMonth,
@@ -200,6 +202,7 @@ router.put('/:name', async (req, res, next) => {
       delete updateData.wageType;
       delete updateData.wageRate;
       delete updateData.eligibleForThirteenthMonth;
+      delete updateData.scheduleLeadRole;
     }
     
     if (updateData.l1ApproverId === '') updateData.l1ApproverId = null;

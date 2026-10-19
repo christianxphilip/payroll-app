@@ -11,6 +11,12 @@ const employeeSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  scheduleLeadRole: {
+    type: String,
+    enum: ['NONE', 'BAR', 'KITCHEN'],
+    default: 'NONE',
+    index: true
+  },
   email: {
     type: String,
     trim: true,
