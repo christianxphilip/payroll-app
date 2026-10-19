@@ -2,7 +2,9 @@ import express from 'express';
 import Timesheet from '../models/Timesheet.js';
 import TimesheetLog from '../models/TimesheetLog.js';
 import Schedule from '../models/Schedule.js';
+import Employee from '../models/Employee.js';
 import { calculateTimesheetFields } from '../services/calculationService.js';
+import { getEmployeeAttendance } from '../services/odooAttendanceService.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -95,11 +97,17 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/timesheet-entries - Create new timesheet entry
 router.post('/', async (req, res, next) => {
   try {
-    const { name, startDate, endDate, notes, generateFromSchedules } = req.body;
+    const { name, startDate, endDate, notes, generateFromSchedules, generateFromOdoo } = req.body;
     
     // Validate required fields
     if (!name || !startDate || !endDate) {
       throw new AppError('Missing required fields: name, startDate, endDate', 400);
+    }
+    if (generateFromSchedules && generateFromOdoo) {
+      throw new AppError('Choose either Odoo attendance or schedules as the initial source', 400);
+    }
+    if (generateFromOdoo && req.user.role !== 'admin') {
+      throw new AppError('Only administrators can import attendance from Odoo', 403);
     }
     
     const timesheet = await Timesheet.create({
@@ -110,6 +118,76 @@ router.post('/', async (req, res, next) => {
     });
 
     let generatedLogsCount = 0;
+    let skippedLogsCount = 0;
+    let unlinkedEmployeesCount = 0;
+
+    if (generateFromOdoo) {
+      const employees = await Employee.find({
+        status: { $ne: 'RESIGNED' },
+        odooEmployeeId: { $ne: null }
+      }).select('employeeName odooEmployeeId').lean();
+      unlinkedEmployeesCount = await Employee.countDocuments({
+        status: { $ne: 'RESIGNED' },
+        $or: [{ odooEmployeeId: null }, { odooEmployeeId: { $exists: false } }]
+      });
+
+      // Use small batches to avoid overwhelming Odoo while still keeping the
+      // admin import responsive. Each employee range benefits from Redis cache.
+      const attendanceByEmployee = [];
+      for (let index = 0; index < employees.length; index += 5) {
+        const batch = employees.slice(index, index + 5);
+        const results = await Promise.all(batch.map(async employee => ({
+          employee,
+          attendance: await getEmployeeAttendance({
+            odooEmployeeId: employee.odooEmployeeId,
+            startDate,
+            endDate
+          })
+        })));
+        attendanceByEmployee.push(...results);
+      }
+
+      for (const { employee, attendance } of attendanceByEmployee) {
+        for (const record of attendance) {
+          const existingLog = await TimesheetLog.findOne({ odooAttendanceId: record.id }).lean();
+          if (existingLog) {
+            skippedLogsCount += 1;
+            continue;
+          }
+
+          const timeIn = record.checkIn
+            ? new Date(String(record.checkIn).includes('T') ? record.checkIn : `${String(record.checkIn).replace(' ', 'T')}Z`)
+            : null;
+          const timeOut = record.checkOut
+            ? new Date(String(record.checkOut).includes('T') ? record.checkOut : `${String(record.checkOut).replace(' ', 'T')}Z`)
+            : null;
+          if (!timeIn) {
+            skippedLogsCount += 1;
+            continue;
+          }
+
+          const manilaDate = new Date(timeIn.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          const timesheetData = {
+            timesheetId: timesheet._id,
+            employeeName: employee.employeeName,
+            date: new Date(`${manilaDate}T00:00:00+08:00`),
+            timeIn,
+            timeOut
+          };
+          const calculatedFields = await calculateTimesheetFields(timesheetData);
+          await TimesheetLog.create({
+            ...timesheetData,
+            ...calculatedFields,
+            source: 'ODOO',
+            odooAttendanceId: record.id,
+            reviewFlag: Boolean(calculatedFields.reviewFlag || record.isInvalid || !timeOut),
+            reviewNotes: record.isInvalid || !timeOut ? 'Imported from Odoo with an invalid or incomplete attendance log.' : '',
+            isSubmitted: false
+          });
+          generatedLogsCount += 1;
+        }
+      }
+    }
 
     if (generateFromSchedules) {
       // Find all active schedules in a slightly wider query range to cover timezone shifts
@@ -199,6 +277,7 @@ router.post('/', async (req, res, next) => {
           const completeData = {
             ...timesheetData,
             ...calculatedFields,
+            source: 'SCHEDULE',
             isSubmitted: false
           };
 
@@ -211,9 +290,12 @@ router.post('/', async (req, res, next) => {
     res.status(201).json({
       success: true,
       data: timesheet,
-      message: generateFromSchedules
-        ? `Timesheet entry created successfully with ${generatedLogsCount} logs generated from schedules.`
-        : 'Timesheet entry created successfully.'
+      importSummary: { generatedLogsCount, skippedLogsCount, unlinkedEmployeesCount },
+      message: generateFromOdoo
+        ? `Timesheet entry created with ${generatedLogsCount} Odoo attendance logs${skippedLogsCount ? `; ${skippedLogsCount} duplicates skipped` : ''}${unlinkedEmployeesCount ? `; ${unlinkedEmployeesCount} employees are not linked to Odoo` : ''}.`
+        : generateFromSchedules
+          ? `Timesheet entry created successfully with ${generatedLogsCount} logs generated from schedules.`
+          : 'Timesheet entry created successfully.'
     });
   } catch (error) {
     next(error);

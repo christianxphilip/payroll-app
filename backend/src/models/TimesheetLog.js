@@ -12,6 +12,18 @@ const timesheetLogSchema = new mongoose.Schema({
     required: [true, 'Employee name is required'],
     index: true
   },
+  source: {
+    type: String,
+    enum: ['MANUAL', 'SCHEDULE', 'ODOO'],
+    default: 'MANUAL',
+    index: true
+  },
+  odooAttendanceId: {
+    type: Number,
+    index: true,
+    sparse: true,
+    unique: true
+  },
   date: {
     type: Date,
     required: [true, 'Date is required'],
@@ -102,4 +114,3 @@ timesheetLogSchema.index({ isSubmitted: 1 });
 timesheetLogSchema.index({ reviewFlag: 1 });
 
 export default mongoose.model('TimesheetLog', timesheetLogSchema, 'payroll_app_timesheetlogs');
-

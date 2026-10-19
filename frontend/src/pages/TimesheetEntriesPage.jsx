@@ -11,6 +11,7 @@ const TimesheetEntriesPage = () => {
   const [payRuns, setPayRuns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 50,
@@ -22,7 +23,8 @@ const TimesheetEntriesPage = () => {
     startDate: '',
     endDate: '',
     notes: '',
-    generateFromSchedules: false
+    generateFromSchedules: false,
+    generateFromOdoo: false
   });
   const [message, setMessage] = useState({ type: '', text: '' });
 
@@ -80,7 +82,8 @@ const TimesheetEntriesPage = () => {
       startDate: '',
       endDate: '',
       notes: '',
-      generateFromSchedules: false
+      generateFromSchedules: false,
+      generateFromOdoo: false
     });
     setIsModalOpen(true);
   };
@@ -88,12 +91,15 @@ const TimesheetEntriesPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await timesheetEntryAPI.create(formData);
-      showMessage('success', 'Timesheet entry created successfully');
+      setCreating(true);
+      const response = await timesheetEntryAPI.create(formData);
+      showMessage('success', response.message || 'Timesheet entry created successfully');
       setIsModalOpen(false);
       fetchEntries();
     } catch (error) {
       showMessage('error', error.response?.data?.error || 'Failed to create timesheet entry');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -393,7 +399,7 @@ const TimesheetEntriesPage = () => {
                 id="generateFromSchedules"
                 type="checkbox"
                 checked={formData.generateFromSchedules}
-                onChange={(e) => setFormData({ ...formData, generateFromSchedules: e.target.checked })}
+                onChange={(e) => setFormData({ ...formData, generateFromSchedules: e.target.checked, generateFromOdoo: e.target.checked ? false : formData.generateFromOdoo })}
                 className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded cursor-pointer"
               />
             </div>
@@ -403,6 +409,25 @@ const TimesheetEntriesPage = () => {
               </label>
               <p className="text-gray-500 text-xs">
                 Automatically create daily time logs for employees based on active schedule shifts within this date range.
+              </p>
+            </div>
+          </div>
+          <div className="mb-5 flex items-start rounded-xl border border-indigo-200 bg-indigo-50 p-3">
+            <div className="flex h-5 items-center">
+              <input
+                id="generateFromOdoo"
+                type="checkbox"
+                checked={formData.generateFromOdoo}
+                onChange={(e) => setFormData({ ...formData, generateFromOdoo: e.target.checked, generateFromSchedules: e.target.checked ? false : formData.generateFromSchedules })}
+                className="h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="ml-3 text-sm">
+              <label htmlFor="generateFromOdoo" className="cursor-pointer font-semibold text-indigo-900">
+                Fetch actual attendance from Odoo
+              </label>
+              <p className="mt-0.5 text-xs leading-5 text-indigo-700">
+                Imports time-in and time-out records for linked active employees within this date range. Duplicate Odoo records are skipped, and invalid punches are flagged for review.
               </p>
             </div>
           </div>
@@ -416,9 +441,10 @@ const TimesheetEntriesPage = () => {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              disabled={creating}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              Create
+              {creating ? 'Fetching…' : formData.generateFromOdoo ? 'Create & Fetch Odoo Attendance' : 'Create'}
             </button>
           </div>
         </form>

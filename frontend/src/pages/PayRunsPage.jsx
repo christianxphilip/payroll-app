@@ -14,6 +14,7 @@ const PayRunsPage = () => {
   const initialTimesheetIds = searchParams.get('timesheetIds');
   const initialStart = searchParams.get('startDate');
   const initialEnd = searchParams.get('endDate');
+  const historyView = searchParams.get('view') === 'history';
 
   const [payRuns, setPayRuns] = useState([]);
   const [timesheetEntries, setTimesheetEntries] = useState([]);
@@ -29,6 +30,7 @@ const PayRunsPage = () => {
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, payRunId: null, status: null });
   const { addAction, undo, canUndo, lastAction, clearHistory } = useUndo();
   const [undoToastVisible, setUndoToastVisible] = useState(false);
+  const displayedPayRuns = historyView ? payRuns.filter(payRun => payRun.status === 'PAID') : payRuns;
 
   useEffect(() => {
     fetchPayRuns();
@@ -154,13 +156,20 @@ const PayRunsPage = () => {
   return (
     <div className="px-4 py-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Pay Runs</h1>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="w-full sm:w-auto bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 font-medium min-h-[44px]"
-        >
-          Create Pay Run
-        </button>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {historyView ? 'Payroll History' : 'Payroll Processing'}
+          </h1>
+          {historyView && <p className="mt-1 text-sm text-gray-500">Completed and paid payroll records.</p>}
+        </div>
+        {!historyView && (
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="w-full sm:w-auto bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 font-medium min-h-[44px]"
+          >
+            Create Pay Run
+          </button>
+        )}
       </div>
 
       {message.text && (
@@ -198,15 +207,17 @@ const PayRunsPage = () => {
 
       {/* Mobile Pay Runs Cards (< 768px) */}
       <div className="block md:hidden space-y-4">
-        {payRuns.length === 0 ? (
+        {displayedPayRuns.length === 0 ? (
           <EmptyState
-            title="No Pay Runs Yet"
-            message="Create your first pay run to get started. Pay runs help you manage payroll for specific time periods."
-            actionLabel="Create Pay Run"
-            onAction={() => setIsCreateModalOpen(true)}
+            title={historyView ? 'No Payroll History Yet' : 'No Pay Runs Yet'}
+            message={historyView
+              ? 'Paid payroll records will appear here.'
+              : 'Create your first pay run to get started. Pay runs help you manage payroll for specific time periods.'}
+            actionLabel={historyView ? undefined : 'Create Pay Run'}
+            onAction={historyView ? undefined : () => setIsCreateModalOpen(true)}
           />
         ) : (
-          payRuns.map((pr) => (
+          displayedPayRuns.map((pr) => (
             <div key={pr._id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3 shadow-sm">
               <div className="flex justify-between items-start">
                 <div>
@@ -290,19 +301,21 @@ const PayRunsPage = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {payRuns.length === 0 ? (
+            {displayedPayRuns.length === 0 ? (
               <tr>
                 <td colSpan="5" className="px-6 py-4">
                   <EmptyState
-                    title="No Pay Runs Yet"
-                    message="Create your first pay run to get started. Pay runs help you manage payroll for specific time periods."
-                    actionLabel="Create Pay Run"
-                    onAction={() => setIsCreateModalOpen(true)}
+                    title={historyView ? 'No Payroll History Yet' : 'No Pay Runs Yet'}
+                    message={historyView
+                      ? 'Paid payroll records will appear here.'
+                      : 'Create your first pay run to get started. Pay runs help you manage payroll for specific time periods.'}
+                    actionLabel={historyView ? undefined : 'Create Pay Run'}
+                    onAction={historyView ? undefined : () => setIsCreateModalOpen(true)}
                   />
                 </td>
               </tr>
             ) : (
-              payRuns.map((pr) => (
+              displayedPayRuns.map((pr) => (
                 <tr key={pr._id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">
                     {pr.payrollPeriodStart &&
@@ -471,4 +484,3 @@ const PayRunsPage = () => {
 };
 
 export default PayRunsPage;
-

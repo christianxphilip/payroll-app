@@ -12,7 +12,8 @@ const ReportsPage = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const timesheetIdParam = searchParams.get('timesheetId');
-  const [activeTab, setActiveTab] = useState('timesheet'); // 'timesheet' or 'payroll'
+  const requestedView = searchParams.get('view');
+  const [activeTab, setActiveTab] = useState(requestedView === 'payroll' ? 'payroll' : 'timesheet'); // 'timesheet' or 'payroll'
   
   const [employees, setEmployees] = useState([]);
   const [timesheetReport, setTimesheetReport] = useState(null);
@@ -39,6 +40,14 @@ const ReportsPage = () => {
       setActiveTab('timesheet');
     }
   }, [user, activeTab]);
+
+  useEffect(() => {
+    if (user?.role === 'admin' && requestedView === 'payroll') {
+      setActiveTab('payroll');
+    } else if (!requestedView) {
+      setActiveTab('timesheet');
+    }
+  }, [requestedView, user?.role]);
 
   useEffect(() => {
     fetchEmployees();
