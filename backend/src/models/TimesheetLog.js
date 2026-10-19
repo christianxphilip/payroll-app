@@ -24,6 +24,11 @@ const timesheetLogSchema = new mongoose.Schema({
     sparse: true,
     unique: true
   },
+  odooInvalid: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
   date: {
     type: Date,
     required: [true, 'Date is required'],

@@ -177,6 +177,7 @@ router.post('/', async (req, res, next) => {
             if (existingLog.source === 'ODOO') {
               existingLog.date = timesheetData.date;
               Object.assign(existingLog, calculatedFields, {
+                odooInvalid: record.isInvalid,
                 reviewFlag: Boolean(calculatedFields.reviewFlag || record.isInvalid || !timeOut),
                 reviewNotes: record.isInvalid || !timeOut ? 'Imported from Odoo with an invalid or incomplete attendance log.' : ''
               });
@@ -192,6 +193,7 @@ router.post('/', async (req, res, next) => {
             ...calculatedFields,
             source: 'ODOO',
             odooAttendanceId: record.id,
+            odooInvalid: record.isInvalid,
             reviewFlag: Boolean(calculatedFields.reviewFlag || record.isInvalid || !timeOut),
             reviewNotes: record.isInvalid || !timeOut ? 'Imported from Odoo with an invalid or incomplete attendance log.' : '',
             isSubmitted: false

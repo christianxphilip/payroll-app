@@ -896,6 +896,11 @@ const TimesheetsPage = () => {
                       <div className="truncate max-w-[130px]" title={timesheet.employeeName}>
                         {timesheet.employeeName}
                       </div>
+                      {timesheet.odooInvalid && (
+                        <div className="mt-0.5 text-[11px] font-semibold text-red-600">
+                          Invalid in Odoo
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm">
                       {new Date(timesheet.date).toLocaleDateString()}
