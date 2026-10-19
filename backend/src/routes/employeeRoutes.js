@@ -51,6 +51,9 @@ router.post('/:id/password-reset-link', authorize(['admin']), async (req, res, n
 // GET /api/employees - List all employees
 router.get('/', async (req, res, next) => {
   try {
+    if (req.user.role !== 'admin' && !req.user.managerScope) {
+      throw new AppError('Employee directory access is limited to administrators and Scheduling Leads', 403);
+    }
     const { search, excludeResigned } = req.query;
     
     let query = {};
@@ -60,12 +63,12 @@ router.get('/', async (req, res, next) => {
     if (excludeResigned === 'true') {
       query.status = { $ne: 'RESIGNED' };
     }
-    if (req.user.role === 'manager') {
+    if (req.user.managerScope) {
       query = { $and: [query, managerEmployeeQuery(req.user.managerScope)] };
     }
     
     let projection = {};
-    if (req.user.role === 'manager') {
+    if (req.user.managerScope) {
       projection = { wageType: 0, wageRate: 0 };
     }
     const employees = await Employee.find(query, projection).sort({ employeeName: 1 });
@@ -83,6 +86,9 @@ router.get('/', async (req, res, next) => {
 // POST /api/employees - Add new employee
 router.post('/', async (req, res, next) => {
   try {
+    if (req.user.role !== 'admin') {
+      throw new AppError('Only administrators can create employees', 403);
+    }
     if (req.user.role === 'manager') {
       delete req.body.wageType;
       delete req.body.wageRate;
@@ -189,6 +195,9 @@ router.post('/', async (req, res, next) => {
 // PUT /api/employees/:name - Update employee
 router.put('/:name', async (req, res, next) => {
   try {
+    if (req.user.role === 'employee') {
+      throw new AppError('Only administrators can update employees', 403);
+    }
     const { name } = req.params;
     const updateData = { ...req.body };
     const currentEmployee = await Employee.findOne({ employeeName: name.trim() });

@@ -18,6 +18,7 @@ import SettingsPage from './pages/SettingsPage';
 import EmployeePortalPage from './pages/EmployeePortalPage';
 import EmployeePayslipViewPage from './pages/EmployeePayslipViewPage';
 import EmployeeTimesheetPage from './pages/EmployeeTimesheetPage';
+import EmployeeSchedulePage from './pages/EmployeeSchedulePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import PayrollPage from './pages/PayrollPage';
 import ThirteenthMonthRunsPage from './pages/ThirteenthMonthRunsPage';
@@ -51,9 +52,17 @@ function App() {
 
           {/* Employee Portal Routes (Standalone Header Layout) */}
           <Route
+            path="/employee/schedules"
+            element={
+              <ProtectedRoute allowedRoles={['employee']}>
+                <EmployeeSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/employee/payslips"
             element={
-              <ProtectedRoute allowedRoles={['employee', 'manager']}>
+              <ProtectedRoute allowedRoles={['employee']}>
                 <EmployeePortalPage />
               </ProtectedRoute>
             }
@@ -61,7 +70,7 @@ function App() {
           <Route
             path="/employee/payslips/:payRunId"
             element={
-              <ProtectedRoute allowedRoles={['employee', 'manager']}>
+              <ProtectedRoute allowedRoles={['employee']}>
                 <EmployeePayslipViewPage />
               </ProtectedRoute>
             }
@@ -69,7 +78,7 @@ function App() {
           <Route
             path="/employee/timesheet"
             element={
-              <ProtectedRoute allowedRoles={['employee', 'manager']}>
+              <ProtectedRoute allowedRoles={['employee']}>
                 <EmployeeTimesheetPage />
               </ProtectedRoute>
             }
@@ -77,13 +86,13 @@ function App() {
           <Route
             path="/employee/approvals"
             element={
-              <ProtectedRoute allowedRoles={['employee', 'manager']}>
+              <ProtectedRoute allowedRoles={['employee']}>
                 <Navigate to="/employee/timesheet?tab=approvals" replace />
               </ProtectedRoute>
             }
           />
           
-          <Route path="/" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Layout /></ProtectedRoute>}>
+          <Route path="/" element={<ProtectedRoute allowedRoles={['admin']}><Layout /></ProtectedRoute>}>
             <Route index element={<HomeRedirect />} />
             <Route path="dashboard" element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />
             <Route path="employees" element={<EmployeesPage />} />

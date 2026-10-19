@@ -5,12 +5,16 @@ import { authenticate, authorize } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 router.use(authenticate);
+router.use((req, res, next) => {
+    if (req.user.role === 'admin' || req.user.managerScope) return next();
+    return res.status(403).json({ error: 'Shift allocations are limited to administrators and Scheduling Leads' });
+});
 
 // GET /api/shift-allocations - Get all allocations
 router.get('/', async (req, res, next) => {
     try {
         const allocations = await ShiftAllocation.find().populate('shiftId');
-        const departments = req.user.role === 'manager'
+        const departments = req.user.managerScope
             ? [req.user.managerScope]
             : ['bar', 'kitchen'];
         const departmentAllocations = allocations.flatMap((allocation) => departments.map((department) => {

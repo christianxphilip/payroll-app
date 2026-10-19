@@ -18,14 +18,18 @@ const scheduleActorName = (user) => user?.username || user?.employeeName || user
 
 // All routes require authentication
 router.use(authenticate);
+router.use((req, res, next) => {
+  if (req.user.role === 'admin' || req.user.managerScope) return next();
+  return next(new AppError('Schedule management is limited to administrators and Scheduling Leads', 403));
+});
 
 const getManagerEmployees = async (reqUser) => {
-  if (reqUser.role !== 'manager') return null;
+  if (reqUser.role === 'admin' || !reqUser.managerScope) return null;
   return Employee.find(managerEmployeeQuery(reqUser.managerScope), 'employeeName position');
 };
 
 const assertManagerScheduleWrite = async (reqUser, scheduleData, existingSchedule = null) => {
-  if (reqUser.role !== 'manager') return;
+  if (reqUser.role === 'admin' || !reqUser.managerScope) return;
   const employeeName = scheduleData.employeeName || existingSchedule?.employeeName;
   const scheduleDate = scheduleData.date || existingSchedule?.date;
   const employee = await Employee.findOne({ employeeName }, 'employeeName position');
@@ -269,7 +273,7 @@ router.post('/bulk', async (req, res, next) => {
 // POST /api/schedules/upload-csv - Parse and import CSV schedule
 router.post('/upload-csv', upload.single('file'), async (req, res, next) => {
   try {
-    if (req.user.role === 'manager') throw new AppError('CSV schedule import is only available to admins', 403);
+    if (req.user.role !== 'admin') throw new AppError('CSV schedule import is only available to admins', 403);
     if (!req.file) {
       throw new AppError('No file uploaded', 400);
     }
@@ -389,7 +393,7 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const existingSchedule = await Schedule.findById(id);
-    if (existingSchedule && req.user.role === 'manager') {
+    if (existingSchedule && req.user.role !== 'admin' && req.user.managerScope) {
       const employee = await Employee.findOne({ employeeName: existingSchedule.employeeName }, 'position');
       assertManagerCanManageEmployee(employee, req.user);
       if (existingSchedule.assignmentType !== managerAssignmentType(req.user.managerScope)) {
@@ -414,7 +418,7 @@ router.delete('/:id', async (req, res, next) => {
 // DELETE /api/schedules/range - Delete schedules by date range
 router.delete('/range/delete', async (req, res, next) => {
   try {
-    if (req.user.role === 'manager') throw new AppError('Bulk schedule deletion is only available to admins', 403);
+    if (req.user.role !== 'admin') throw new AppError('Bulk schedule deletion is only available to admins', 403);
     const { startDate, endDate, employeeName } = req.body;
     
     if (!startDate || !endDate) {

@@ -12,11 +12,11 @@ export const authenticate = (req, res, next) => {
     const token = authHeader.split(' ')[1];
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role === 'manager' && !['kitchen', 'bar'].includes(decoded.managerScope)) {
-      throw new AppError('Manager session must be renewed', 401);
+    if (decoded.role === 'manager') {
+      throw new AppError('Manager accounts have been replaced by employee Scheduling Lead accounts. Please sign in again.', 401);
     }
-    if (decoded.role === 'manager' && !decoded.employeeId) {
-      throw new AppError('Scheduling is now assigned through an employee Lead account. Please sign in with the Lead employee login.', 401);
+    if (decoded.managerScope && !['kitchen', 'bar'].includes(decoded.managerScope)) {
+      throw new AppError('Scheduling Lead session must be renewed', 401);
     }
     req.user = {
       role: decoded.role || 'admin',

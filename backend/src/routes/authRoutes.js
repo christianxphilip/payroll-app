@@ -43,7 +43,7 @@ router.post('/login', async (req, res, next) => {
             : emp.scheduleLeadRole === 'KITCHEN'
               ? 'kitchen'
               : null;
-          resolvedRole = leadScope ? 'manager' : 'employee';
+          resolvedRole = 'employee';
           resolvedUsername = emp.username;
           employeeId = emp._id;
           employeeName = emp.employeeName;
@@ -64,7 +64,8 @@ router.post('/login', async (req, res, next) => {
         role: resolvedRole,
         employeeId,
         employeeName,
-        managerScope
+        managerScope,
+        scheduleLeadRole: managerScope ? managerScope.toUpperCase() : 'NONE'
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
@@ -78,7 +79,8 @@ router.post('/login', async (req, res, next) => {
         role: resolvedRole,
         employeeId,
         employeeName,
-        managerScope
+        managerScope,
+        scheduleLeadRole: managerScope ? managerScope.toUpperCase() : 'NONE'
       },
       message: 'Login successful'
     });

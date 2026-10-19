@@ -29,7 +29,7 @@ export const managerEmployeeQuery = (managerScope) => {
 export const managerAssignmentType = (managerScope) => managerScope === 'kitchen' ? 'KITCHEN' : 'BAR';
 
 export const assertManagerCanManageEmployee = (employee, reqUser) => {
-  if (reqUser.role === 'manager' && !isEmployeeInManagerScope(employee?.position, reqUser.managerScope)) {
+  if (reqUser.role !== 'admin' && reqUser.managerScope && !isEmployeeInManagerScope(employee?.position, reqUser.managerScope)) {
     throw new AppError('This employee is outside your department', 403);
   }
 };

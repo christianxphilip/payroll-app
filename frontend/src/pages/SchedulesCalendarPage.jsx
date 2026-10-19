@@ -30,7 +30,7 @@ function getMonday(date) {
 
 const SchedulesCalendarPage = () => {
     const { user } = useAuth();
-    const managerAssignmentType = user?.role === 'manager'
+    const managerAssignmentType = user?.managerScope
         ? (user.managerScope === 'kitchen' ? 'KITCHEN' : 'BAR')
         : null;
     const oppositeManagerAssignmentType = managerAssignmentType === 'KITCHEN' ? 'BAR' : 'KITCHEN';
@@ -150,7 +150,7 @@ const SchedulesCalendarPage = () => {
         const dateStr = date.toISOString().split('T')[0];
 
         // Find all allocations for this day of week that require at least 1 person
-        const activeDepartment = user?.role === 'manager' ? user.managerScope : adminTeamFilter;
+        const activeDepartment = user?.managerScope || adminTeamFilter;
         const dayAllocations = shiftAllocations.filter(
             a => a.department === activeDepartment && a.dayOfWeek === dayOfWeek && a.requiredCount > 0
         );
@@ -535,7 +535,7 @@ const SchedulesCalendarPage = () => {
         setScheduleAction(user?.role === 'admin' ? 'Saving Bar and Kitchen targets…' : `Saving ${user?.managerScope || ''} targets…`);
         try {
             const allocationsToSave = [];
-            const departments = user?.role === 'manager' ? [user.managerScope] : ['bar', 'kitchen'];
+            const departments = user?.managerScope ? [user.managerScope] : ['bar', 'kitchen'];
 
             // Iterate through all shifts and days
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -567,7 +567,7 @@ const SchedulesCalendarPage = () => {
 
     const getAvailableSlots = (date, shift) => {
         const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
-        const activeDepartment = user?.role === 'manager' ? user.managerScope : adminTeamFilter;
+        const activeDepartment = user?.managerScope || adminTeamFilter;
         const allocation = shiftAllocations.find(
             a => a.department === activeDepartment && a.dayOfWeek === dayOfWeek && (a.shiftId._id === shift._id || a.shiftId === shift._id)
         );
@@ -1475,10 +1475,10 @@ const SchedulesCalendarPage = () => {
                     operatingHours={operatingHours}
                     holidays={holidays}
                     shiftAllocations={shiftAllocations.filter(allocation => {
-                        const activeDepartment = user?.role === 'manager' ? user.managerScope : adminTeamFilter;
+                        const activeDepartment = user?.managerScope || adminTeamFilter;
                         return !activeDepartment || allocation.department === activeDepartment;
                     })}
-                    targetDepartment={user?.role === 'manager' ? user.managerScope : adminTeamFilter}
+                    targetDepartment={user?.managerScope || adminTeamFilter}
                     getAssignmentColor={getAssignmentColor}
                     getScheduleVisual={getScheduleVisual}
                     canEditSchedule={(schedule) => {
@@ -2423,7 +2423,7 @@ const SchedulesCalendarPage = () => {
                                         </div>
                                     </td>
                                     {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-                                        const department = user?.role === 'manager' ? user.managerScope : shiftTargetDepartment;
+                                        const department = user?.managerScope || shiftTargetDepartment;
                                         const key = `${department}_${day}_${shift._id}`;
                                         return (
                                             <td key={day} className="px-2 py-2 text-center">
