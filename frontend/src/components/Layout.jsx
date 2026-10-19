@@ -6,6 +6,15 @@ const Layout = () => {
   const { logout, user } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('esproSidebarCollapsed') === 'true');
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(current => {
+      const next = !current;
+      localStorage.setItem('esproSidebarCollapsed', String(next));
+      return next;
+    });
+  };
 
   const isAdmin = user?.role === 'admin';
   const navGroups = [
@@ -60,14 +69,23 @@ const Layout = () => {
   return (
     <div className="min-h-screen bg-gray-50 md:flex">
       {/* Desktop sidebar */}
-      <aside className="print:hidden hidden h-screen w-64 shrink-0 flex-col border-r border-gray-200 bg-white md:sticky md:top-0 md:flex">
-        <div className="flex h-20 items-center border-b border-gray-100 px-6">
+      <aside className={`print:hidden hidden h-screen shrink-0 flex-col overflow-hidden bg-white transition-[width] duration-200 md:sticky md:top-0 md:flex ${sidebarCollapsed ? 'w-0 border-r-0' : 'w-64 border-r border-gray-200'}`}>
+        <div className="flex h-20 min-w-64 items-center justify-between border-b border-gray-100 px-6">
           <Link to={user?.role === 'manager' ? '/schedules' : '/dashboard'}>
             <div className="text-xl font-bold tracking-wide text-gray-900">Espro Payroll</div>
             <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-orange-500">Management Suite</div>
           </Link>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+            aria-label="Hide navigation sidebar"
+            title="Hide sidebar"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </button>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="min-w-64 flex-1 overflow-y-auto px-3 py-4">
           {directItems.slice(0, 1).map(item => (
             <Link key={item.path} to={item.path} className={navLinkClass(item.path)}>{item.label}</Link>
           ))}
@@ -89,12 +107,24 @@ const Layout = () => {
             ))}
           </div>
         </nav>
-        <div className="border-t border-gray-100 p-3">
+        <div className="min-w-64 border-t border-gray-100 p-3">
           <button onClick={logout} className="flex min-h-[42px] w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-700">
             Logout
           </button>
         </div>
       </aside>
+
+      {sidebarCollapsed && (
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className="fixed left-3 top-3 z-50 hidden h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-lg hover:bg-orange-50 hover:text-orange-700 md:flex print:hidden"
+          aria-label="Show navigation sidebar"
+          title="Show sidebar"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        </button>
+      )}
 
       <div className="min-w-0 flex-1">
         {/* Mobile navigation */}
