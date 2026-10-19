@@ -153,9 +153,11 @@ const matchScheduleToTimesheet = (schedules, timeIn, timeOut) => {
   const timeInDate = timeIn instanceof Date ? timeIn : new Date(timeIn);
   const timeOutDate = timeOut instanceof Date ? timeOut : new Date(timeOut);
 
-  // Convert timeIn/timeOut to hours (0-23) with minutes as decimal
-  const timeInHour = timeInDate.getHours() + (timeInDate.getMinutes() / 60);
-  const timeOutHour = timeOutDate.getHours() + (timeOutDate.getMinutes() / 60);
+  // Odoo timestamps are UTC, while schedule strings are Manila local time.
+  // Always convert explicitly instead of depending on the server timezone.
+  const MANILA_UTC_OFFSET_HOURS = 8;
+  const timeInHour = ((timeInDate.getUTCHours() + MANILA_UTC_OFFSET_HOURS) % 24) + (timeInDate.getUTCMinutes() / 60);
+  const timeOutHour = ((timeOutDate.getUTCHours() + MANILA_UTC_OFFSET_HOURS) % 24) + (timeOutDate.getUTCMinutes() / 60);
 
   // Handle overnight shifts (timeOut on next day)
   let timeOutHourAdjusted = timeOutHour;
@@ -208,10 +210,10 @@ const matchScheduleToTimesheet = (schedules, timeIn, timeOut) => {
 export const lookupSchedule = async (employeeName, date, timeIn = null, timeOut = null) => {
   try {
     const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
     const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    endOfDay.setUTCHours(23, 59, 59, 999);
 
     // Get all schedules for this employee/date (not OFF)
     const schedules = await Schedule.find({
@@ -358,4 +360,3 @@ export const calculateTimesheetFields = async (timesheetData) => {
     reviewFlag
   };
 };
-

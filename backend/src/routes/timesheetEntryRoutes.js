@@ -119,6 +119,7 @@ router.post('/', async (req, res, next) => {
 
     let generatedLogsCount = 0;
     let skippedLogsCount = 0;
+    let refreshedLogsCount = 0;
     let unlinkedEmployeesCount = 0;
 
     if (generateFromOdoo) {
@@ -149,12 +150,6 @@ router.post('/', async (req, res, next) => {
 
       for (const { employee, attendance } of attendanceByEmployee) {
         for (const record of attendance) {
-          const existingLog = await TimesheetLog.findOne({ odooAttendanceId: record.id }).lean();
-          if (existingLog) {
-            skippedLogsCount += 1;
-            continue;
-          }
-
           const timeIn = record.checkIn
             ? new Date(String(record.checkIn).includes('T') ? record.checkIn : `${String(record.checkIn).replace(' ', 'T')}Z`)
             : null;
@@ -170,11 +165,28 @@ router.post('/', async (req, res, next) => {
           const timesheetData = {
             timesheetId: timesheet._id,
             employeeName: employee.employeeName,
-            date: new Date(`${manilaDate}T00:00:00+08:00`),
+            // Schedule dates are stored as UTC calendar dates. Keep the Manila
+            // work-date label but store it at UTC midnight for reliable lookup.
+            date: new Date(`${manilaDate}T00:00:00.000Z`),
             timeIn,
             timeOut
           };
           const calculatedFields = await calculateTimesheetFields(timesheetData);
+          const existingLog = await TimesheetLog.findOne({ odooAttendanceId: record.id });
+          if (existingLog) {
+            if (existingLog.source === 'ODOO') {
+              existingLog.date = timesheetData.date;
+              Object.assign(existingLog, calculatedFields, {
+                reviewFlag: Boolean(calculatedFields.reviewFlag || record.isInvalid || !timeOut),
+                reviewNotes: record.isInvalid || !timeOut ? 'Imported from Odoo with an invalid or incomplete attendance log.' : ''
+              });
+              await existingLog.save();
+              refreshedLogsCount += 1;
+            } else {
+              skippedLogsCount += 1;
+            }
+            continue;
+          }
           await TimesheetLog.create({
             ...timesheetData,
             ...calculatedFields,
@@ -290,9 +302,9 @@ router.post('/', async (req, res, next) => {
     res.status(201).json({
       success: true,
       data: timesheet,
-      importSummary: { generatedLogsCount, skippedLogsCount, unlinkedEmployeesCount },
+      importSummary: { generatedLogsCount, refreshedLogsCount, skippedLogsCount, unlinkedEmployeesCount },
       message: generateFromOdoo
-        ? `Timesheet entry created with ${generatedLogsCount} Odoo attendance logs${skippedLogsCount ? `; ${skippedLogsCount} duplicates skipped` : ''}${unlinkedEmployeesCount ? `; ${unlinkedEmployeesCount} employees are not linked to Odoo` : ''}.`
+        ? `Timesheet entry created with ${generatedLogsCount} new Odoo attendance logs${refreshedLogsCount ? `; ${refreshedLogsCount} existing logs relinked to schedules` : ''}${skippedLogsCount ? `; ${skippedLogsCount} duplicates skipped` : ''}${unlinkedEmployeesCount ? `; ${unlinkedEmployeesCount} employees are not linked to Odoo` : ''}.`
         : generateFromSchedules
           ? `Timesheet entry created successfully with ${generatedLogsCount} logs generated from schedules.`
           : 'Timesheet entry created successfully.'
