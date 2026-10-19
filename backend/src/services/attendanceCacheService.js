@@ -1,6 +1,8 @@
 import { createClient } from 'redis';
 
-const CACHE_NAMESPACE = 'odoo-attendance:v1';
+// v2 uses the operational attendance-day window (10:00 AM to 5:00 AM
+// the following day) instead of calendar-midnight boundaries.
+const CACHE_NAMESPACE = 'odoo-attendance:v2';
 const DEFAULT_TTL_SECONDS = 60 * 60;
 
 let clientPromise = null;
@@ -104,4 +106,3 @@ export const invalidateEmployeeAttendanceCache = async odooEmployeeId => {
     console.error('[Attendance cache] Invalidation failed:', error.message);
   }
 };
-

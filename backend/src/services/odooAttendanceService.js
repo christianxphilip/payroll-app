@@ -78,10 +78,12 @@ export const findOdooEmployeeByName = async (employeeName) => {
   return matches[0];
 };
 
-const odooDateTime = (date, endOfRange = false) => {
-  // Odoo stores naive UTC datetimes; attendance days are interpreted in Manila time.
-  const value = new Date(`${date}T00:00:00+08:00`);
-  if (endOfRange) value.setUTCDate(value.getUTCDate() + 1);
+const odooDateTime = (date, boundary = 'start') => {
+  // The cafe's operating attendance day runs from 10:00 AM Manila time
+  // through 5:00 AM Manila time on the day after the selected end date.
+  // Odoo stores these values as naive UTC datetimes.
+  const value = new Date(`${date}T${boundary === 'end' ? '05:00:00' : '10:00:00'}+08:00`);
+  if (boundary === 'end') value.setUTCDate(value.getUTCDate() + 1);
   return value.toISOString().slice(0, 19).replace('T', ' ');
 };
 
@@ -95,8 +97,8 @@ export const getEmployeeAttendance = async ({ odooEmployeeId, startDate, endDate
   if (fieldMap.color) fields.push('color');
   const records = await searchRead('hr.attendance', [
     ['employee_id', '=', Number(odooEmployeeId)],
-    ['check_in', '>=', odooDateTime(startDate)],
-    ['check_in', '<', odooDateTime(endDate, true)]
+    ['check_in', '>=', odooDateTime(startDate, 'start')],
+    ['check_in', '<=', odooDateTime(endDate, 'end')]
   ], fields, { order: 'check_in desc', limit: 500 });
 
   const attendance = records.map(record => ({
