@@ -31,8 +31,7 @@ const Layout = () => {
       label: 'Payroll',
       items: [
         { path: '/payroll/pay-runs', label: 'Payroll Processing' },
-        { path: '/payroll/pay-runs?view=history', label: 'Payroll History' },
-        { path: '/reports?view=payroll', label: 'Payroll Reports' }
+        { path: '/payroll/13th-month', label: '13th Month' }
       ]
     }] : [])
   ];
