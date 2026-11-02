@@ -17,6 +17,7 @@ import { generatePayrollFinancialReport, formatPayrollFinancialReportAsCSV } fro
 import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
 import ThirteenthMonthRun from '../models/ThirteenthMonthRun.js';
 import ThirteenthMonthEmployee from '../models/ThirteenthMonthEmployee.js';
+import { adjustmentTotalsForPayroll } from '../services/adjustmentCalculatorService.js';
 
 const STANDARD_HOURS_PER_DAY = 8;
 const OT_MULTIPLIER = 1.25;
@@ -573,15 +574,10 @@ router.patch('/employees/:id', async (req, res, next) => {
       ]
     }).lean();
 
-    let allowancesTotal = 0;
-    let deductionsTotal = 0;
-    adjustments.forEach((adj) => {
-      if (adj.type === 'ALLOWANCE') {
-        allowancesTotal += adj.amount || 0;
-      } else if (adj.type === 'DEDUCTION') {
-        deductionsTotal += adj.amount || 0;
-      }
-    });
+    const { allowancesTotal, deductionsTotal } = adjustmentTotalsForPayroll(
+      adjustments,
+      totalHrs
+    );
 
     // Get OT RH and OT SH hours and pay if they exist
     const otRHHours = pre.overtimeRegularHolidayHours || 0;

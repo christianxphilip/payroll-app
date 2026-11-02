@@ -3,7 +3,7 @@ import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
 import Settings from '../models/Settings.js';
-import { adjustmentAmountForPayroll } from './adjustmentCalculatorService.js';
+import { adjustmentTotalsForPayroll } from './adjustmentCalculatorService.js';
 
 // Basic configuration
 const STANDARD_HOURS_PER_DAY = 8;
@@ -169,17 +169,10 @@ export const computePayRunForPeriod = async (payRun) => {
       ]
     }).lean();
 
-    let allowancesTotal = 0;
-    let deductionsTotal = 0;
-
-    adjustments.forEach((adj) => {
-      const calculatedAmount = adjustmentAmountForPayroll(adj, totalHoursWorked);
-      if (adj.type === 'ALLOWANCE') {
-        allowancesTotal += calculatedAmount;
-      } else if (adj.type === 'DEDUCTION') {
-        deductionsTotal += calculatedAmount;
-      }
-    });
+    const { allowancesTotal, deductionsTotal } = adjustmentTotalsForPayroll(
+      adjustments,
+      totalHoursWorked
+    );
 
     const netSalary =
       basicSalary +
@@ -369,17 +362,10 @@ export const recomputePayRunFromEmployees = async (payRun) => {
       ]
     }).lean();
 
-    let allowancesTotal = 0;
-    let deductionsTotal = 0;
-
-    adjustments.forEach((adj) => {
-      const calculatedAmount = adjustmentAmountForPayroll(adj, totalHoursWorked);
-      if (adj.type === 'ALLOWANCE') {
-        allowancesTotal += calculatedAmount;
-      } else if (adj.type === 'DEDUCTION') {
-        deductionsTotal += calculatedAmount;
-      }
-    });
+    const { allowancesTotal, deductionsTotal } = adjustmentTotalsForPayroll(
+      adjustments,
+      totalHoursWorked
+    );
 
     const priorPeriodAdjustmentTotal = entry.priorPeriodAdjustmentTotal || 0;
     const netSalary =

@@ -1,7 +1,7 @@
 import TimesheetLog from '../models/TimesheetLog.js';
 import Employee from '../models/Employee.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
-import { adjustmentAmountForPayroll } from './adjustmentCalculatorService.js';
+import { adjustmentTotalsForPayroll } from './adjustmentCalculatorService.js';
 import Settings from '../models/Settings.js';
 
 const STANDARD_HOURS_PER_DAY = 8;
@@ -212,16 +212,10 @@ export const generatePayrollFinancialReport = async (filters = {}) => {
       ]
     }).lean();
     
-    let allowancesTotal = 0;
-    let deductionsTotal = 0;
-    adjustments.forEach((adj) => {
-      const calculatedAmount = adjustmentAmountForPayroll(adj, emp.totalHoursWorked);
-      if (adj.type === 'ALLOWANCE') {
-        allowancesTotal += calculatedAmount;
-      } else if (adj.type === 'DEDUCTION') {
-        deductionsTotal += calculatedAmount;
-      }
-    });
+    const { allowancesTotal, deductionsTotal } = adjustmentTotalsForPayroll(
+      adjustments,
+      emp.totalHoursWorked
+    );
     
     // Calculate net salary
     const netSalary = basicSalary +

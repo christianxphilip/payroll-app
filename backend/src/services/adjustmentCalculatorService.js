@@ -5,3 +5,15 @@ export const adjustmentAmountForPayroll = (adjustment, totalHoursWorked = 0) => 
   }
   return amount;
 };
+
+export const adjustmentTotalsForPayroll = (adjustments = [], totalHoursWorked = 0) => {
+  return adjustments.reduce((totals, adjustment) => {
+    const calculatedAmount = adjustmentAmountForPayroll(adjustment, totalHoursWorked);
+    if (adjustment?.type === 'ALLOWANCE') {
+      totals.allowancesTotal += calculatedAmount;
+    } else if (adjustment?.type === 'DEDUCTION') {
+      totals.deductionsTotal += calculatedAmount;
+    }
+    return totals;
+  }, { allowancesTotal: 0, deductionsTotal: 0 });
+};
