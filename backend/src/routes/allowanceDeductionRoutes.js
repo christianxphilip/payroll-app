@@ -2,6 +2,9 @@ import express from 'express';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 import AllowanceDeduction from '../models/AllowanceDeduction.js';
+import PayRun from '../models/PayRun.js';
+import PayRunEmployee from '../models/PayRunEmployee.js';
+import { assertAdjustmentPeriodEditable } from '../services/adjustmentLockService.js';
 
 const router = express.Router();
 
@@ -20,7 +23,7 @@ router.get('/employees/:employeeId/adjustments', authenticate, authorize(['admin
 router.post('/employees/:employeeId/adjustments', authenticate, authorize(['admin']), async (req, res, next) => {
   try {
     const { employeeId } = req.params;
-    const { type, name, amount, frequency, appliesFrom, appliesTo } = req.body;
+    const { type, name, amount, frequency, appliesFrom, appliesTo, payRunId } = req.body;
 
     if (!type || !['ALLOWANCE', 'DEDUCTION'].includes(type)) {
       throw new AppError('type must be ALLOWANCE or DEDUCTION', 400);
@@ -41,6 +44,22 @@ router.post('/employees/:employeeId/adjustments', authenticate, authorize(['admi
       throw new AppError('appliesFrom is required', 400);
     }
 
+    if (payRunId) {
+      const payRun = await PayRun.findById(payRunId);
+      if (!payRun) throw new AppError('Pay run not found', 404);
+      if (payRun.status !== 'DRAFT') {
+        throw new AppError('Allowances and deductions can only be changed while the pay run is DRAFT', 400);
+      }
+      const entry = await PayRunEmployee.exists({ payRunId, employeeId });
+      if (!entry) throw new AppError('Employee is not included in this pay run', 400);
+    }
+
+    await assertAdjustmentPeriodEditable({
+      employeeId,
+      appliesFrom: new Date(appliesFrom),
+      appliesTo: appliesTo ? new Date(appliesTo) : null
+    });
+
     const item = await AllowanceDeduction.create({
       employeeId,
       type,
@@ -48,7 +67,8 @@ router.post('/employees/:employeeId/adjustments', authenticate, authorize(['admi
       amount,
       frequency,
       appliesFrom,
-      appliesTo: appliesTo || null
+      appliesTo: appliesTo || null,
+      payRunId: payRunId || null
     });
 
     res.status(201).json({ success: true, data: item });
@@ -61,7 +81,7 @@ router.post('/employees/:employeeId/adjustments', authenticate, authorize(['admi
 router.put('/adjustments/:id', authenticate, authorize(['admin']), async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const { payRunId: _ignoredPayRunId, ...updateData } = req.body;
 
     if (updateData.name && !updateData.name.trim()) {
       throw new AppError('name cannot be empty', 400);
@@ -71,11 +91,19 @@ router.put('/adjustments/:id', authenticate, authorize(['admin']), async (req, r
     }
     const existing = await AllowanceDeduction.findById(id);
     if (!existing) throw new AppError('Allowance/Deduction not found', 404);
+    await assertAdjustmentPeriodEditable(existing);
+
     const nextType = updateData.type || existing.type;
     const nextFrequency = updateData.frequency || existing.frequency;
     if (nextFrequency === 'HOURLY' && nextType !== 'ALLOWANCE') {
       throw new AppError('Hourly frequency is available for allowances only', 400);
     }
+
+    await assertAdjustmentPeriodEditable({
+      employeeId: existing.employeeId,
+      appliesFrom: updateData.appliesFrom || existing.appliesFrom,
+      appliesTo: updateData.appliesTo === undefined ? existing.appliesTo : updateData.appliesTo
+    });
 
     const item = await AllowanceDeduction.findByIdAndUpdate(
       id,
@@ -97,10 +125,12 @@ router.put('/adjustments/:id', authenticate, authorize(['admin']), async (req, r
 router.delete('/adjustments/:id', authenticate, authorize(['admin']), async (req, res, next) => {
   try {
     const { id } = req.params;
-    const item = await AllowanceDeduction.findByIdAndDelete(id);
+    const item = await AllowanceDeduction.findById(id);
     if (!item) {
       throw new AppError('Allowance/Deduction not found', 404);
     }
+    await assertAdjustmentPeriodEditable(item);
+    await item.deleteOne();
     res.json({ success: true, message: 'Deleted successfully' });
   } catch (error) {
     next(error);
@@ -108,4 +138,3 @@ router.delete('/adjustments/:id', authenticate, authorize(['admin']), async (req
 });
 
 export default router;
-

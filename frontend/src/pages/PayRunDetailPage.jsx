@@ -187,6 +187,10 @@ const PayRunDetailPage = () => {
   const handleAddAdjustment = async (e) => {
     e.preventDefault();
     if (!adjustEmployee) return;
+    if (payRun.status !== 'DRAFT') {
+      setMessage({ type: 'error', text: 'Paid or approved pay runs cannot be changed.' });
+      return;
+    }
     try {
       const payload = {
         type: adjForm.type,
@@ -194,7 +198,8 @@ const PayRunDetailPage = () => {
         amount: parseFloat(adjForm.amount || '0'),
         frequency: 'ONE_TIME',
         appliesFrom: payRun.payrollPeriodStart,
-        appliesTo: payRun.payrollPeriodEnd
+        appliesTo: payRun.payrollPeriodEnd,
+        payRunId
       };
       const res = await employeeAPI.createAdjustment(
         adjustEmployee.employeeId,
@@ -226,9 +231,13 @@ const PayRunDetailPage = () => {
   };
 
   const handleDeleteAdjustment = async (id) => {
+    if (payRun.status !== 'DRAFT') {
+      setMessage({ type: 'error', text: 'Paid or approved pay runs cannot be changed.' });
+      return;
+    }
     if (!confirm('Delete this adjustment?')) return;
     try {
-      await employeeAPI.deleteAdjustment(id);
+      await employeeAPI.deleteAdjustment(id, payRunId);
       setAdjustments((prev) => prev.filter((a) => a._id !== id));
       const updatedRes = await payRunAPI.updateEmployee(
         adjustEmployee._id,
@@ -702,8 +711,8 @@ const PayRunDetailPage = () => {
                 sortedEmployees.map((emp) => (
                   <tr
                     key={emp._id}
-                    className="hover:bg-blue-50 cursor-pointer transition-colors"
-                    onClick={() => openAdjustModal(emp)}
+                    className={`${payRun.status === 'DRAFT' ? 'hover:bg-blue-50 cursor-pointer' : ''} transition-colors`}
+                    onClick={() => payRun.status === 'DRAFT' && openAdjustModal(emp)}
                   >
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {emp.employeeName}

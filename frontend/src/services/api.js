@@ -63,8 +63,8 @@ export const employeeAPI = {
     api.post(`/employees/${employeeId}/adjustments`, data),
   updateAdjustment: (id, data) =>
     api.put(`/adjustments/${id}`, data),
-  deleteAdjustment: (id) =>
-    api.delete(`/adjustments/${id}`)
+  deleteAdjustment: (id, payRunId) =>
+    api.delete(`/adjustments/${id}`, { params: payRunId ? { payRunId } : {} })
 };
 
 // Holiday API

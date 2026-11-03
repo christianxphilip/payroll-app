@@ -405,6 +405,9 @@ router.post('/:id/recalculate', async (req, res, next) => {
     if (!payRun) {
       throw new AppError('Pay run not found', 404);
     }
+    if (payRun.status !== 'DRAFT') {
+      throw new AppError('Only DRAFT pay runs can be recalculated', 400);
+    }
 
     // Recompute based on current PayRunEmployee hours (including overrides)
     const employees = await recomputePayRunFromEmployees(payRun);
@@ -535,6 +538,9 @@ router.patch('/employees/:id', async (req, res, next) => {
     const payRun = await PayRun.findById(pre.payRunId);
     if (!payRun) {
       throw new AppError('Parent pay run not found', 404);
+    }
+    if (payRun.status !== 'DRAFT') {
+      throw new AppError('Pay run employees can only be changed while the pay run is DRAFT', 400);
     }
 
     const totalHrs = pre.totalHoursWorked || 0;
