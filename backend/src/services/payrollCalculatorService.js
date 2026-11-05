@@ -4,6 +4,7 @@ import AllowanceDeduction from '../models/AllowanceDeduction.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
 import Settings from '../models/Settings.js';
 import { adjustmentTotalsForPayroll } from './adjustmentCalculatorService.js';
+import { calculateCompensationComponents } from './compensationCalculatorService.js';
 
 // Basic configuration
 const STANDARD_HOURS_PER_DAY = 8;
@@ -125,34 +126,34 @@ export const computePayRunForPeriod = async (payRun) => {
         ? (employee.wageRate || 0) / STANDARD_HOURS_PER_DAY
         : employee.wageRate || 0;
 
-    // Basic salary always pays all worked hours at 100%
-    const basicSalary =
-      employee.wageType === 'DAILY'
-        ? (employee.wageRate || 0) * (totalHoursWorked / STANDARD_HOURS_PER_DAY)
-        : totalHoursWorked * (hourlyRate || 0);
-
-    // Get settings multipliers
     const settings = await getSettings();
-    
-    // Holiday premiums using settings multipliers (for hours up to 8 hours)
-    // Note: Overtime hours on holidays are handled separately below
-    const regularHolidayPay = regularHolidayHours * (hourlyRate || 0) * settings.regularHolidayMultiplier;
-    const specialHolidayPay = specialHolidayHours * (hourlyRate || 0) * settings.specialHolidayMultiplier;
-
-    // Overtime pay calculation:
-    // - Regular overtime: uses standard OT multiplier (only for full-time employees)
-    // - OT on regular holidays: uses OT Regular Holiday multiplier (only for full-time employees)
-    // - OT on special holidays: uses OT Special Holiday multiplier (only for full-time employees)
     const baseOvertimeMultiplier = employee.employmentType === 'FULL_TIME' ? settings.overtimeMultiplier : 1.0;
     const otRegularHolidayMultiplier = employee.employmentType === 'FULL_TIME' ? settings.overtimeRegularHolidayMultiplier : 1.0;
     const otSpecialHolidayMultiplier = employee.employmentType === 'FULL_TIME' ? settings.overtimeSpecialHolidayMultiplier : 1.0;
-    
-    const regularOvertimePay = regularOvertimeHours * hourlyRate * baseOvertimeMultiplier;
-    const overtimeRegularHolidayPay = overtimeRegularHolidayHours * hourlyRate * otRegularHolidayMultiplier;
-    const overtimeSpecialHolidayPay = overtimeSpecialHolidayHours * hourlyRate * otSpecialHolidayMultiplier;
-    const totalOvertimePay = regularOvertimePay + overtimeRegularHolidayPay + overtimeSpecialHolidayPay;
-    
-    const nightDiffPay = nightDiffHours * hourlyRate * settings.nightDifferentialMultiplier;
+    const {
+      basicSalary,
+      overtimePay: regularOvertimePay,
+      overtimeRegularHolidayPay,
+      overtimeSpecialHolidayPay,
+      nightDiffPay,
+      regularHolidayPay,
+      specialHolidayPay
+    } = calculateCompensationComponents({
+      totalHoursWorked,
+      regularOvertimeHours,
+      overtimeRegularHolidayHours,
+      overtimeSpecialHolidayHours,
+      nightDiffHours,
+      regularHolidayHours,
+      specialHolidayHours,
+      hourlyRate,
+      overtimeMultiplier: baseOvertimeMultiplier,
+      nightDifferentialMultiplier: settings.nightDifferentialMultiplier,
+      regularHolidayMultiplier: settings.regularHolidayMultiplier,
+      specialHolidayMultiplier: settings.specialHolidayMultiplier,
+      overtimeRegularHolidayMultiplier: otRegularHolidayMultiplier,
+      overtimeSpecialHolidayMultiplier: otSpecialHolidayMultiplier
+    });
 
     // Allowances & deductions for this employee within period
     const adjustments = await AllowanceDeduction.find({
@@ -198,6 +199,9 @@ export const computePayRunForPeriod = async (payRun) => {
       regularHolidayHours,
       specialHolidayHours,
       basicSalary,
+      thirteenthMonthEligibleBasic: basicSalary,
+      compensationVersion: 2,
+      thirteenthMonthEligibleBasicCalculatedAt: new Date(),
       overtimePay: regularOvertimePay,
       overtimeRegularHolidayPay,
       overtimeSpecialHolidayPay,
@@ -320,32 +324,34 @@ export const recomputePayRunFromEmployees = async (payRun) => {
         ? (employee.wageRate || 0) / STANDARD_HOURS_PER_DAY
         : employee.wageRate || 0;
 
-    const basicSalary =
-      employee.wageType === 'DAILY'
-        ? (employee.wageRate || 0) * (totalHoursWorked / STANDARD_HOURS_PER_DAY)
-        : totalHoursWorked * (hourlyRate || 0);
-
-    // Get settings multipliers
     const settings = await getSettings();
-    
-    // Holiday premiums using settings multipliers
-    const regularHolidayPay = regularHolidayHours * (hourlyRate || 0) * settings.regularHolidayMultiplier;
-    const specialHolidayPay = specialHolidayHours * (hourlyRate || 0) * settings.specialHolidayMultiplier;
-    
-    // Overtime pay calculation with proper breakdown:
-    // - Regular overtime: uses standard OT multiplier (only for full-time employees)
-    // - OT on regular holidays: uses OT Regular Holiday multiplier (only for full-time employees)
-    // - OT on special holidays: uses OT Special Holiday multiplier (only for full-time employees)
     const baseOvertimeMultiplier = employee.employmentType === 'FULL_TIME' ? settings.overtimeMultiplier : 1.0;
     const otRegularHolidayMultiplier = employee.employmentType === 'FULL_TIME' ? settings.overtimeRegularHolidayMultiplier : 1.0;
     const otSpecialHolidayMultiplier = employee.employmentType === 'FULL_TIME' ? settings.overtimeSpecialHolidayMultiplier : 1.0;
-    
-    const regularOvertimePay = regularOvertimeHours * hourlyRate * baseOvertimeMultiplier;
-    const overtimeRegularHolidayPay = overtimeRegularHolidayHours * hourlyRate * otRegularHolidayMultiplier;
-    const overtimeSpecialHolidayPay = overtimeSpecialHolidayHours * hourlyRate * otSpecialHolidayMultiplier;
-    const totalOvertimePay = regularOvertimePay + overtimeRegularHolidayPay + overtimeSpecialHolidayPay;
-    
-    const nightDiffPay = nightDiffHours * hourlyRate * settings.nightDifferentialMultiplier;
+    const {
+      basicSalary,
+      overtimePay: regularOvertimePay,
+      overtimeRegularHolidayPay,
+      overtimeSpecialHolidayPay,
+      nightDiffPay,
+      regularHolidayPay,
+      specialHolidayPay
+    } = calculateCompensationComponents({
+      totalHoursWorked,
+      regularOvertimeHours,
+      overtimeRegularHolidayHours,
+      overtimeSpecialHolidayHours,
+      nightDiffHours,
+      regularHolidayHours,
+      specialHolidayHours,
+      hourlyRate,
+      overtimeMultiplier: baseOvertimeMultiplier,
+      nightDifferentialMultiplier: settings.nightDifferentialMultiplier,
+      regularHolidayMultiplier: settings.regularHolidayMultiplier,
+      specialHolidayMultiplier: settings.specialHolidayMultiplier,
+      overtimeRegularHolidayMultiplier: otRegularHolidayMultiplier,
+      overtimeSpecialHolidayMultiplier: otSpecialHolidayMultiplier
+    });
 
     // Re-fetch allowances/deductions for this employee in the pay run period
     const adjustments = await AllowanceDeduction.find({
@@ -383,6 +389,9 @@ export const recomputePayRunFromEmployees = async (payRun) => {
 
     const payload = {
       basicSalary,
+      thirteenthMonthEligibleBasic: basicSalary,
+      compensationVersion: 2,
+      thirteenthMonthEligibleBasicCalculatedAt: new Date(),
       overtimeHours: totalOvertimeHours,
       regularOvertimeHours,
       overtimeRegularHolidayHours,

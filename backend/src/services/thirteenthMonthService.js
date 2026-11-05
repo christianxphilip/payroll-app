@@ -3,6 +3,7 @@ import Schedule from '../models/Schedule.js';
 import PayRun from '../models/PayRun.js';
 import PayRunEmployee from '../models/PayRunEmployee.js';
 import ThirteenthMonthEmployee from '../models/ThirteenthMonthEmployee.js';
+import { eligibleBasicForPayrollEntry } from './thirteenthMonthEligibleBasicService.js';
 
 const HOURS_PER_DAY = 8;
 const money = (value) => Math.round((Number(value) || 0) * 100) / 100;
@@ -74,7 +75,10 @@ export const calculateThirteenthMonthRun = async (run) => {
   const finalizedPayRunIds = finalizedPayRuns.map(payRun => payRun._id);
   const [payrollEntries, schedules] = await Promise.all([
     finalizedPayRunIds.length
-      ? PayRunEmployee.find({ payRunId: { $in: finalizedPayRunIds } }, 'payRunId employeeId employeeName basicSalary').lean()
+      ? PayRunEmployee.find(
+          { payRunId: { $in: finalizedPayRunIds } },
+          'payRunId employeeId employeeName basicSalary thirteenthMonthEligibleBasic compensationVersion totalHoursWorked overtimeHours regularOvertimeHours overtimeRegularHolidayHours overtimeSpecialHolidayHours regularHolidayHours specialHolidayHours'
+        ).lean()
       : [],
     projectionStart <= coverageEnd
       ? Schedule.find({
@@ -122,7 +126,10 @@ export const calculateThirteenthMonthRun = async (run) => {
       useWeeklyOffDays: projectionUsesWeeklyOffDays,
       weeklyOffDays
     });
-    const actualBasicSalary = money(employeePayrollEntries.reduce((sum, payrollEntry) => sum + (Number(payrollEntry.basicSalary) || 0), 0));
+    const actualBasicSalary = money(employeePayrollEntries.reduce(
+      (sum, payrollEntry) => sum + eligibleBasicForPayrollEntry(payrollEntry),
+      0
+    ));
     const projectedBasicSalary = money(projectedHours * hourlyRate);
     const manualAdjustment = Number(prior?.manualAdjustment) || 0;
     const eligibleBasicSalary = money(Math.max(0, actualBasicSalary + projectedBasicSalary + manualAdjustment));

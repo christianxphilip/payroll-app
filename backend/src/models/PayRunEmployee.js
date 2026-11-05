@@ -53,6 +53,19 @@ const payRunEmployeeSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  thirteenthMonthEligibleBasic: {
+    type: Number,
+    default: null
+  },
+  compensationVersion: {
+    type: Number,
+    enum: [1, 2],
+    default: 1
+  },
+  thirteenthMonthEligibleBasicCalculatedAt: {
+    type: Date,
+    default: null
+  },
   overtimePay: {
     type: Number,
     default: 0

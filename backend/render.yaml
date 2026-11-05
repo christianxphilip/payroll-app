@@ -12,10 +12,10 @@ services:
       - key: PORT
         value: 9001
       - key: MONGODB_URI
-        value: mongodb+srv://esprocoffee_db_user:fx3ncTyhtbPoYE0a@cluster0.xktsy7b.mongodb.net/espro?appName=Cluster0
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: AUTH_PASSWORD
-        value: admin123
+        sync: false
       - key: MANAGER_PASSWORD
-        value: manager123
+        sync: false

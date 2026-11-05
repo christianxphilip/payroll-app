@@ -18,10 +18,9 @@ import { getPayRunTimesheetLogs } from '../services/payslipTimesheetService.js';
 import ThirteenthMonthRun from '../models/ThirteenthMonthRun.js';
 import ThirteenthMonthEmployee from '../models/ThirteenthMonthEmployee.js';
 import { adjustmentTotalsForPayroll } from '../services/adjustmentCalculatorService.js';
+import { calculateCompensationComponents } from '../services/compensationCalculatorService.js';
 
 const STANDARD_HOURS_PER_DAY = 8;
-const OT_MULTIPLIER = 1.25;
-const ND_MULTIPLIER = 0.1;
 
 const router = express.Router();
 
@@ -544,7 +543,12 @@ router.patch('/employees/:id', async (req, res, next) => {
     }
 
     const totalHrs = pre.totalHoursWorked || 0;
-    const otHrs = pre.regularOvertimeHours || pre.overtimeHours || 0;
+    const otHrs = pre.regularOvertimeHours ?? Math.max(
+      0,
+      (pre.overtimeHours || 0) -
+      (pre.overtimeRegularHolidayHours || 0) -
+      (pre.overtimeSpecialHolidayHours || 0)
+    );
     const ndHrs = pre.nightDiffHours || 0;
     const regHolHrs = pre.regularHolidayHours || 0;
     const specHolHrs = pre.specialHolidayHours || 0;
@@ -553,16 +557,6 @@ router.patch('/employees/:id', async (req, res, next) => {
       employee.wageType === 'DAILY'
         ? (employee.wageRate || 0) / STANDARD_HOURS_PER_DAY
         : employee.wageRate || 0;
-
-    const basicSalary =
-      employee.wageType === 'DAILY'
-        ? (employee.wageRate || 0) * (totalHrs / STANDARD_HOURS_PER_DAY)
-        : totalHrs * (hourlyRate || 0);
-
-    const overtimePay = otHrs * (hourlyRate || 0) * OT_MULTIPLIER;
-    const nightDiffPay = ndHrs * (hourlyRate || 0) * ND_MULTIPLIER;
-    const regularHolidayPay = regHolHrs * (hourlyRate || 0) * 1.0;
-    const specialHolidayPay = specHolHrs * (hourlyRate || 0) * 0.3;
 
     // Pull latest allowances/deductions for this employee in the pay run period
     const { payrollPeriodStart, payrollPeriodEnd } = payRun;
@@ -596,10 +590,36 @@ router.patch('/employees/:id', async (req, res, next) => {
     // Calculate OT RH and OT SH pay (only for full-time employees)
     const otRHMultiplier = employee.employmentType === 'FULL_TIME' ? settings.overtimeRegularHolidayMultiplier : 1.0;
     const otSHMultiplier = employee.employmentType === 'FULL_TIME' ? settings.overtimeSpecialHolidayMultiplier : 1.0;
-    const overtimeRegularHolidayPay = otRHHours * hourlyRate * otRHMultiplier;
-    const overtimeSpecialHolidayPay = otSHHours * hourlyRate * otSHMultiplier;
+    const overtimeMultiplier = employee.employmentType === 'FULL_TIME' ? settings.overtimeMultiplier : 1.0;
+    const {
+      basicSalary,
+      overtimePay,
+      overtimeRegularHolidayPay,
+      overtimeSpecialHolidayPay,
+      nightDiffPay,
+      regularHolidayPay,
+      specialHolidayPay
+    } = calculateCompensationComponents({
+      totalHoursWorked: totalHrs,
+      regularOvertimeHours: otHrs,
+      overtimeRegularHolidayHours: otRHHours,
+      overtimeSpecialHolidayHours: otSHHours,
+      nightDiffHours: ndHrs,
+      regularHolidayHours: regHolHrs,
+      specialHolidayHours: specHolHrs,
+      hourlyRate,
+      overtimeMultiplier,
+      nightDifferentialMultiplier: settings.nightDifferentialMultiplier,
+      regularHolidayMultiplier: settings.regularHolidayMultiplier,
+      specialHolidayMultiplier: settings.specialHolidayMultiplier,
+      overtimeRegularHolidayMultiplier: otRHMultiplier,
+      overtimeSpecialHolidayMultiplier: otSHMultiplier
+    });
     
     pre.basicSalary = basicSalary;
+    pre.thirteenthMonthEligibleBasic = basicSalary;
+    pre.compensationVersion = 2;
+    pre.thirteenthMonthEligibleBasicCalculatedAt = new Date();
     pre.overtimePay = overtimePay;
     pre.overtimeRegularHolidayPay = overtimeRegularHolidayPay;
     pre.overtimeSpecialHolidayPay = overtimeSpecialHolidayPay;

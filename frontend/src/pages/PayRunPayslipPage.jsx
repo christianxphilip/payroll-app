@@ -283,11 +283,11 @@ const PayRunPayslipPage = () => {
               <span>₱ {formatMoney(entry.nightDiffPay)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Regular Holiday Premium</span>
+              <span>Regular Holiday Pay</span>
               <span>₱ {formatMoney(entry.regularHolidayPay)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Special Holiday Premium</span>
+              <span>Special Holiday Pay</span>
               <span>₱ {formatMoney(entry.specialHolidayPay)}</span>
             </div>
             {payrollAdjustments.map((item) => (
