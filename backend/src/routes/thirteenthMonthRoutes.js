@@ -128,18 +128,32 @@ router.patch('/:id/employees/:entryId', async (req, res, next) => {
     const run = await ThirteenthMonthRun.findById(req.params.id);
     if (!run) throw new AppError('13th-month run not found', 404);
     if (run.status !== 'DRAFT') throw new AppError('Only Draft calculations can be adjusted', 400);
-    const amount = Number(req.body.manualAdjustment) || 0;
-    const reason = String(req.body.adjustmentReason || '').trim();
-    if (amount !== 0 && !reason) throw new AppError('Adjustment reason is required', 400);
     const entry = await ThirteenthMonthEmployee.findOne({ _id: req.params.entryId, runId: run._id });
     if (!entry) throw new AppError('Employee calculation not found', 404);
-    entry.manualAdjustment = amount;
-    entry.adjustmentReason = reason;
-    entry.eligibleBasicSalary = Math.round(Math.max(0, entry.actualBasicSalary + entry.projectedBasicSalary + amount) * 100) / 100;
-    entry.thirteenthMonthPay = Math.round((entry.eligibleBasicSalary / 12) * 100) / 100;
+
+    if (req.body.manualAdjustment !== undefined) {
+      const amount = Number(req.body.manualAdjustment) || 0;
+      const reason = String(req.body.adjustmentReason || '').trim();
+      if (amount !== 0 && !reason) throw new AppError('Adjustment reason is required', 400);
+      entry.manualAdjustment = amount;
+      entry.adjustmentReason = reason;
+    }
+
+    if (req.body.weeklyOffDays !== undefined) {
+      const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      if (!Array.isArray(req.body.weeklyOffDays) || req.body.weeklyOffDays.some(day => !validDays.includes(day))) {
+        throw new AppError('Choose valid weekly off-days', 400);
+      }
+      entry.weeklyOffDays = [...new Set(req.body.weeklyOffDays)];
+      entry.projectionUsesWeeklyOffDays = req.body.projectionUsesWeeklyOffDays !== false;
+    } else if (req.body.projectionUsesWeeklyOffDays !== undefined) {
+      entry.projectionUsesWeeklyOffDays = Boolean(req.body.projectionUsesWeeklyOffDays);
+    }
+
     await entry.save();
+    await calculateThirteenthMonthRun(run);
     if (run.attachedPayRunId) await attachThirteenthMonthToPayRun(run);
-    res.json({ success: true, data: entry });
+    res.json({ success: true, data: await detailResponse(run) });
   } catch (error) { next(error); }
 });
 

@@ -9,10 +9,46 @@ const money = (value) => Math.round((Number(value) || 0) * 100) / 100;
 const dayKey = (value) => new Date(value).toISOString().slice(0, 10);
 const startOfDay = (value) => { const date = new Date(value); date.setUTCHours(0, 0, 0, 0); return date; };
 const endOfDay = (value) => { const date = new Date(value); date.setUTCHours(23, 59, 59, 999); return date; };
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const employeeHourlyRate = (employee) => employee.wageType === 'DAILY'
   ? (Number(employee.wageRate) || 0) / HOURS_PER_DAY
   : (Number(employee.wageRate) || 0);
+
+export const calculateProjectedWork = ({
+  projectionStart,
+  projectionEnd,
+  employeeStart,
+  employeeEnd,
+  schedulesByDay,
+  useWeeklyOffDays,
+  weeklyOffDays = []
+}) => {
+  let projectedHours = 0;
+  let projectedDays = 0;
+  let fallbackDays = 0;
+  const offDays = new Set(weeklyOffDays);
+  const start = startOfDay(new Date(Math.max(projectionStart.getTime(), employeeStart.getTime())));
+  const end = endOfDay(new Date(Math.min(projectionEnd.getTime(), employeeEnd.getTime())));
+
+  for (let date = start; date <= end; date = new Date(date.getTime() + 86400000)) {
+    const key = dayKey(date);
+    const scheduled = schedulesByDay.get(key);
+    let eligibleHours = 0;
+
+    if (scheduled) {
+      eligibleHours = Math.min(Math.max(scheduled.hours, 0), HOURS_PER_DAY);
+    } else if (useWeeklyOffDays && !offDays.has(WEEKDAYS[date.getUTCDay()])) {
+      eligibleHours = HOURS_PER_DAY;
+      fallbackDays += 1;
+    }
+
+    if (eligibleHours > 0) projectedDays += 1;
+    projectedHours += eligibleHours;
+  }
+
+  return { projectedHours, projectedDays, fallbackDays };
+};
 
 export const calculateThirteenthMonthRun = async (run) => {
   const coverageStart = startOfDay(run.coverageStart);
@@ -43,8 +79,7 @@ export const calculateThirteenthMonthRun = async (run) => {
     projectionStart <= coverageEnd
       ? Schedule.find({
           employeeName: { $in: names },
-          date: { $gte: projectionStart, $lte: coverageEnd },
-          isOff: { $ne: true }
+          date: { $gte: projectionStart, $lte: coverageEnd }
         }).lean()
       : []
   ]);
@@ -55,10 +90,14 @@ export const calculateThirteenthMonthRun = async (run) => {
     if (!payrollEntriesByEmployee.has(key)) payrollEntriesByEmployee.set(key, []);
     payrollEntriesByEmployee.get(key).push(payrollEntry);
   }
-  const schedulesByEmployeeDay = new Map();
+  const schedulesByEmployee = new Map();
   for (const schedule of schedules) {
-    const key = `${schedule.employeeName}|${dayKey(schedule.date)}`;
-    schedulesByEmployeeDay.set(key, (schedulesByEmployeeDay.get(key) || 0) + (Number(schedule.scheduledDuration) || 0));
+    if (!schedulesByEmployee.has(schedule.employeeName)) schedulesByEmployee.set(schedule.employeeName, new Map());
+    const employeeSchedules = schedulesByEmployee.get(schedule.employeeName);
+    const key = dayKey(schedule.date);
+    const current = employeeSchedules.get(key) || { hours: 0 };
+    if (!schedule.isOff) current.hours += Number(schedule.scheduledDuration) || 0;
+    employeeSchedules.set(key, current);
   }
 
   const existing = await ThirteenthMonthEmployee.find({ runId: run._id }).lean();
@@ -70,20 +109,19 @@ export const calculateThirteenthMonthRun = async (run) => {
     const employeeStart = employee.hiredDate ? startOfDay(employee.hiredDate) : coverageStart;
     const employeeEndValue = employee.lastWorkingDate || employee.resignedDate;
     const employeeEnd = employeeEndValue ? endOfDay(employeeEndValue) : coverageEnd;
-    let projectedHours = 0;
-    let projectedDays = 0;
-
     const employeePayrollEntries = payrollEntriesByEmployee.get(String(employee._id)) || [];
-    for (const [key, hours] of schedulesByEmployeeDay.entries()) {
-      if (!key.startsWith(`${employee.employeeName}|`)) continue;
-      const workDate = startOfDay(key.slice(key.lastIndexOf('|') + 1));
-      if (workDate < employeeStart || workDate > employeeEnd) continue;
-      const eligibleHours = Math.min(Math.max(hours, 0), HOURS_PER_DAY);
-      if (eligibleHours > 0) projectedDays += 1;
-      projectedHours += eligibleHours;
-    }
-
     const prior = existingByEmployee.get(String(employee._id));
+    const projectionUsesWeeklyOffDays = Boolean(prior?.projectionUsesWeeklyOffDays);
+    const weeklyOffDays = prior?.weeklyOffDays || [];
+    const { projectedHours, projectedDays, fallbackDays } = calculateProjectedWork({
+      projectionStart,
+      projectionEnd: coverageEnd,
+      employeeStart,
+      employeeEnd,
+      schedulesByDay: schedulesByEmployee.get(employee.employeeName) || new Map(),
+      useWeeklyOffDays: projectionUsesWeeklyOffDays,
+      weeklyOffDays
+    });
     const actualBasicSalary = money(employeePayrollEntries.reduce((sum, payrollEntry) => sum + (Number(payrollEntry.basicSalary) || 0), 0));
     const projectedBasicSalary = money(projectedHours * hourlyRate);
     const manualAdjustment = Number(prior?.manualAdjustment) || 0;
@@ -92,6 +130,7 @@ export const calculateThirteenthMonthRun = async (run) => {
     const calculationNotes = [];
     if (!employeePayrollEntries.length) calculationNotes.push('No Approved or Paid pay runs ending on or before the actual cutoff');
     if (projectionStart <= coverageEnd && !projectedDays) calculationNotes.push('No schedules in the projected period');
+    if (fallbackDays) calculationNotes.push(`${fallbackDays} projected day(s) filled from weekly off-days`);
 
     const entry = await ThirteenthMonthEmployee.findOneAndUpdate(
       { runId: run._id, employeeId: employee._id },
@@ -109,6 +148,8 @@ export const calculateThirteenthMonthRun = async (run) => {
         actualPayRunCount: employeePayrollEntries.length,
         actualPayRunIds: employeePayrollEntries.map(payrollEntry => payrollEntry.payRunId),
         projectedDays,
+        projectionUsesWeeklyOffDays,
+        weeklyOffDays,
         calculationNotes
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }

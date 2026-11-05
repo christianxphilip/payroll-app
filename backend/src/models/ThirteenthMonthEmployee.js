@@ -14,6 +14,11 @@ const thirteenthMonthEmployeeSchema = new mongoose.Schema({
   actualPayRunCount: { type: Number, default: 0 },
   actualPayRunIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PayRun' }],
   projectedDays: { type: Number, default: 0 },
+  projectionUsesWeeklyOffDays: { type: Boolean, default: false },
+  weeklyOffDays: [{
+    type: String,
+    enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  }],
   calculationNotes: [{ type: String }]
 }, { timestamps: true });
 
