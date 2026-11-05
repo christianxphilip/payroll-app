@@ -7,6 +7,7 @@ import ThirteenthMonthRun from '../models/ThirteenthMonthRun.js';
 import ThirteenthMonthEmployee from '../models/ThirteenthMonthEmployee.js';
 import {
   attachThirteenthMonthToPayRun,
+  auditFinalDecemberPayroll,
   calculateThirteenthMonthRun,
   detachThirteenthMonthFromPayRun
 } from '../services/thirteenthMonthService.js';
@@ -43,8 +44,11 @@ const detailResponse = async run => {
     manualAdjustment: result.manualAdjustment + entry.manualAdjustment,
     eligibleBasicSalary: result.eligibleBasicSalary + entry.eligibleBasicSalary,
     thirteenthMonthPay: result.thirteenthMonthPay + entry.thirteenthMonthPay,
-    paidAmount: result.paidAmount + entry.paidAmount
-  }), { actualBasicSalary: 0, projectedBasicSalary: 0, manualAdjustment: 0, eligibleBasicSalary: 0, thirteenthMonthPay: 0, paidAmount: 0 });
+    paidAmount: result.paidAmount + entry.paidAmount,
+    finalThirteenthMonthPay: result.finalThirteenthMonthPay + (entry.finalThirteenthMonthPay || 0),
+    topUpAmount: result.topUpAmount + (entry.topUpAmount || 0),
+    overpaymentAmount: result.overpaymentAmount + (entry.overpaymentAmount || 0)
+  }), { actualBasicSalary: 0, projectedBasicSalary: 0, manualAdjustment: 0, eligibleBasicSalary: 0, thirteenthMonthPay: 0, paidAmount: 0, finalThirteenthMonthPay: 0, topUpAmount: 0, overpaymentAmount: 0 });
   return { run, entries, totals };
 };
 
@@ -119,6 +123,19 @@ router.post('/:id/recalculate', async (req, res, next) => {
     if (run.status !== 'DRAFT') throw new AppError('Only Draft calculations can be recalculated', 400);
     await calculateThirteenthMonthRun(run);
     if (run.attachedPayRunId) await attachThirteenthMonthToPayRun(run);
+    res.json({ success: true, data: await detailResponse(run) });
+  } catch (error) { next(error); }
+});
+
+router.post('/:id/final-audit', async (req, res, next) => {
+  try {
+    const run = await ThirteenthMonthRun.findById(req.params.id);
+    if (!run) throw new AppError('13th-month run not found', 404);
+    if (run.status !== 'PAID') throw new AppError('Mark the 13th-month run Paid before the final audit', 400);
+    const coverageEnd = new Date(run.coverageEnd);
+    coverageEnd.setUTCHours(23, 59, 59, 999);
+    if (new Date() <= coverageEnd) throw new AppError('The final audit is available after the coverage end date', 400);
+    await auditFinalDecemberPayroll(run, actorName(req.user));
     res.json({ success: true, data: await detailResponse(run) });
   } catch (error) { next(error); }
 });

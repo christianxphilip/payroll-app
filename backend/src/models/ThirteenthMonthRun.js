@@ -10,7 +10,9 @@ const thirteenthMonthRunSchema = new mongoose.Schema({
   attachedPayRunId: { type: mongoose.Schema.Types.ObjectId, ref: 'PayRun', default: null, index: true },
   createdBy: { type: String, trim: true },
   approvedAt: Date,
-  paidAt: Date
+  paidAt: Date,
+  finalAuditAt: Date,
+  finalAuditBy: { type: String, trim: true }
 }, { timestamps: true });
 
 thirteenthMonthRunSchema.index({ coverageStart: 1, coverageEnd: 1 });

@@ -12,6 +12,17 @@ const startOfDay = (value) => { const date = new Date(value); date.setUTCHours(0
 const endOfDay = (value) => { const date = new Date(value); date.setUTCHours(23, 59, 59, 999); return date; };
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+export const calculateReconciliation = ({ finalEligibleBasic, paidAmount }) => {
+  const finalThirteenthMonthPay = money(Math.max(0, finalEligibleBasic) / 12);
+  const difference = money(finalThirteenthMonthPay - (Number(paidAmount) || 0));
+  return {
+    finalThirteenthMonthPay,
+    reconciliationDifference: difference,
+    topUpAmount: money(Math.max(0, difference)),
+    overpaymentAmount: money(Math.max(0, -difference))
+  };
+};
+
 const employeeHourlyRate = (employee) => employee.wageType === 'DAILY'
   ? (Number(employee.wageRate) || 0) / HOURS_PER_DAY
   : (Number(employee.wageRate) || 0);
@@ -166,6 +177,57 @@ export const calculateThirteenthMonthRun = async (run) => {
 
   await ThirteenthMonthEmployee.deleteMany({ runId: run._id, _id: { $nin: retainedIds } });
   return ThirteenthMonthEmployee.find({ runId: run._id }).sort({ employeeName: 1 });
+};
+
+export const auditFinalDecemberPayroll = async (run, auditedBy = 'admin') => {
+  if (run.status !== 'PAID') throw new Error('Only Paid 13th-month runs can be audited');
+
+  const coverageStart = startOfDay(run.coverageStart);
+  const coverageEnd = endOfDay(run.coverageEnd);
+  const finalizedPayRuns = await PayRun.find({
+    status: { $in: ['APPROVED', 'PAID'] },
+    payrollPeriodEnd: { $gte: coverageStart, $lte: coverageEnd },
+    payrollPeriodStart: { $lte: coverageEnd }
+  }, '_id payrollPeriodStart payrollPeriodEnd status').lean();
+  const payRunIds = finalizedPayRuns.map(payRun => payRun._id);
+  const payrollEntries = payRunIds.length
+    ? await PayRunEmployee.find(
+        { payRunId: { $in: payRunIds } },
+        'payRunId employeeId basicSalary thirteenthMonthEligibleBasic compensationVersion totalHoursWorked overtimeHours regularOvertimeHours overtimeRegularHolidayHours overtimeSpecialHolidayHours regularHolidayHours specialHolidayHours'
+      ).lean()
+    : [];
+  const payrollEntriesByEmployee = new Map();
+  for (const payrollEntry of payrollEntries) {
+    const key = String(payrollEntry.employeeId);
+    if (!payrollEntriesByEmployee.has(key)) payrollEntriesByEmployee.set(key, []);
+    payrollEntriesByEmployee.get(key).push(payrollEntry);
+  }
+
+  const auditedAt = new Date();
+  const entries = await ThirteenthMonthEmployee.find({ runId: run._id });
+  for (const entry of entries) {
+    const employeePayrollEntries = payrollEntriesByEmployee.get(String(entry.employeeId)) || [];
+    const actualBasic = money(employeePayrollEntries.reduce(
+      (sum, payrollEntry) => sum + eligibleBasicForPayrollEntry(payrollEntry),
+      0
+    ));
+    const finalEligibleBasic = money(Math.max(0, actualBasic + (Number(entry.manualAdjustment) || 0)));
+    const reconciliation = calculateReconciliation({
+      finalEligibleBasic,
+      paidAmount: entry.paidAmount
+    });
+    entry.finalActualBasicSalary = actualBasic;
+    entry.finalAuditPayRunCount = employeePayrollEntries.length;
+    entry.finalAuditPayRunIds = employeePayrollEntries.map(payrollEntry => payrollEntry.payRunId);
+    entry.finalAuditedAt = auditedAt;
+    Object.assign(entry, reconciliation);
+    await entry.save();
+  }
+
+  run.finalAuditAt = auditedAt;
+  run.finalAuditBy = auditedBy;
+  await run.save();
+  return entries;
 };
 
 export const attachThirteenthMonthToPayRun = async (run) => {

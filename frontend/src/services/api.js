@@ -196,6 +196,7 @@ export const thirteenthMonthAPI = {
   getDraftPayRuns: () => api.get('/13th-month-runs/draft-pay-runs'),
   create: (data) => api.post('/13th-month-runs', data),
   recalculate: (id) => api.post(`/13th-month-runs/${id}/recalculate`),
+  finalAudit: (id) => api.post(`/13th-month-runs/${id}/final-audit`),
   updateEmployee: (id, entryId, data) => api.patch(`/13th-month-runs/${id}/employees/${entryId}`, data),
   updateStatus: (id, status) => api.patch(`/13th-month-runs/${id}/status`, { status }),
   getPayslip: (id, entryId) => api.get(`/13th-month-runs/${id}/payslips/${entryId}`),
